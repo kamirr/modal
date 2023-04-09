@@ -6,8 +6,11 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+anyhow = "1.0.70"
 bimap = "0.6.3"
 dyn-clone = "1.0.11"
+eframe = "=0.19.0"
+egui_node_graph = "0.4.0"
 rand = "0.8.5"
 thunderdome = "0.6.0"
 wav = "1.0.0"

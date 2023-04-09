@@ -1,4 +1,6 @@
-use super::Node;
+use crate::param;
+
+use super::{Node, NodeList, NodeMeta, Param, ParamValue};
 use std::collections::VecDeque;
 
 #[derive(Clone, Debug)]
@@ -38,8 +40,34 @@ impl Node for Fir {
     fn read(&self) -> f32 {
         self.out
     }
+
+    fn set_param(&mut self, value: &[Param]) {
+        self.coeffs = value[0].0[0].as_fdyn().into();
+        while self.data.len() < self.coeffs.len() {
+            self.data.push_back(0.0);
+        }
+        while self.data.len() > self.coeffs.len() {
+            self.data.pop_back();
+        }
+    }
+
+    fn get_param(&self) -> Vec<Param> {
+        vec![Param(vec![ParamValue::FDyn(self.coeffs.clone())])]
+    }
+
+    fn meta(&self) -> NodeMeta {
+        NodeMeta::new(["sig"], [("coeffs", param!(_ FDyn))])
+    }
 }
 
-pub fn fir(coeffs: impl Into<Vec<f32>>) -> Fir {
-    Fir::new(coeffs)
+pub fn fir() -> Fir {
+    Fir::new([0.5, 0.5])
+}
+
+pub struct Filters;
+
+impl NodeList for Filters {
+    fn all(&self) -> Vec<(fn() -> Box<dyn Node>, &'static str)> {
+        vec![(|| Box::new(fir()), "FIR Filter")]
+    }
 }

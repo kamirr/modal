@@ -1,4 +1,4 @@
-use super::{Node, ParNode};
+use super::{Node, NodeMeta, ParNode, Param};
 
 #[derive(Clone, Debug)]
 pub struct Chain2<N, M> {
@@ -27,6 +27,41 @@ impl<N: Node + Clone, M: Node + Clone> Node for Chain2<N, M> {
     fn read(&self) -> f32 {
         self.out
     }
+
+    fn set_param(&mut self, value: &[Param]) {
+        let params_first = self.first.meta().params.len();
+        if params_first > 0 {
+            self.first.set_param(&value[0..params_first]);
+        }
+        if params_first < value.len() {
+            self.second.set_param(&value[params_first..value.len()]);
+        }
+    }
+
+    fn get_param(&self) -> Vec<Param> {
+        let mut param = self.first.get_param();
+        param.extend(self.second.get_param().into_iter());
+
+        param
+    }
+
+    fn meta(&self) -> NodeMeta {
+        NodeMeta::new(
+            self.first.meta().inputs.iter(),
+            self.first
+                .meta()
+                .params
+                .iter()
+                .map(|(s, p)| (s as &str, p.clone()))
+                .chain(
+                    self.second
+                        .meta()
+                        .params
+                        .iter()
+                        .map(|(s, p)| (s as &str, p.clone())),
+                ),
+        )
+    }
 }
 
 pub fn chain2<N: Node, M: Node>(first: N, second: M) -> Chain2<N, M> {
@@ -52,7 +87,9 @@ impl<F: ParNode + Clone, B: ParNode + Clone, O: Node + Clone> FeedbackMany<F, B,
     }
 }
 
-impl<F: ParNode + Clone, B: ParNode + Clone, O: Node + Clone> Node for FeedbackMany<F, B, O> {
+impl<F: ParNode + Clone + Send, B: ParNode + Clone + Send, O: Node + Clone + Send> Node
+    for FeedbackMany<F, B, O>
+{
     fn feed(&mut self, samples: &[f32]) {
         let mut forward_in = Vec::from(samples);
         let mut forward_out = vec![0.0; samples.len()];
@@ -74,6 +111,21 @@ impl<F: ParNode + Clone, B: ParNode + Clone, O: Node + Clone> Node for FeedbackM
 
     fn read(&self) -> f32 {
         self.out
+    }
+
+    // TODO :<
+    fn set_param(&mut self, _value: &[Param]) {
+        unreachable!()
+    }
+
+    // TODO :<
+    fn get_param(&self) -> Vec<Param> {
+        unreachable!()
+    }
+
+    // TODO :<
+    fn meta(&self) -> NodeMeta {
+        self.forward.meta_as_split()
     }
 }
 
