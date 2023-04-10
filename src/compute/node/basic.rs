@@ -2,7 +2,7 @@ use std::{collections::VecDeque, fmt::Debug};
 
 use crate::param;
 
-use super::{Node, NodeList, NodeMeta, Param, ParamSignature, ParamValue};
+use super::{Node, NodeList, NodeMeta, Param, ParamValue};
 
 #[derive(Clone, Debug)]
 pub struct Placeholder;
@@ -168,8 +168,6 @@ impl Constant {
 }
 
 impl Node for Constant {
-    fn feed(&mut self, _samples: &[f32]) {}
-
     fn read(&self) -> f32 {
         self.out
     }
@@ -250,8 +248,12 @@ impl Sine {
     fn new(hz: u32) -> Self {
         Sine {
             t: 0.0,
-            step: (hz as f32) / 44100.0,
+            step: (hz as f32) * Self::hz_to_dt(),
         }
+    }
+
+    fn hz_to_dt() -> f32 {
+        2.0 * std::f32::consts::PI / 44100.0
     }
 }
 
@@ -265,11 +267,13 @@ impl Node for Sine {
     }
 
     fn set_param(&mut self, value: &[Param]) {
-        self.step = value[0].0[0].as_u() as f32 / 44100.0;
+        self.step = value[0].0[0].as_u() as f32 * Self::hz_to_dt();
     }
 
     fn get_param(&self) -> Vec<Param> {
-        vec![Param(vec![ParamValue::U((self.step * 44100.0) as u32)])]
+        vec![Param(vec![ParamValue::U(
+            (self.step / Self::hz_to_dt()).round() as u32,
+        )])]
     }
 
     fn meta(&self) -> NodeMeta {

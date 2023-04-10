@@ -5,6 +5,7 @@ use dyn_clone::DynClone;
 pub mod basic;
 pub mod compose;
 pub mod filter;
+pub mod noise;
 
 pub struct NodeMeta {
     pub inputs: Vec<String>,
@@ -61,7 +62,7 @@ macro_rules! param {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct ParamSignature(pub Vec<ParamSignatureEntry>);
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum ParamValue {
     F(f32),
     FDyn(Vec<f32>),
@@ -113,7 +114,7 @@ impl From<i32> for ParamValue {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct Param(pub Vec<ParamValue>);
 
 pub trait IntoParams {
@@ -158,11 +159,17 @@ impl<N: Node> WithParam for N {
 }
 
 pub trait Node: DynClone + Debug + Send {
-    fn feed(&mut self, samples: &[f32]);
-    fn read(&self) -> f32;
-    fn set_param(&mut self, value: &[Param]);
-    fn get_param(&self) -> Vec<Param>;
-    fn meta(&self) -> NodeMeta;
+    fn feed(&mut self, _samples: &[f32]) {}
+    fn read(&self) -> f32 {
+        0.0
+    }
+    fn set_param(&mut self, _value: &[Param]) {}
+    fn get_param(&self) -> Vec<Param> {
+        Vec::default()
+    }
+    fn meta(&self) -> NodeMeta {
+        NodeMeta::new::<&str, &str, _, _>([], [])
+    }
 }
 
 pub trait ParNode: DynClone + Debug {
@@ -240,4 +247,5 @@ pub mod all {
     pub use super::basic::*;
     pub use super::compose::*;
     pub use super::filter::*;
+    pub use super::noise::*;
 }

@@ -125,10 +125,13 @@ impl DataTypeTrait<SynthGraphState> for SynthDataType {
     }
 }
 
+#[derive(Clone, Debug, PartialEq)]
 pub enum SynthValueType {
     Signal(f32),
     Param(Param),
 }
+
+impl Eq for SynthValueType {}
 
 impl Default for SynthValueType {
     fn default() -> Self {
@@ -149,6 +152,8 @@ impl WidgetValueTrait for SynthValueType {
         user_state: &mut Self::UserState,
         _node_data: &Self::NodeData,
     ) -> Vec<Self::Response> {
+        let old = self.clone();
+
         let drag_f32_clamped = |ui: &mut egui::Ui, value: &mut f32| {
             ui.add(
                 DragValue::new(value)
@@ -232,7 +237,19 @@ impl WidgetValueTrait for SynthValueType {
             }
         };
 
-        vec![]
+        if self != &old {
+            if let SynthValueType::Param(param) = self.clone() {
+                vec![SynthNodeResponse::ParamUpdate(
+                    node_id,
+                    param_name.into(),
+                    param,
+                )]
+            } else {
+                Default::default()
+            }
+        } else {
+            Default::default()
+        }
     }
 }
 
@@ -316,7 +333,7 @@ pub struct AllSynthNodeTemplates {
 impl Default for AllSynthNodeTemplates {
     fn default() -> Self {
         AllSynthNodeTemplates {
-            lists: vec![Box::new(Basic), Box::new(Filters)],
+            lists: vec![Box::new(Basic), Box::new(Filters), Box::new(Noise)],
         }
     }
 }
@@ -340,6 +357,7 @@ impl NodeTemplateIter for &AllSynthNodeTemplates {
 
 #[derive(Clone, Debug)]
 pub enum SynthNodeResponse {
+    ParamUpdate(NodeId, String, Param),
     SetActiveNode(NodeId),
     ClearActiveNode,
 }
@@ -407,7 +425,34 @@ impl RuntimeRemote {
         let mut record = None;
         let buf_size = 512;
         let mut buf = vec![0.0; buf_size];
+
+        let (stream, handle) = rodio::OutputStream::try_default().unwrap();
+        std::mem::forget(stream);
+
+        let sink = rodio::Sink::try_new(&handle).unwrap();
+        while sink.len() as f32 * buf_size as f32 / 44100.0 < 0.1 {
+            let source = rodio::buffer::SamplesBuffer::new(1, 44100, buf.clone());
+            sink.append(source);
+        }
+        sink.play();
+
         std::thread::spawn(move || loop {
+            while sink.len() as f32 * buf_size as f32 / 44100.0 < 0.1 {
+                if let Some(record) = record {
+                    for k in 0..buf_size {
+                        rt.step();
+                        buf[k] = rt.peek(record);
+                    }
+                } else {
+                    for k in 0..buf_size {
+                        buf[k] = 0.0;
+                    }
+                }
+
+                let source = rodio::buffer::SamplesBuffer::new(1, 44100, buf.clone());
+                sink.append(source);
+            }
+
             let cmd = match cmd_rx.try_recv() {
                 Ok(cmd) => cmd,
                 Err(TryRecvError::Empty) => continue,
@@ -439,13 +484,6 @@ impl RuntimeRemote {
                 }
             }
 
-            for k in 0..buf_size {
-                rt.step();
-                if let Some(record) = record {
-                    buf[k] = rt.peek(record);
-                }
-            }
-
             resp_tx.send(RtResponse::Step).ok();
         });
 
@@ -471,6 +509,11 @@ impl RuntimeRemote {
         self.mapping.remove_by_left(&id);
         self.param_updates.retain(|pu| pu.0 != id);
         self.must_wait = true;
+    }
+
+    pub fn set_param(&mut self, id: NodeId, param: Vec<Param>) {
+        let index = self.mapping.get_by_left(&id).cloned().unwrap();
+        self.tx.send(RtRequest::SetParam { index, param }).ok();
     }
 
     pub fn connect(&mut self, src: NodeId, dst: NodeId, port: usize) {
@@ -571,14 +614,18 @@ impl eframe::App for SynthApp {
         for node_response in graph_response.node_responses {
             match node_response {
                 NodeResponse::CreatedNode(id) => {
+                    println!("create node {id:?}");
                     let node = self.user_state.nodes.remove(&id).unwrap();
                     self.remote.insert(id, node);
                 }
                 NodeResponse::DeleteNodeFull { node_id, .. } => {
+                    println!("remove node {node_id:?}");
                     self.remote.remove(node_id);
                 }
                 NodeResponse::DisconnectEvent { input, .. } => {
-                    let in_param = self.state.graph.get_input(input);
+                    let Some(in_param) = self.state.graph.try_get_input(input) else {
+                        continue;
+                    };
                     let in_node_id = in_param.node;
                     let in_node = self.state.graph.nodes.get(in_node_id).unwrap();
                     let in_idx = in_node
@@ -587,8 +634,9 @@ impl eframe::App for SynthApp {
                         .find(|(_i, id)| id == &in_param.id)
                         .unwrap()
                         .0;
+
+                    println!("disconnect from {in_node_id:?}:{in_idx:?}");
                     self.remote.disconnect(in_node_id, in_idx);
-                    println!("disconnect from {in_node_id:?}:{in_idx:?}")
                 }
                 NodeResponse::ConnectEventEnded { output, input } => {
                     let out_node_id = self.state.graph.get_output(output).node;
@@ -601,8 +649,27 @@ impl eframe::App for SynthApp {
                         .find(|(_i, id)| id == &in_param.id)
                         .unwrap()
                         .0;
+
+                    println!("connect {out_node_id:?} to {in_node_id:?}:{in_idx:?}");
                     self.remote.connect(out_node_id, in_node_id, in_idx);
-                    println!("connect {out_node_id:?} to {in_node_id:?}:{in_idx:?}")
+                }
+                NodeResponse::User(SynthNodeResponse::ParamUpdate(id, param_name, param_value)) => {
+                    let param_full = self
+                        .user_state
+                        .param_states
+                        .get(&id)
+                        .unwrap()
+                        .iter()
+                        .map(|(name, _sig, value)| (name, value))
+                        .map(|(name, value)| {
+                            if name == &param_name {
+                                param_value.clone()
+                            } else {
+                                value.clone()
+                            }
+                        })
+                        .collect();
+                    self.remote.set_param(id, param_full);
                 }
                 NodeResponse::User(SynthNodeResponse::SetActiveNode(id)) => {
                     println!("set active {id:?}");
