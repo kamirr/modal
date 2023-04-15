@@ -3,10 +3,11 @@ use std::sync::{Arc, RwLock};
 use eframe::egui::{ComboBox, DragValue};
 use rand::Rng;
 use rand_distr::{Distribution, Normal};
+use serde::Serialize;
 
 use super::{inputs::real::RealInput, Input, InputUi, Node, NodeConfig, NodeEvent, NodeList};
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Serialize)]
 enum NoiseType {
     Uniform,
     White { std_dev: f32 },
@@ -14,7 +15,7 @@ enum NoiseType {
 
 impl Eq for NoiseType {}
 
-#[derive(Debug)]
+#[derive(Debug, Serialize)]
 struct NoiseGenConfig {
     ty: RwLock<NoiseType>,
 }
@@ -44,7 +45,7 @@ impl NodeConfig for NoiseGenConfig {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize)]
 pub struct NoiseGen {
     config: Arc<NoiseGenConfig>,
     min: Arc<RealInput>,

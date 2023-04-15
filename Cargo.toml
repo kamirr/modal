@@ -7,7 +7,7 @@ edition = "2021"
 
 [dependencies]
 atomic_enum = "0.2.0"
-atomic_float = "0.1.0"
+atomic_float = { git = "https://github.com/kamirr/atomic_float", branch = "main", default-features = false, features = ["serde"] }
 anyhow = "1.0.70"
 bimap = "0.6.3"
 dyn-clone = "1.0.11"
@@ -20,3 +20,6 @@ rand_distr = "0.4.3"
 rodio = "0.17.1"
 thunderdome = "0.6.0"
 wav = "1.0.0"
+
+serde = { version = "1.0.160", features = ["derive", "rc"] }
+erased-serde = "0.3.25"

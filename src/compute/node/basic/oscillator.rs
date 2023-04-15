@@ -1,13 +1,14 @@
 use std::{
     f32::consts::PI,
     sync::{
-        atomic::{AtomicBool, Ordering},
+        atomic::{AtomicBool, AtomicUsize, Ordering},
         Arc,
     },
 };
 
 use atomic_enum::atomic_enum;
 use eframe::egui::ComboBox;
+use serde::{Deserialize, Serialize};
 
 use crate::compute::node::{
     inputs::{freq::FreqInput, real::RealInput},
@@ -15,13 +16,31 @@ use crate::compute::node::{
 };
 
 #[atomic_enum]
-#[derive(PartialEq, Eq)]
+#[derive(PartialEq, Eq, Serialize)]
 enum OscType {
     Sine = 0,
     Square,
 }
 
-#[derive(Debug)]
+impl Serialize for AtomicOscType {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        self.0.serialize(serializer)
+    }
+}
+
+impl<'de> Deserialize<'de> for AtomicOscType {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        AtomicUsize::deserialize(deserializer).map(|inner| AtomicOscType(inner))
+    }
+}
+
+#[derive(Debug, Serialize)]
 struct OscillatorConfig {
     ty: AtomicOscType,
     manual_range: AtomicBool,
@@ -45,7 +64,7 @@ impl NodeConfig for OscillatorConfig {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize)]
 struct Oscillator {
     config: Arc<OscillatorConfig>,
     f: Arc<FreqInput>,

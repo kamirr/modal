@@ -1,10 +1,11 @@
 use atomic_float::AtomicF32;
 use eframe::egui::DragValue;
+use serde::Serialize;
 use std::sync::atomic::Ordering;
 
 use crate::compute::node::InputUi;
 
-#[derive(Debug)]
+#[derive(Debug, Serialize)]
 pub struct SigInput {
     s: AtomicF32,
 }

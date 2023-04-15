@@ -1,8 +1,10 @@
 use std::sync::Arc;
 
+use serde::Serialize;
+
 use crate::compute::node::{inputs::sig::SigInput, Input, InputUi, Node, NodeEvent};
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize)]
 pub struct Constant {
     value: Arc<SigInput>,
     out: f32,

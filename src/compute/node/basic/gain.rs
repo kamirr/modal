@@ -1,8 +1,10 @@
 use std::sync::Arc;
 
+use serde::Serialize;
+
 use crate::compute::node::{inputs::positive::PositiveInput, Input, InputUi, Node, NodeEvent};
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize)]
 struct Gain {
     s1: Arc<PositiveInput>,
     out: f32,

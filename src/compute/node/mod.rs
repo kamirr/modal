@@ -59,7 +59,7 @@ pub enum NodeEvent {
     RecalcInputs(Vec<Input>),
 }
 
-pub trait Node: DynClone + Debug + Send {
+pub trait Node: DynClone + Debug + Send + erased_serde::Serialize {
     fn feed(&mut self, _data: &[Option<f32>]) -> Vec<NodeEvent> {
         Default::default()
     }
