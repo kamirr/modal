@@ -124,4 +124,8 @@ impl Runtime {
             .map(|(_idx, val)| *val)
             .unwrap_or(0.0)
     }
+
+    pub fn nodes(&self) -> impl Iterator<Item = (Index, &Box<dyn Node>)> {
+        self.nodes.iter().map(|(idx, entry)| (idx, &entry.node))
+    }
 }

@@ -47,11 +47,9 @@ pub struct RuntimeRemote {
 }
 
 impl RuntimeRemote {
-    pub fn start() -> Self {
+    pub fn with_rt_and_mapping(mut rt: Runtime, mapping: Vec<(NodeId, u64)>) -> Self {
         let (cmd_tx, cmd_rx) = channel();
         let (resp_tx, resp_rx) = channel();
-
-        let mut rt = Runtime::new();
 
         let mut record = None;
         let buf_size = 512;
@@ -129,10 +127,17 @@ impl RuntimeRemote {
             tx: cmd_tx,
             rx: resp_rx,
             must_wait: false,
-            mapping: BiHashMap::new(),
+            mapping: mapping
+                .into_iter()
+                .map(|(id, bits)| (id, Index::from_bits(bits).unwrap()))
+                .collect(),
             node_events: Vec::new(),
             runtime: None,
         }
+    }
+
+    pub fn start() -> Self {
+        Self::with_rt_and_mapping(Runtime::new(), Vec::new())
     }
 
     pub fn insert(&mut self, id: NodeId, node: Box<dyn Node>) {

@@ -4,10 +4,17 @@ mod remote;
 
 mod util;
 
+use std::{collections::HashMap, sync::Arc};
+
 use eframe::egui;
 use egui_node_graph::{InputParamKind, NodeId, NodeResponse};
 
 use compute::node::{self, Input, NodeEvent};
+
+use crate::{
+    compute::Runtime,
+    graph::{SynthEditorState, SynthGraphState},
+};
 
 fn main() {
     let options = eframe::NativeOptions {
@@ -26,14 +33,55 @@ struct SynthApp {
 }
 
 impl SynthApp {
-    fn new(_cc: &eframe::CreationContext) -> Self {
+    fn new(cc: &eframe::CreationContext) -> Self {
         pub use node::all::*;
 
-        SynthApp {
-            state: Default::default(),
-            user_state: Default::default(),
-            all_nodes: graph::AllSynthNodeTemplates::new(vec![Box::new(Basic), Box::new(Noise)]),
-            remote: Default::default(),
+        let state: Option<((Runtime, Vec<(NodeId, u64)>), SynthEditorState)> = cc
+            .storage
+            .and_then(|storage| eframe::get_value(storage, "synth-app"));
+
+        if let Some(((rt, mapping), editor)) = state {
+            let mut user_state = SynthGraphState::default();
+            for (idx, node) in rt.nodes() {
+                let node_id = mapping
+                    .iter()
+                    .find(|(_, bits)| *bits == idx.to_bits())
+                    .unwrap()
+                    .0;
+                if let Some(config) = node.config() {
+                    user_state
+                        .node_configs
+                        .insert(node_id, Arc::downgrade(&config));
+                }
+
+                user_state.node_ui_inputs.insert(node_id, HashMap::new());
+                let inputs = user_state.node_ui_inputs.get_mut(&node_id).unwrap();
+                for input in node.inputs() {
+                    if let Some(default) = input.default_value {
+                        inputs.insert(input.name, default);
+                    }
+                }
+            }
+
+            SynthApp {
+                state: editor,
+                user_state,
+                all_nodes: graph::AllSynthNodeTemplates::new(vec![
+                    Box::new(Basic),
+                    Box::new(Noise),
+                ]),
+                remote: remote::RuntimeRemote::with_rt_and_mapping(rt, mapping),
+            }
+        } else {
+            SynthApp {
+                state: Default::default(),
+                user_state: Default::default(),
+                all_nodes: graph::AllSynthNodeTemplates::new(vec![
+                    Box::new(Basic),
+                    Box::new(Noise),
+                ]),
+                remote: Default::default(),
+            }
         }
     }
 }
@@ -82,25 +130,21 @@ impl SynthApp {
         }
         self.remote.set_inputs(node_id, rt_inputs);
     }
-
-    fn save_to_file(&mut self) {
-        //let Some(_path) = rfd::FileDialog::new().save_file() else { return };
-
-        let rt_state = self.remote.save_state();
-        let editor_state = &self.state;
-        let full_state = (rt_state, editor_state);
-        println!("{}", serde_json::to_string_pretty(&full_state).unwrap());
-    }
 }
 
 impl eframe::App for SynthApp {
+    fn save(&mut self, storage: &mut dyn eframe::Storage) {
+        let rt_state = self.remote.save_state();
+        let editor_state = &self.state;
+        let full_state = (rt_state, editor_state);
+        eframe::set_value(storage, "synth-app", &full_state);
+        println!("state saved");
+    }
+
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         egui::TopBottomPanel::top("top").show(ctx, |ui| {
             egui::menu::bar(ui, |ui| {
                 egui::widgets::global_dark_light_mode_switch(ui);
-                if ui.button("Save").clicked() {
-                    self.save_to_file();
-                }
             });
         });
         let graph_response = egui::CentralPanel::default()
