@@ -22,7 +22,6 @@ pub trait InputUi: Send + Sync {
 pub struct Input {
     pub name: String,
     pub default_value: Option<Arc<dyn InputUi>>,
-    pub conditional: bool,
 }
 
 impl Debug for Input {
@@ -33,7 +32,6 @@ impl Debug for Input {
                 "default_value",
                 &self.default_value.as_ref().map(|_| "[ommited]"),
             )
-            .field("conditional", &self.conditional)
             .finish()
     }
 }

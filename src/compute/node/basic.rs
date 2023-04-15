@@ -2,7 +2,7 @@ use std::{
     collections::VecDeque,
     f32::consts::PI,
     sync::{
-        atomic::{AtomicBool, AtomicU8, AtomicUsize, Ordering},
+        atomic::{AtomicBool, AtomicU32, AtomicU8, AtomicUsize, Ordering},
         Arc,
     },
 };
@@ -36,7 +36,6 @@ impl Node for Constant {
         vec![Input {
             name: "value".into(),
             default_value: Some(Arc::clone(&self.value) as Arc<_>),
-            conditional: false,
         }]
     }
 }
@@ -86,7 +85,7 @@ struct Oscillator {
     max: Arc<RealInput>,
     t: f32,
     out: f32,
-    old_manual_range: bool,
+    manual_range: bool,
 }
 
 impl Oscillator {
@@ -125,8 +124,8 @@ impl Node for Oscillator {
         self.out = zero_to_one * (max - min) + min;
 
         let manual_range = self.config.manual_range.load(Ordering::Relaxed);
-        let emit_change = manual_range != self.old_manual_range;
-        self.old_manual_range = manual_range;
+        let emit_change = manual_range != self.manual_range;
+        self.manual_range = manual_range;
 
         if emit_change {
             vec![NodeEvent::RecalcInputs(self.inputs())]
@@ -147,19 +146,16 @@ impl Node for Oscillator {
         let mut inputs = vec![Input {
             name: "f".into(),
             default_value: Some(Arc::clone(&self.f) as Arc<_>),
-            conditional: false,
         }];
-        if self.config.manual_range.load(Ordering::Relaxed) {
+        if self.manual_range {
             inputs.extend([
                 Input {
                     name: "min".into(),
                     default_value: Some(Arc::clone(&self.min) as Arc<_>),
-                    conditional: true,
                 },
                 Input {
                     name: "max".into(),
                     default_value: Some(Arc::clone(&self.max) as Arc<_>),
-                    conditional: true,
                 },
             ])
         }
@@ -179,7 +175,7 @@ fn oscillator() -> Box<dyn Node> {
         max: Arc::new(RealInput::new(1.0)),
         t: 0.0,
         out: 0.0,
-        old_manual_range: false,
+        manual_range: false,
     })
 }
 
@@ -208,12 +204,10 @@ impl Node for Gain {
             Input {
                 name: "sig#0".into(),
                 default_value: None,
-                conditional: false,
             },
             Input {
                 name: "sig#1".into(),
                 default_value: Some(Arc::clone(&self.s1) as Arc<_>),
-                conditional: false,
             },
         ]
     }
@@ -305,7 +299,6 @@ impl Node for Delay {
         vec![Input {
             name: "sig".into(),
             default_value: None,
-            conditional: false,
         }]
     }
 }
@@ -313,11 +306,84 @@ impl Node for Delay {
 pub fn delay() -> Box<dyn Node> {
     Box::new(Delay::new(4410))
 }
+
+#[derive(Debug)]
+struct AddConfig {
+    ins: AtomicU32,
+}
+
+impl NodeConfig for AddConfig {
+    fn show(&self, ui: &mut eframe::egui::Ui) {
+        let mut ins = self.ins.load(Ordering::Acquire);
+
+        ui.add(DragValue::new(&mut ins).clamp_range(0..=std::u32::MAX));
+
+        self.ins.store(ins, Ordering::Release);
+    }
+}
+
+#[derive(Clone, Debug)]
+pub struct Add {
+    config: Arc<AddConfig>,
+    ins: u32,
+    out: f32,
+}
+
+impl Add {
+    pub fn new(ins: u32) -> Self {
+        Add {
+            config: Arc::new(AddConfig {
+                ins: AtomicU32::new(ins),
+            }),
+            ins,
+            out: 0.0,
+        }
+    }
+}
+
+impl Node for Add {
+    fn feed(&mut self, data: &[Option<f32>]) -> Vec<NodeEvent> {
+        self.out = data.iter().map(|opt| opt.unwrap_or(0.0)).sum();
+
+        let new_ins = self.config.ins.load(Ordering::Relaxed);
+        let emit_ev = new_ins != self.ins;
+        self.ins = new_ins;
+
+        if emit_ev {
+            vec![NodeEvent::RecalcInputs(self.inputs())]
+        } else {
+            Default::default()
+        }
+    }
+
+    fn read(&self) -> f32 {
+        self.out
+    }
+
+    fn config(&self) -> Option<Arc<dyn NodeConfig>> {
+        Some(Arc::clone(&self.config) as Arc<_>)
+    }
+
+    fn inputs(&self) -> Vec<Input> {
+        (0..self.ins)
+            .map(|i| Input {
+                name: format!("sig#{i}"),
+                default_value: None,
+            })
+            .collect()
+    }
+}
+
+fn add() -> Box<dyn Node> {
+    Box::new(Add::new(2))
+}
+
 pub struct Basic;
 
 impl NodeList for Basic {
     fn all(&self) -> Vec<(fn() -> Box<dyn Node>, &'static str)> {
         vec![
+            (add, "Add"),
             (constant, "Constant"),
             (delay, "Delay"),
             (oscillator, "Oscillator"),
