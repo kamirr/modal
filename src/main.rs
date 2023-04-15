@@ -16,7 +16,7 @@ fn main() {
     eframe::run_native(
         "Modal",
         options,
-        Box::new(|_cc| Box::new(SynthApp::default())),
+        Box::new(|_cc| Box::<SynthApp>::default()),
     );
 }
 

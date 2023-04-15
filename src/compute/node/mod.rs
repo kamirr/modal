@@ -77,6 +77,7 @@ pub trait Node: DynClone + Debug + Send {
 }
 
 pub trait NodeList {
+    #[allow(clippy::type_complexity)]
     fn all(&self) -> Vec<(fn() -> Box<dyn Node>, &'static str)>;
 }
 

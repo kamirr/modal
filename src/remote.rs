@@ -67,22 +67,22 @@ impl RuntimeRemote {
         std::thread::spawn(move || loop {
             while sink.len() as f32 * buf_size as f32 / 44100.0 < 0.1 {
                 if let Some(record) = record {
-                    for k in 0..buf_size {
+                    for s in &mut buf {
                         let evs = rt.step();
-                        if evs.len() > 0 {
+                        if !evs.is_empty() {
                             resp_tx.send(RtResponse::NodeEvents(evs)).ok();
                         }
 
-                        buf[k] = rt.peek(record);
+                        *s = rt.peek(record);
                     }
                 } else {
-                    for k in 0..buf_size {
+                    for s in &mut buf {
                         let evs = rt.step();
-                        if evs.len() > 0 {
+                        if !evs.is_empty() {
                             resp_tx.send(RtResponse::NodeEvents(evs)).ok();
                         }
 
-                        buf[k] = 0.0;
+                        *s = 0.0;
                     }
                 }
 
@@ -103,7 +103,7 @@ impl RuntimeRemote {
                 }
                 RtRequest::Play(node) => {
                     record = node;
-                    eprintln!("playback from {:?}", record);
+                    eprintln!("playback from {record:?}");
                 }
                 RtRequest::SetInput { src, dst, port } => {
                     rt.set_input(dst, port, src);
