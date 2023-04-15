@@ -1,4 +1,5 @@
 pub mod add;
+pub mod adsr;
 pub mod constant;
 pub mod delay;
 pub mod gain;
@@ -12,6 +13,7 @@ impl NodeList for Basic {
     fn all(&self) -> Vec<(Box<dyn Node>, String)> {
         vec![
             (add::add(), "Add".into()),
+            (adsr::adsr(), "Adsr".into()),
             (constant::constant(), "Constant".into()),
             (delay::delay(), "Delay".into()),
             (gain::gain(), "Gain".into()),
