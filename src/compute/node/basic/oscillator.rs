@@ -1,34 +1,35 @@
 use std::{
     f32::consts::PI,
     sync::{
-        atomic::{AtomicBool, AtomicU8, Ordering},
+        atomic::{AtomicBool, Ordering},
         Arc,
     },
 };
 
+use atomic_enum::atomic_enum;
 use eframe::egui::ComboBox;
-use num_traits::{FromPrimitive, ToPrimitive};
 
 use crate::compute::node::{
     inputs::{freq::FreqInput, real::RealInput},
     Input, InputUi, Node, NodeConfig, NodeEvent,
 };
 
-#[derive(Debug, PartialEq, Eq, num_derive::FromPrimitive, num_derive::ToPrimitive)]
+#[atomic_enum]
+#[derive(PartialEq, Eq)]
 enum OscType {
     Sine = 0,
-    Square = 1,
+    Square,
 }
 
 #[derive(Debug)]
 struct OscillatorConfig {
-    ty: AtomicU8,
+    ty: AtomicOscType,
     manual_range: AtomicBool,
 }
 
 impl NodeConfig for OscillatorConfig {
     fn show(&self, ui: &mut eframe::egui::Ui) {
-        let mut ty = OscType::from_u8(self.ty.load(Ordering::Acquire)).unwrap();
+        let mut ty = self.ty.load(Ordering::Acquire);
         let mut manual_range = self.manual_range.load(Ordering::Acquire);
 
         ComboBox::from_label("")
@@ -39,7 +40,7 @@ impl NodeConfig for OscillatorConfig {
             });
         ui.checkbox(&mut manual_range, "Manual range");
 
-        self.ty.store(ty.to_u8().unwrap(), Ordering::Release);
+        self.ty.store(ty, Ordering::Release);
         self.manual_range.store(manual_range, Ordering::Release);
     }
 }
@@ -76,7 +77,7 @@ impl Node for Oscillator {
         let step = f * Self::hz_to_dt();
         self.t = (self.t + step) % (8.0 * PI);
 
-        let m1_to_p1 = match OscType::from_u8(self.config.ty.load(Ordering::Relaxed)).unwrap() {
+        let m1_to_p1 = match self.config.ty.load(Ordering::Relaxed) {
             OscType::Sine => self.t.sin(),
             OscType::Square => {
                 if self.t.sin() > 0.0 {
@@ -125,7 +126,7 @@ impl Node for Oscillator {
 pub fn oscillator() -> Box<dyn Node> {
     Box::new(Oscillator {
         config: Arc::new(OscillatorConfig {
-            ty: AtomicU8::new(OscType::Sine.to_u8().unwrap()),
+            ty: AtomicOscType::new(OscType::Sine),
             manual_range: AtomicBool::new(false),
         }),
         f: Arc::new(FreqInput::new(440.0)),

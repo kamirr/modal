@@ -176,7 +176,6 @@ impl RuntimeRemote {
     pub fn record(&mut self, id: Option<NodeId>) {
         let idx = id.and_then(|id| self.mapping.get_by_left(&id).cloned());
         self.tx.send(RtRequest::Play(idx)).ok();
-        // doesn't need to set must_wait
     }
 
     pub fn process(&mut self, resp: RtResponse) {

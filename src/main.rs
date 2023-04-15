@@ -29,10 +29,12 @@ struct SynthApp {
 
 impl Default for SynthApp {
     fn default() -> Self {
+        pub use node::all::*;
+
         SynthApp {
             state: Default::default(),
             user_state: Default::default(),
-            all_nodes: graph::AllSynthNodeTemplates::new(vec![Box::new(node::all::Basic)]),
+            all_nodes: graph::AllSynthNodeTemplates::new(vec![Box::new(Basic), Box::new(Noise)]),
             remote: Default::default(),
         }
     }

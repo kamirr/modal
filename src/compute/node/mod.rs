@@ -5,10 +5,9 @@ use dyn_clone::DynClone;
 
 pub mod basic;
 pub mod inputs;
-//pub mod basic;
+pub mod noise;
 //pub mod compose;
 //pub mod filter;
-//pub mod noise;
 
 pub trait NodeConfig {
     fn show(&self, ui: &mut egui::Ui);
@@ -83,8 +82,7 @@ pub trait NodeList {
 
 pub mod all {
     pub use super::basic::*;
-    /*pub use super::basic::*;
-    pub use super::compose::*;
-    pub use super::filter::*;
-    pub use super::noise::*;*/
+    pub use super::noise::*;
+    /*pub use super::compose::*;
+    pub use super::filter::*;*/
 }
