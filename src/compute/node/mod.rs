@@ -24,6 +24,25 @@ pub struct Input {
     pub default_value: Option<Arc<dyn InputUi>>,
 }
 
+impl Input {
+    pub fn new<S: Into<String>>(name: S) -> Self {
+        Input {
+            name: name.into(),
+            default_value: None,
+        }
+    }
+
+    pub fn with_default<S: Into<String>, I: InputUi + 'static>(
+        name: S,
+        default_value: &Arc<I>,
+    ) -> Self {
+        Input {
+            name: name.into(),
+            default_value: Some(Arc::clone(default_value) as Arc<dyn InputUi>),
+        }
+    }
+}
+
 impl Debug for Input {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("Input")
