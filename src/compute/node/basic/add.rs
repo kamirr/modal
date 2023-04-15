@@ -4,11 +4,11 @@ use std::sync::{
 };
 
 use eframe::egui::DragValue;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 use crate::compute::node::{inputs::real::RealInput, Input, InputUi, Node, NodeConfig, NodeEvent};
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Deserialize)]
 struct AddConfig {
     new_ins: AtomicU32,
     ins: AtomicU32,
@@ -33,7 +33,7 @@ impl NodeConfig for AddConfig {
     }
 }
 
-#[derive(Clone, Debug, Serialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Add {
     config: Arc<AddConfig>,
     defaults: Vec<Arc<RealInput>>,
@@ -55,6 +55,7 @@ impl Add {
     }
 }
 
+#[typetag::serde]
 impl Node for Add {
     fn feed(&mut self, data: &[Option<f32>]) -> Vec<NodeEvent> {
         self.out = data

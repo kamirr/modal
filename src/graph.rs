@@ -10,10 +10,11 @@ use egui_node_graph::{
 };
 
 use eframe::egui;
+use serde::{Deserialize, Serialize};
 
 use crate::compute::node::{InputUi, Node, NodeConfig, NodeList};
 
-#[derive(Debug)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct SynthNodeData;
 
 impl NodeDataTrait for SynthNodeData {
@@ -65,7 +66,7 @@ impl NodeDataTrait for SynthNodeData {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct SynthDataType;
 
 impl DataTypeTrait<SynthGraphState> for SynthDataType {
@@ -78,7 +79,7 @@ impl DataTypeTrait<SynthGraphState> for SynthDataType {
     }
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct SynthValueType(pub f32);
 
 impl Eq for SynthValueType {}
@@ -114,10 +115,19 @@ impl WidgetValueTrait for SynthValueType {
     }
 }
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct SynthNodeTemplate {
-    new: fn() -> Box<dyn Node>,
-    name: &'static str,
+    template: Box<dyn Node>,
+    name: String,
+}
+
+impl Clone for SynthNodeTemplate {
+    fn clone(&self) -> Self {
+        SynthNodeTemplate {
+            template: dyn_clone::clone_box(&*self.template),
+            name: self.name.clone(),
+        }
+    }
 }
 
 impl NodeTemplateTrait for SynthNodeTemplate {
@@ -127,7 +137,7 @@ impl NodeTemplateTrait for SynthNodeTemplate {
     type UserState = SynthGraphState;
 
     fn node_finder_label(&self, _user_state: &mut Self::UserState) -> Cow<str> {
-        Cow::Borrowed(self.name)
+        Cow::Borrowed(&self.name)
     }
 
     fn node_graph_label(&self, user_state: &mut Self::UserState) -> String {
@@ -144,7 +154,7 @@ impl NodeTemplateTrait for SynthNodeTemplate {
         user_state: &mut Self::UserState,
         node_id: NodeId,
     ) {
-        let node: Box<dyn Node> = (self.new)();
+        let node: Box<dyn Node> = dyn_clone::clone_box(&*self.template);
 
         let input_signal = |graph: &mut SynthGraph, name: String| {
             graph.add_input_param(
@@ -197,7 +207,7 @@ impl NodeTemplateIter for &AllSynthNodeTemplates {
             all.extend(
                 list.all()
                     .into_iter()
-                    .map(|(new, name)| SynthNodeTemplate { new, name }),
+                    .map(|(template, name)| SynthNodeTemplate { template, name }),
             )
         }
 

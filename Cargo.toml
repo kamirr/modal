@@ -12,14 +12,16 @@ anyhow = "1.0.70"
 bimap = "0.6.3"
 dyn-clone = "1.0.11"
 eframe = "=0.19.0"
-egui_node_graph = "0.4.0"
+egui_node_graph = { version = "0.4.0", features = ["persistence"] }
 num-traits = "0.2"
 num-derive = "0.3"
 rand = "0.8.5"
 rand_distr = "0.4.3"
+rfd = "0.11.3"
 rodio = "0.17.1"
 thunderdome = "0.6.0"
 wav = "1.0.0"
 
 serde = { version = "1.0.160", features = ["derive", "rc"] }
-erased-serde = "0.3.25"
+serde_json = "1.0.96"
+typetag = "0.2.7"

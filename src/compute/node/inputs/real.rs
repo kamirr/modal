@@ -1,11 +1,11 @@
 use atomic_float::AtomicF32;
 use eframe::egui::DragValue;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use std::sync::atomic::Ordering;
 
 use crate::compute::node::InputUi;
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct RealInput {
     s: AtomicF32,
 }

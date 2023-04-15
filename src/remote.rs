@@ -27,11 +27,13 @@ pub enum RtRequest {
         inputs: Vec<Option<Index>>,
     },
     Play(Option<Index>),
+    CloneRuntime,
 }
 
 pub enum RtResponse {
     Inserted(NodeId, Index),
     NodeEvents(Vec<(Index, Vec<NodeEvent>)>),
+    RuntimeCloned(Runtime),
     Step,
 }
 
@@ -41,6 +43,7 @@ pub struct RuntimeRemote {
     must_wait: bool,
     mapping: BiHashMap<NodeId, Index>,
     node_events: Vec<(Index, Vec<NodeEvent>)>,
+    runtime: Option<Runtime>,
 }
 
 impl RuntimeRemote {
@@ -114,6 +117,9 @@ impl RuntimeRemote {
                 RtRequest::Remove(index) => {
                     rt.remove(index);
                 }
+                RtRequest::CloneRuntime => {
+                    resp_tx.send(RtResponse::RuntimeCloned(rt.clone())).ok();
+                }
             }
 
             resp_tx.send(RtResponse::Step).ok();
@@ -125,6 +131,7 @@ impl RuntimeRemote {
             must_wait: false,
             mapping: BiHashMap::new(),
             node_events: Vec::new(),
+            runtime: None,
         }
     }
 
@@ -187,6 +194,9 @@ impl RuntimeRemote {
                 self.node_events.extend(evs.into_iter());
             }
             RtResponse::Step => {}
+            RtResponse::RuntimeCloned(runtime) => {
+                self.runtime = Some(runtime);
+            }
         }
     }
 
@@ -218,6 +228,23 @@ impl RuntimeRemote {
 
     pub fn index_to_id(&self, idx: Index) -> Option<NodeId> {
         self.mapping.get_by_right(&idx).copied()
+    }
+
+    pub fn save_state(&mut self) -> (Runtime, Vec<(NodeId, u64)>) {
+        self.tx.send(RtRequest::CloneRuntime).ok();
+        loop {
+            if let Some(rt) = self.runtime.take() {
+                let mapping = self
+                    .mapping
+                    .iter()
+                    .map(|(node_id, index)| (*node_id, index.to_bits()))
+                    .collect();
+                return (rt, mapping);
+            }
+
+            self.must_wait = true;
+            self.wait();
+        }
     }
 }
 

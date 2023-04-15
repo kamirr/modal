@@ -1,13 +1,51 @@
 pub mod node;
 
 use node::Node;
+use serde::{Deserialize, Serialize};
 use thunderdome::{Arena, Index};
 
 use self::node::NodeEvent;
 
+#[derive(Serialize, Deserialize)]
 struct Entry {
+    #[serde(with = "vec_opt_idx")]
     inputs: Vec<Option<Index>>,
     node: Box<dyn Node>,
+}
+
+impl Clone for Entry {
+    fn clone(&self) -> Self {
+        Entry {
+            inputs: self.inputs.clone(),
+            node: dyn_clone::clone_box(&*self.node),
+        }
+    }
+}
+
+mod vec_opt_idx {
+    use serde::{Deserialize, Deserializer, Serialize, Serializer};
+    use thunderdome::Index;
+
+    pub fn serialize<S>(val: &Vec<Option<Index>>, s: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        let serializable: Vec<_> = val.iter().map(|opt| opt.map(|idx| idx.to_bits())).collect();
+
+        Vec::<Option<u64>>::serialize(&serializable, s)
+    }
+
+    pub fn deserialize<'de, D>(d: D) -> Result<Vec<Option<Index>>, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let deserializable = Vec::<Option<u64>>::deserialize(d)?;
+
+        Ok(deserializable
+            .iter()
+            .map(|opt| opt.map(|bits| Index::from_bits(bits).unwrap()))
+            .collect())
+    }
 }
 
 impl Entry {
@@ -16,8 +54,11 @@ impl Entry {
     }
 }
 
+#[derive(Clone, Serialize, Deserialize)]
 pub struct Runtime {
+    #[serde(skip)]
     values: Arena<f32>,
+    #[serde(with = "crate::util::serde_arena")]
     nodes: Arena<Entry>,
 }
 

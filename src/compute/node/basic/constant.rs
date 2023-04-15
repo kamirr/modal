@@ -1,15 +1,16 @@
 use std::sync::Arc;
 
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 use crate::compute::node::{inputs::sig::SigInput, Input, InputUi, Node, NodeEvent};
 
-#[derive(Clone, Debug, Serialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Constant {
     value: Arc<SigInput>,
     out: f32,
 }
 
+#[typetag::serde]
 impl Node for Constant {
     fn feed(&mut self, data: &[Option<f32>]) -> Vec<NodeEvent> {
         self.out = data[0].unwrap_or(self.value.value());

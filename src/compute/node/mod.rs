@@ -59,7 +59,8 @@ pub enum NodeEvent {
     RecalcInputs(Vec<Input>),
 }
 
-pub trait Node: DynClone + Debug + Send + erased_serde::Serialize {
+#[typetag::serde(tag = "__ty")]
+pub trait Node: DynClone + Debug + Send {
     fn feed(&mut self, _data: &[Option<f32>]) -> Vec<NodeEvent> {
         Default::default()
     }
@@ -77,8 +78,7 @@ pub trait Node: DynClone + Debug + Send + erased_serde::Serialize {
 }
 
 pub trait NodeList {
-    #[allow(clippy::type_complexity)]
-    fn all(&self) -> Vec<(fn() -> Box<dyn Node>, &'static str)>;
+    fn all(&self) -> Vec<(Box<dyn Node>, String)>;
 }
 
 pub mod all {

@@ -2,6 +2,8 @@ mod compute;
 mod graph;
 mod remote;
 
+mod util;
+
 use eframe::egui;
 use egui_node_graph::{InputParamKind, NodeId, NodeResponse};
 
@@ -13,11 +15,7 @@ fn main() {
         ..Default::default()
     };
 
-    eframe::run_native(
-        "Modal",
-        options,
-        Box::new(|_cc| Box::<SynthApp>::default()),
-    );
+    eframe::run_native("Modal", options, Box::new(|cc| Box::new(SynthApp::new(cc))));
 }
 
 struct SynthApp {
@@ -27,8 +25,8 @@ struct SynthApp {
     remote: remote::RuntimeRemote,
 }
 
-impl Default for SynthApp {
-    fn default() -> Self {
+impl SynthApp {
+    fn new(_cc: &eframe::CreationContext) -> Self {
         pub use node::all::*;
 
         SynthApp {
@@ -84,6 +82,15 @@ impl SynthApp {
         }
         self.remote.set_inputs(node_id, rt_inputs);
     }
+
+    fn save_to_file(&mut self) {
+        //let Some(_path) = rfd::FileDialog::new().save_file() else { return };
+
+        let rt_state = self.remote.save_state();
+        let editor_state = &self.state;
+        let full_state = (rt_state, editor_state);
+        println!("{}", serde_json::to_string_pretty(&full_state).unwrap());
+    }
 }
 
 impl eframe::App for SynthApp {
@@ -91,6 +98,9 @@ impl eframe::App for SynthApp {
         egui::TopBottomPanel::top("top").show(ctx, |ui| {
             egui::menu::bar(ui, |ui| {
                 egui::widgets::global_dark_light_mode_switch(ui);
+                if ui.button("Save").clicked() {
+                    self.save_to_file();
+                }
             });
         });
         let graph_response = egui::CentralPanel::default()

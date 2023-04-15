@@ -40,7 +40,7 @@ impl<'de> Deserialize<'de> for AtomicOscType {
     }
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Deserialize)]
 struct OscillatorConfig {
     ty: AtomicOscType,
     manual_range: AtomicBool,
@@ -64,7 +64,7 @@ impl NodeConfig for OscillatorConfig {
     }
 }
 
-#[derive(Clone, Debug, Serialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 struct Oscillator {
     config: Arc<OscillatorConfig>,
     f: Arc<FreqInput>,
@@ -81,6 +81,7 @@ impl Oscillator {
     }
 }
 
+#[typetag::serde]
 impl Node for Oscillator {
     fn feed(&mut self, data: &[Option<f32>]) -> Vec<NodeEvent> {
         let f = data[0].unwrap_or(self.f.value());

@@ -1,15 +1,16 @@
 use std::sync::Arc;
 
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 use crate::compute::node::{inputs::positive::PositiveInput, Input, InputUi, Node, NodeEvent};
 
-#[derive(Clone, Debug, Serialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 struct Gain {
     s1: Arc<PositiveInput>,
     out: f32,
 }
 
+#[typetag::serde]
 impl Node for Gain {
     fn feed(&mut self, data: &[Option<f32>]) -> Vec<NodeEvent> {
         let s0 = data[0].unwrap_or(0.0);

@@ -3,11 +3,11 @@ use std::sync::{Arc, RwLock};
 use eframe::egui::{ComboBox, DragValue};
 use rand::Rng;
 use rand_distr::{Distribution, Normal};
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 use super::{inputs::real::RealInput, Input, InputUi, Node, NodeConfig, NodeEvent, NodeList};
 
-#[derive(Clone, Debug, PartialEq, Serialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 enum NoiseType {
     Uniform,
     White { std_dev: f32 },
@@ -15,8 +15,9 @@ enum NoiseType {
 
 impl Eq for NoiseType {}
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Deserialize)]
 struct NoiseGenConfig {
+    #[serde(with = "crate::util::rwlock_serde")]
     ty: RwLock<NoiseType>,
 }
 
@@ -45,7 +46,7 @@ impl NodeConfig for NoiseGenConfig {
     }
 }
 
-#[derive(Clone, Debug, Serialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct NoiseGen {
     config: Arc<NoiseGenConfig>,
     min: Arc<RealInput>,
@@ -53,6 +54,7 @@ pub struct NoiseGen {
     out: f32,
 }
 
+#[typetag::serde]
 impl Node for NoiseGen {
     fn feed(&mut self, data: &[Option<f32>]) -> Vec<NodeEvent> {
         let min = data[0].unwrap_or(self.min.value());
@@ -104,7 +106,7 @@ fn noise_gen() -> Box<dyn Node> {
 pub struct Noise;
 
 impl NodeList for Noise {
-    fn all(&self) -> Vec<(fn() -> Box<dyn Node>, &'static str)> {
-        vec![(noise_gen, "Noise Generator")]
+    fn all(&self) -> Vec<(Box<dyn Node>, String)> {
+        vec![(noise_gen(), "Noise Generator".into())]
     }
 }

@@ -7,11 +7,11 @@ use std::{
 };
 
 use eframe::egui::{ComboBox, DragValue};
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 use crate::compute::node::{Input, Node, NodeConfig, NodeEvent};
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Deserialize)]
 struct DelayConfig {
     samples: AtomicUsize,
     in_ty: AtomicU8,
@@ -42,7 +42,7 @@ impl NodeConfig for DelayConfig {
     }
 }
 
-#[derive(Clone, Debug, Serialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Delay {
     config: Arc<DelayConfig>,
     data: VecDeque<f32>,
@@ -62,6 +62,7 @@ impl Delay {
     }
 }
 
+#[typetag::serde]
 impl Node for Delay {
     fn feed(&mut self, samples: &[Option<f32>]) -> Vec<NodeEvent> {
         let target_len = self.config.samples.load(Ordering::Relaxed);
