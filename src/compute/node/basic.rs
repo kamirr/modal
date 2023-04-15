@@ -1,77 +1,265 @@
-use std::{collections::VecDeque, fmt::Debug};
+use std::{
+    collections::VecDeque,
+    f32::consts::PI,
+    sync::{
+        atomic::{AtomicBool, AtomicU8, AtomicUsize, Ordering},
+        Arc,
+    },
+};
 
-use crate::param;
+use eframe::egui::{ComboBox, DragValue};
+use num_traits::{FromPrimitive, ToPrimitive};
 
-use super::{Node, NodeList, NodeMeta, Param, ParamValue};
-
-#[derive(Clone, Debug)]
-pub struct Placeholder;
-
-impl Node for Placeholder {
-    fn feed(&mut self, _samples: &[f32]) {
-        unreachable!()
-    }
-
-    fn read(&self) -> f32 {
-        unreachable!()
-    }
-
-    fn set_param(&mut self, _value: &[Param]) {
-        unreachable!()
-    }
-
-    fn get_param(&self) -> Vec<Param> {
-        unreachable!()
-    }
-
-    fn meta(&self) -> NodeMeta {
-        NodeMeta::new::<&str, &str, _, _>([], [])
-    }
-}
+use super::{
+    inputs::{freq::FreqInput, positive::PositiveInput, real::RealInput, sig::SigInput},
+    Input, InputUi, Node, NodeConfig, NodeEvent, NodeList,
+};
 
 #[derive(Clone, Debug)]
-pub struct Add {
+struct Constant {
+    value: Arc<SigInput>,
     out: f32,
-    ins: u32,
 }
 
-impl Add {
-    fn new(ins: u32) -> Self {
-        Add { out: 0.0, ins }
-    }
-}
+impl Node for Constant {
+    fn feed(&mut self, data: &[Option<f32>]) -> Vec<NodeEvent> {
+        self.out = data[0].unwrap_or(self.value.value());
 
-impl Node for Add {
-    fn feed(&mut self, samples: &[f32]) {
-        self.out = samples.iter().sum();
+        Default::default()
     }
 
     fn read(&self) -> f32 {
         self.out
     }
 
-    fn set_param(&mut self, value: &[Param]) {
-        self.ins = value[0].0[0].as_u();
-    }
-
-    fn get_param(&self) -> Vec<Param> {
-        vec![Param(vec![ParamValue::U(self.ins)])]
-    }
-
-    fn meta(&self) -> NodeMeta {
-        NodeMeta::new(
-            (0..self.ins).map(|n| format!("sig {n}")),
-            [("ins", param!(_ U))],
-        )
+    fn inputs(&self) -> Vec<Input> {
+        vec![Input {
+            name: "value".into(),
+            default_value: Some(Arc::clone(&self.value) as Arc<_>),
+            conditional: false,
+        }]
     }
 }
 
-pub fn add() -> Add {
-    Add::new(2)
+pub fn constant() -> Box<dyn Node> {
+    Box::new(Constant {
+        value: Arc::new(SigInput::new(0.0)),
+        out: 0.0,
+    })
+}
+
+#[derive(Debug, PartialEq, Eq, num_derive::FromPrimitive, num_derive::ToPrimitive)]
+enum OscType {
+    Sine = 0,
+    Square = 1,
+}
+
+#[derive(Debug)]
+struct OscillatorConfig {
+    ty: AtomicU8,
+    manual_range: AtomicBool,
+}
+
+impl NodeConfig for OscillatorConfig {
+    fn show(&self, ui: &mut eframe::egui::Ui) {
+        let mut ty = OscType::from_u8(self.ty.load(Ordering::Acquire)).unwrap();
+        let mut manual_range = self.manual_range.load(Ordering::Acquire);
+
+        ComboBox::from_label("")
+            .selected_text(format!("{ty:?}"))
+            .show_ui(ui, |ui| {
+                ui.selectable_value(&mut ty, OscType::Sine, "Sine");
+                ui.selectable_value(&mut ty, OscType::Square, "Square")
+            });
+        ui.checkbox(&mut manual_range, "Manual range");
+
+        self.ty.store(ty.to_u8().unwrap(), Ordering::Release);
+        self.manual_range.store(manual_range, Ordering::Release);
+    }
+}
+
+#[derive(Clone, Debug)]
+struct Oscillator {
+    config: Arc<OscillatorConfig>,
+    f: Arc<FreqInput>,
+    min: Arc<RealInput>,
+    max: Arc<RealInput>,
+    t: f32,
+    out: f32,
+    old_manual_range: bool,
+}
+
+impl Oscillator {
+    fn hz_to_dt() -> f32 {
+        2.0 * std::f32::consts::PI / 44100.0
+    }
+}
+
+impl Node for Oscillator {
+    fn feed(&mut self, data: &[Option<f32>]) -> Vec<NodeEvent> {
+        let f = data[0].unwrap_or(self.f.value());
+        let min = data
+            .get(1)
+            .unwrap_or(&Some(-1.0))
+            .unwrap_or(self.min.value());
+        let max = data
+            .get(2)
+            .unwrap_or(&Some(1.0))
+            .unwrap_or(self.max.value());
+
+        let step = f * Self::hz_to_dt();
+        self.t = (self.t + step) % (8.0 * PI);
+
+        let m1_to_p1 = match OscType::from_u8(self.config.ty.load(Ordering::Relaxed)).unwrap() {
+            OscType::Sine => self.t.sin(),
+            OscType::Square => {
+                if self.t.sin() > 0.0 {
+                    1.0
+                } else {
+                    -1.0
+                }
+            }
+        };
+
+        let zero_to_one = (m1_to_p1 + 1.0) / 2.0;
+        self.out = zero_to_one * (max - min) + min;
+
+        let manual_range = self.config.manual_range.load(Ordering::Relaxed);
+        let emit_change = manual_range != self.old_manual_range;
+        self.old_manual_range = manual_range;
+
+        if emit_change {
+            vec![NodeEvent::RecalcInputs(self.inputs())]
+        } else {
+            Default::default()
+        }
+    }
+
+    fn read(&self) -> f32 {
+        self.out
+    }
+
+    fn config(&self) -> Option<Arc<dyn NodeConfig>> {
+        Some(Arc::clone(&self.config) as Arc<dyn NodeConfig>)
+    }
+
+    fn inputs(&self) -> Vec<Input> {
+        let mut inputs = vec![Input {
+            name: "f".into(),
+            default_value: Some(Arc::clone(&self.f) as Arc<_>),
+            conditional: false,
+        }];
+        if self.config.manual_range.load(Ordering::Relaxed) {
+            inputs.extend([
+                Input {
+                    name: "min".into(),
+                    default_value: Some(Arc::clone(&self.min) as Arc<_>),
+                    conditional: true,
+                },
+                Input {
+                    name: "max".into(),
+                    default_value: Some(Arc::clone(&self.max) as Arc<_>),
+                    conditional: true,
+                },
+            ])
+        }
+
+        inputs
+    }
+}
+
+fn oscillator() -> Box<dyn Node> {
+    Box::new(Oscillator {
+        config: Arc::new(OscillatorConfig {
+            ty: AtomicU8::new(OscType::Sine.to_u8().unwrap()),
+            manual_range: AtomicBool::new(false),
+        }),
+        f: Arc::new(FreqInput::new(440.0)),
+        min: Arc::new(RealInput::new(-1.0)),
+        max: Arc::new(RealInput::new(1.0)),
+        t: 0.0,
+        out: 0.0,
+        old_manual_range: false,
+    })
+}
+
+#[derive(Clone, Debug)]
+struct Gain {
+    s1: Arc<PositiveInput>,
+    out: f32,
+}
+
+impl Node for Gain {
+    fn feed(&mut self, data: &[Option<f32>]) -> Vec<NodeEvent> {
+        let s0 = data[0].unwrap_or(0.0);
+        let s1 = data[1].unwrap_or(self.s1.value());
+
+        self.out = s0 * s1;
+
+        Default::default()
+    }
+
+    fn read(&self) -> f32 {
+        self.out
+    }
+
+    fn inputs(&self) -> Vec<Input> {
+        vec![
+            Input {
+                name: "sig#0".into(),
+                default_value: None,
+                conditional: false,
+            },
+            Input {
+                name: "sig#1".into(),
+                default_value: Some(Arc::clone(&self.s1) as Arc<_>),
+                conditional: false,
+            },
+        ]
+    }
+}
+
+fn gain() -> Box<dyn Node> {
+    Box::new(Gain {
+        s1: Arc::new(PositiveInput::new(1.0)),
+        out: 0.0,
+    })
+}
+
+#[derive(Debug)]
+struct DelayConfig {
+    samples: AtomicUsize,
+    in_ty: AtomicU8,
+}
+
+impl NodeConfig for DelayConfig {
+    fn show(&self, ui: &mut eframe::egui::Ui) {
+        let mut in_ty = self.in_ty.load(Ordering::Acquire);
+        let mut samples = self.samples.load(Ordering::Acquire);
+
+        ComboBox::from_label("")
+            .selected_text(if in_ty == 0 { "Samples" } else { "Seconds" })
+            .show_ui(ui, |ui| {
+                ui.selectable_value(&mut in_ty, 0, "Samples");
+                ui.selectable_value(&mut in_ty, 1, "Seconds");
+            });
+
+        if in_ty == 0 {
+            ui.add(DragValue::new(&mut samples));
+        } else {
+            let mut secs = samples as f32 / 44100.0;
+            ui.add(DragValue::new(&mut secs));
+            samples = (secs * 44100.0).round() as _;
+        }
+
+        self.in_ty.store(in_ty, Ordering::Release);
+        self.samples.store(samples, Ordering::Release);
+    }
 }
 
 #[derive(Clone, Debug)]
 pub struct Delay {
+    config: Arc<DelayConfig>,
     data: VecDeque<f32>,
     out: f32,
 }
@@ -79,6 +267,10 @@ pub struct Delay {
 impl Delay {
     fn new(len: usize) -> Self {
         Delay {
+            config: Arc::new(DelayConfig {
+                samples: AtomicUsize::new(len),
+                in_ty: AtomicU8::new(0),
+            }),
             data: std::iter::repeat(0.0).take(len).collect(),
             out: 0.0,
         }
@@ -86,216 +278,50 @@ impl Delay {
 }
 
 impl Node for Delay {
-    fn feed(&mut self, samples: &[f32]) {
-        self.data.push_back(samples[0]);
-        self.out = self.data.pop_front().unwrap();
-    }
-
-    fn read(&self) -> f32 {
-        self.out
-    }
-
-    fn set_param(&mut self, value: &[Param]) {
-        let len = value[0].0[0].as_u() as usize;
-        while self.data.len() < len {
+    fn feed(&mut self, samples: &[Option<f32>]) -> Vec<NodeEvent> {
+        let target_len = self.config.samples.load(Ordering::Relaxed);
+        while target_len > self.data.len() {
             self.data.push_back(0.0);
         }
-        while self.data.len() > len {
-            self.data.pop_back();
+        if target_len < self.data.len() {
+            self.data.drain(0..(self.data.len() - target_len));
         }
-    }
 
-    fn get_param(&self) -> Vec<Param> {
-        vec![Param(vec![ParamValue::U(self.data.len() as _)])]
-    }
+        self.data.push_back(samples[0].unwrap_or(0.0));
+        self.out = self.data.pop_front().unwrap();
 
-    fn meta(&self) -> NodeMeta {
-        NodeMeta::new(["sig"], [("len", param!(_ U))])
-    }
-}
-
-pub fn delay() -> Delay {
-    Delay::new(4410)
-}
-
-#[derive(Clone, Debug)]
-pub struct Gain {
-    gain: f32,
-    out: f32,
-}
-
-impl Gain {
-    fn new(gain: f32) -> Self {
-        Gain { gain, out: 0.0 }
-    }
-}
-
-impl Node for Gain {
-    fn feed(&mut self, samples: &[f32]) {
-        self.out = samples[0] * self.gain;
+        Default::default()
     }
 
     fn read(&self) -> f32 {
         self.out
     }
 
-    fn set_param(&mut self, value: &[Param]) {
-        self.gain = value[0].0[0].as_f();
+    fn config(&self) -> Option<Arc<dyn NodeConfig>> {
+        Some(Arc::clone(&self.config) as Arc<_>)
     }
 
-    fn get_param(&self) -> Vec<Param> {
-        vec![Param(vec![ParamValue::F(self.gain)])]
-    }
-
-    fn meta(&self) -> NodeMeta {
-        NodeMeta::new(["sig"], [("gain", param!(_ F))])
-    }
-}
-
-pub fn gain() -> Gain {
-    Gain::new(1.0)
-}
-
-#[derive(Clone, Debug)]
-pub struct Constant {
-    out: f32,
-}
-
-impl Constant {
-    fn new(out: f32) -> Self {
-        Constant { out }
+    fn inputs(&self) -> Vec<Input> {
+        vec![Input {
+            name: "sig".into(),
+            default_value: None,
+            conditional: false,
+        }]
     }
 }
 
-impl Node for Constant {
-    fn read(&self) -> f32 {
-        self.out
-    }
-
-    fn set_param(&mut self, value: &[Param]) {
-        self.out = value[0].0[0].as_f();
-    }
-
-    fn get_param(&self) -> Vec<Param> {
-        vec![Param(vec![ParamValue::F(self.out)])]
-    }
-
-    fn meta(&self) -> NodeMeta {
-        NodeMeta::new::<&str, _, _, _>([], [("value", param!(_ F))])
-    }
+pub fn delay() -> Box<dyn Node> {
+    Box::new(Delay::new(4410))
 }
-
-pub fn constant() -> Constant {
-    Constant::new(0.0)
-}
-
-#[derive(Clone, Debug)]
-pub struct Dot {
-    with: Vec<f32>,
-    out: f32,
-}
-
-impl Dot {
-    fn new(coeffs: impl Into<Vec<f32>>) -> Self {
-        Dot {
-            with: coeffs.into(),
-            out: 0.0,
-        }
-    }
-}
-
-impl Node for Dot {
-    fn feed(&mut self, samples: &[f32]) {
-        assert_eq!(self.with.len(), samples.len());
-
-        self.out = 0.0;
-        for i in 0..self.with.len() {
-            self.out += self.with[i] * samples[i];
-        }
-    }
-
-    fn read(&self) -> f32 {
-        self.out
-    }
-
-    fn set_param(&mut self, value: &[Param]) {
-        self.with = value[0].0[0].as_fdyn().into();
-    }
-
-    fn get_param(&self) -> Vec<Param> {
-        vec![Param(vec![ParamValue::FDyn(self.with.clone())])]
-    }
-
-    fn meta(&self) -> NodeMeta {
-        NodeMeta::new(
-            (0..self.with.len()).map(|i| format!("sig {i}")),
-            [("coeffs", param!(_ FDyn))],
-        )
-    }
-}
-
-pub fn dot() -> Dot {
-    Dot::new([1.0])
-}
-
-#[derive(Clone, Debug)]
-pub struct Sine {
-    t: f32,
-    step: f32,
-}
-
-impl Sine {
-    fn new(hz: u32) -> Self {
-        Sine {
-            t: 0.0,
-            step: (hz as f32) * Self::hz_to_dt(),
-        }
-    }
-
-    fn hz_to_dt() -> f32 {
-        2.0 * std::f32::consts::PI / 44100.0
-    }
-}
-
-impl Node for Sine {
-    fn feed(&mut self, _samples: &[f32]) {
-        self.t = (self.t + self.step) % (2.0 * std::f32::consts::PI);
-    }
-
-    fn read(&self) -> f32 {
-        self.t.sin()
-    }
-
-    fn set_param(&mut self, value: &[Param]) {
-        self.step = value[0].0[0].as_u() as f32 * Self::hz_to_dt();
-    }
-
-    fn get_param(&self) -> Vec<Param> {
-        vec![Param(vec![ParamValue::U(
-            (self.step / Self::hz_to_dt()).round() as u32,
-        )])]
-    }
-
-    fn meta(&self) -> NodeMeta {
-        NodeMeta::new::<&str, _, _, _>([], [("freq", param!(_ F))])
-    }
-}
-
-fn sine() -> Sine {
-    Sine::new(440)
-}
-
 pub struct Basic;
 
 impl NodeList for Basic {
     fn all(&self) -> Vec<(fn() -> Box<dyn Node>, &'static str)> {
         vec![
-            (|| Box::new(add()), "Add"),
-            (|| Box::new(constant()), "Constant"),
-            (|| Box::new(delay()), "Delay"),
-            (|| Box::new(dot()), "Dot"),
-            (|| Box::new(gain()), "Gain"),
-            (|| Box::new(sine()), "Sine"),
+            (constant, "Constant"),
+            (delay, "Delay"),
+            (oscillator, "Oscillator"),
+            (gain, "Gain"),
         ]
     }
 }

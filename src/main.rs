@@ -3,12 +3,15 @@ mod compute;
 use std::{
     borrow::Cow,
     collections::HashMap,
-    sync::mpsc::{channel, Receiver, Sender, TryRecvError},
+    sync::{
+        mpsc::{channel, Receiver, Sender, TryRecvError},
+        Arc, Weak,
+    },
 };
 
 use bimap::BiHashMap;
 use compute::{
-    node::{all::*, Node, NodeList, Param, ParamSignature, ParamValue, WithParam},
+    node::{all::*, Input, InputUi, Node, NodeConfig, NodeEvent, NodeList},
     Runtime,
 };
 use egui_node_graph::{
@@ -16,48 +19,8 @@ use egui_node_graph::{
     NodeTemplateIter, NodeTemplateTrait, UserResponseTrait, WidgetValueTrait,
 };
 use thunderdome::Index;
-use wav::WAV_FORMAT_IEEE_FLOAT;
 
-use eframe::egui::{self, DragValue};
-
-fn _old_main() {
-    let mut rt = Runtime::new();
-
-    let net = feedback_many(
-        (
-            chain2(
-                delay().with_param(44100 / 440),
-                fir().with_param((0.5, 0.5)),
-            ),
-            chain2(
-                delay().with_param(44100 / 660),
-                fir().with_param((0.5, 0.5)),
-            ),
-        ),
-        (
-            dot().with_param((0.99, 0.01)),
-            dot().with_param((0.01, 0.99)),
-        ),
-        add().with_param(2),
-    );
-
-    let in1 = rt.insert([], constant());
-    let in2 = rt.insert([], constant());
-    let net_out = rt.insert([in1, in2], chain2(net, gain().with_param(1.5)));
-
-    let data: Vec<_> = (0..44100 * 2)
-        .map(|_| {
-            rt.step();
-
-            rt.peek(net_out)
-        })
-        .collect();
-
-    let header = wav::Header::new(WAV_FORMAT_IEEE_FLOAT, 1, 44100, 32);
-    let mut out = std::fs::File::create("out.wav").unwrap();
-
-    wav::write(header, &wav::BitDepth::ThirtyTwoFloat(data), &mut out).unwrap();
-}
+use eframe::egui;
 
 #[derive(Debug)]
 pub struct SynthNodeData;
@@ -84,6 +47,14 @@ impl NodeDataTrait for SynthNodeData {
             .map(|id| id == node_id)
             .unwrap_or(false);
 
+        if let Some(config) = user_state
+            .node_configs
+            .get(&node_id)
+            .and_then(|wk| wk.upgrade())
+        {
+            config.show(ui);
+        }
+
         if !is_active {
             if ui.button("👁 Set active").clicked() {
                 responses.push(NodeResponse::User(SynthNodeResponse::SetActiveNode(
@@ -104,38 +75,26 @@ impl NodeDataTrait for SynthNodeData {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub enum SynthDataType {
-    Signal,
-    Param(ParamSignature),
-}
+pub struct SynthDataType;
 
 impl DataTypeTrait<SynthGraphState> for SynthDataType {
     fn data_type_color(&self, _user_state: &mut SynthGraphState) -> egui::Color32 {
-        match self {
-            SynthDataType::Signal => egui::Color32::LIGHT_BLUE,
-            SynthDataType::Param(_) => egui::Color32::RED,
-        }
+        egui::Color32::LIGHT_BLUE
     }
 
     fn name(&self) -> Cow<str> {
-        Cow::Borrowed(match self {
-            SynthDataType::Signal => "signal",
-            SynthDataType::Param(_) => "param",
-        })
+        Cow::Borrowed("signal")
     }
 }
 
 #[derive(Clone, Debug, PartialEq)]
-pub enum SynthValueType {
-    Signal(f32),
-    Param(Param),
-}
+pub struct SynthValueType(f32);
 
 impl Eq for SynthValueType {}
 
 impl Default for SynthValueType {
     fn default() -> Self {
-        SynthValueType::Signal(0.0)
+        SynthValueType(0.0)
     }
 }
 
@@ -152,104 +111,15 @@ impl WidgetValueTrait for SynthValueType {
         user_state: &mut Self::UserState,
         _node_data: &Self::NodeData,
     ) -> Vec<Self::Response> {
-        let old = self.clone();
-
-        let drag_f32_clamped = |ui: &mut egui::Ui, value: &mut f32| {
-            ui.add(
-                DragValue::new(value)
-                    .speed(0.01)
-                    .fixed_decimals(2)
-                    .clamp_range(-1.0..=1.0),
-            );
-        };
-
-        let drag_f32 = |ui: &mut egui::Ui, value: &mut f32| {
-            ui.add(DragValue::new(value).speed(0.01).fixed_decimals(2));
-        };
-
-        let drag_u32 = |ui: &mut egui::Ui, value: &mut u32| {
-            ui.add(DragValue::new(value).clamp_range(0..=u32::MAX))
-        };
-
-        let show_1 = |ui: &mut egui::Ui, pv: &mut ParamValue, name: &str| {
-            match pv {
-                ParamValue::F(value) => {
-                    ui.horizontal(|ui| {
-                        ui.label(name);
-                        drag_f32(ui, value)
-                    });
-                }
-                ParamValue::FDyn(values) => {
-                    egui::CollapsingHeader::new(name).show(ui, |ui| {
-                        for (i, value) in values.iter_mut().enumerate() {
-                            ui.horizontal(|ui| {
-                                ui.label(format!("#{i}"));
-                                drag_f32(ui, value);
-                            });
-                        }
-
-                        ui.horizontal(|ui| {
-                            if ui.button("add").clicked() {
-                                values.push(0.0);
-                            }
-                            if ui.button("pop").clicked() {
-                                values.pop();
-                            }
-                        })
-                    });
-                }
-                ParamValue::U(value) => {
-                    ui.horizontal(|ui| {
-                        ui.label(name);
-                        drag_u32(ui, value);
-                    });
-                }
-            };
-        };
-
-        match self {
-            SynthValueType::Signal(value) => {
-                ui.horizontal(|ui| {
-                    ui.label(param_name);
-                    drag_f32_clamped(ui, value);
-                });
+        let ui_inputs = user_state.node_ui_inputs.get(&node_id).unwrap();
+        ui.horizontal(|ui| {
+            ui.label(param_name);
+            if let Some(input) = ui_inputs.get(param_name) {
+                input.show(ui);
             }
-            SynthValueType::Param(param) => {
-                if let Some(params) = user_state.param_states.get(&node_id) {
-                    let sig = params
-                        .iter()
-                        .find(|(name, _sig, _param)| name == param_name)
-                        .map(|(_name, sig, _param)| sig)
-                        .unwrap();
+        });
 
-                    match param.0.as_mut_slice() {
-                        [] => {}
-                        [pv] => show_1(ui, pv, param_name),
-                        pvs => {
-                            egui::CollapsingHeader::new(param_name).show(ui, |ui| {
-                                for (i, pv) in pvs.iter_mut().enumerate() {
-                                    show_1(ui, pv, &sig.0[i].name.as_ref());
-                                }
-                            });
-                        }
-                    }
-                }
-            }
-        };
-
-        if self != &old {
-            if let SynthValueType::Param(param) = self.clone() {
-                vec![SynthNodeResponse::ParamUpdate(
-                    node_id,
-                    param_name.into(),
-                    param,
-                )]
-            } else {
-                Default::default()
-            }
-        } else {
-            Default::default()
-        }
+        Default::default()
     }
 }
 
@@ -289,40 +159,31 @@ impl NodeTemplateTrait for SynthNodeTemplate {
             graph.add_input_param(
                 node_id,
                 name,
-                SynthDataType::Signal,
-                SynthValueType::Signal(0.0),
+                SynthDataType,
+                SynthValueType(0.0),
                 InputParamKind::ConnectionOrConstant,
                 true,
             );
         };
 
-        let input_param =
-            |graph: &mut SynthGraph, name: String, sig: ParamSignature, value: SynthValueType| {
-                let data_type = SynthDataType::Param(sig);
-                graph.add_input_param(
-                    node_id,
-                    name,
-                    data_type,
-                    value,
-                    InputParamKind::ConstantOnly,
-                    true,
-                );
-            };
+        graph.add_output_param(node_id, "".to_string(), SynthDataType);
 
-        graph.add_output_param(node_id, "".to_string(), SynthDataType::Signal);
+        let mut ui_inputs = HashMap::new();
+        for input in node.inputs() {
+            input_signal(graph, input.name.clone());
+            if let Some(default) = input.default_value {
+                ui_inputs.insert(input.name, default);
+            }
+        }
 
-        let meta = node.meta();
-        let param_values = node.get_param();
+        if let Some(config) = node.config() {
+            user_state
+                .node_configs
+                .insert(node_id, Arc::downgrade(&config));
+        }
 
+        user_state.node_ui_inputs.insert(node_id, ui_inputs);
         user_state.nodes.insert(node_id, node);
-
-        for input in meta.inputs {
-            input_signal(graph, input);
-        }
-
-        for ((name, layout), param_value) in meta.params.into_iter().zip(param_values.into_iter()) {
-            input_param(graph, name, layout, SynthValueType::Param(param_value));
-        }
     }
 }
 
@@ -333,7 +194,7 @@ pub struct AllSynthNodeTemplates {
 impl Default for AllSynthNodeTemplates {
     fn default() -> Self {
         AllSynthNodeTemplates {
-            lists: vec![Box::new(Basic), Box::new(Filters), Box::new(Noise)],
+            lists: vec![Box::new(Basic)],
         }
     }
 }
@@ -357,7 +218,6 @@ impl NodeTemplateIter for &AllSynthNodeTemplates {
 
 #[derive(Clone, Debug)]
 pub enum SynthNodeResponse {
-    ParamUpdate(NodeId, String, Param),
     SetActiveNode(NodeId),
     ClearActiveNode,
 }
@@ -367,7 +227,8 @@ impl UserResponseTrait for SynthNodeResponse {}
 #[derive(Default)]
 pub struct SynthGraphState {
     active_node: Option<NodeId>,
-    param_states: HashMap<NodeId, Vec<(String, ParamSignature, Param)>>,
+    node_ui_inputs: HashMap<NodeId, HashMap<String, Arc<dyn InputUi>>>,
+    node_configs: HashMap<NodeId, Weak<dyn NodeConfig>>,
     nodes: HashMap<NodeId, Box<dyn Node>>,
 }
 
@@ -380,38 +241,38 @@ type SynthEditorState = GraphEditorState<
     SynthGraphState,
 >;
 
+#[derive(Debug)]
 pub enum RtRequest {
-    SetParam {
-        index: Index,
-        param: Vec<Param>,
-    },
     Insert {
         id: NodeId,
-        inputs: Vec<Index>,
+        inputs: Vec<Option<Index>>,
         node: Box<dyn Node>,
     },
     Remove(Index),
     SetInput {
-        src: Index,
+        src: Option<Index>,
         dst: Index,
         port: usize,
+    },
+    SetAllInputs {
+        dst: Index,
+        inputs: Vec<Option<Index>>,
     },
     Play(Option<Index>),
 }
 
 pub enum RtResponse {
-    ParamUpd(Index, Vec<(String, ParamSignature, Param)>),
     Inserted(NodeId, Index),
+    NodeEvents(Vec<(Index, Vec<NodeEvent>)>),
     Step,
 }
 
 struct RuntimeRemote {
     tx: Sender<RtRequest>,
     rx: Receiver<RtResponse>,
-    default: Index,
     must_wait: bool,
     mapping: BiHashMap<NodeId, Index>,
-    param_updates: Vec<(NodeId, Vec<(String, ParamSignature, Param)>)>,
+    node_events: Vec<(Index, Vec<NodeEvent>)>,
 }
 
 impl RuntimeRemote {
@@ -420,7 +281,6 @@ impl RuntimeRemote {
         let (resp_tx, resp_rx) = channel();
 
         let mut rt = Runtime::new();
-        let default = rt.insert([], constant());
 
         let mut record = None;
         let buf_size = 512;
@@ -440,11 +300,20 @@ impl RuntimeRemote {
             while sink.len() as f32 * buf_size as f32 / 44100.0 < 0.1 {
                 if let Some(record) = record {
                     for k in 0..buf_size {
-                        rt.step();
+                        let evs = rt.step();
+                        if evs.len() > 0 {
+                            resp_tx.send(RtResponse::NodeEvents(evs)).ok();
+                        }
+
                         buf[k] = rt.peek(record);
                     }
                 } else {
                     for k in 0..buf_size {
+                        let evs = rt.step();
+                        if evs.len() > 0 {
+                            resp_tx.send(RtResponse::NodeEvents(evs)).ok();
+                        }
+
                         buf[k] = 0.0;
                     }
                 }
@@ -461,11 +330,8 @@ impl RuntimeRemote {
 
             match cmd {
                 RtRequest::Insert { id, inputs, node } => {
-                    let idx = rt.insert_box(inputs, node);
+                    let idx = rt.insert(inputs, node);
                     resp_tx.send(RtResponse::Inserted(id, idx)).ok();
-                    resp_tx
-                        .send(RtResponse::ParamUpd(idx, rt.get_param(idx)))
-                        .ok();
                 }
                 RtRequest::Play(node) => {
                     record = node;
@@ -474,10 +340,8 @@ impl RuntimeRemote {
                 RtRequest::SetInput { src, dst, port } => {
                     rt.set_input(dst, port, src);
                 }
-                RtRequest::SetParam { index, param } => {
-                    rt.set_param(index, param);
-                    let got_param = rt.get_param(index);
-                    resp_tx.send(RtResponse::ParamUpd(index, got_param)).ok();
+                RtRequest::SetAllInputs { dst, inputs } => {
+                    rt.set_all_inputs(dst, inputs);
                 }
                 RtRequest::Remove(index) => {
                     rt.remove(index);
@@ -490,15 +354,14 @@ impl RuntimeRemote {
         RuntimeRemote {
             tx: cmd_tx,
             rx: resp_rx,
-            default,
             must_wait: false,
             mapping: BiHashMap::new(),
-            param_updates: Vec::new(),
+            node_events: Vec::new(),
         }
     }
 
     pub fn insert(&mut self, id: NodeId, node: Box<dyn Node>) {
-        let inputs = vec![self.default; node.meta().inputs.len()];
+        let inputs = vec![None; node.inputs().len()];
         self.tx.send(RtRequest::Insert { id, inputs, node }).ok();
         self.must_wait = true;
     }
@@ -507,26 +370,35 @@ impl RuntimeRemote {
         let idx = self.mapping.get_by_left(&id).cloned().unwrap();
         self.tx.send(RtRequest::Remove(idx)).ok();
         self.mapping.remove_by_left(&id);
-        self.param_updates.retain(|pu| pu.0 != id);
         self.must_wait = true;
     }
 
-    pub fn set_param(&mut self, id: NodeId, param: Vec<Param>) {
-        let index = self.mapping.get_by_left(&id).cloned().unwrap();
-        self.tx.send(RtRequest::SetParam { index, param }).ok();
+    pub fn set_inputs(&mut self, dst: NodeId, inputs: Vec<Option<Index>>) {
+        self.tx
+            .send(RtRequest::SetAllInputs {
+                dst: *self.mapping.get_by_left(&dst).unwrap(),
+                inputs,
+            })
+            .ok();
     }
 
     pub fn connect(&mut self, src: NodeId, dst: NodeId, port: usize) {
         let src = self.mapping.get_by_left(&src).cloned().unwrap();
         let dst = self.mapping.get_by_left(&dst).cloned().unwrap();
-        self.tx.send(RtRequest::SetInput { src, dst, port }).ok();
+        self.tx
+            .send(RtRequest::SetInput {
+                src: Some(src),
+                dst,
+                port,
+            })
+            .ok();
     }
 
     pub fn disconnect(&mut self, dst: NodeId, port: usize) {
         let dst = self.mapping.get_by_left(&dst).cloned().unwrap();
         self.tx
             .send(RtRequest::SetInput {
-                src: self.default,
+                src: None,
                 dst,
                 port,
             })
@@ -544,12 +416,15 @@ impl RuntimeRemote {
             RtResponse::Inserted(id, idx) => {
                 self.mapping.insert(id, idx);
             }
-            RtResponse::ParamUpd(idx, param) => {
-                let id = *self.mapping.get_by_right(&idx).unwrap();
-                self.param_updates.push((id, param));
+            RtResponse::NodeEvents(evs) => {
+                self.node_events.extend(evs.into_iter());
             }
             RtResponse::Step => {}
         }
+    }
+
+    pub fn events(&mut self) -> Vec<(Index, Vec<NodeEvent>)> {
+        std::mem::take(&mut self.node_events)
     }
 
     pub fn wait(&mut self) {
@@ -596,6 +471,53 @@ struct SynthApp {
     user_state: SynthGraphState,
     all_nodes: AllSynthNodeTemplates,
     remote: RuntimeRemote,
+}
+
+impl SynthApp {
+    fn recalc_inputs(&mut self, node_id: NodeId, inputs: Vec<Input>) {
+        let curr_inputs = self.state.graph.nodes.get(node_id).unwrap().inputs.clone();
+
+        // remove inputs that exist but aren't in `inputs` arg
+        for (name, in_id) in &curr_inputs {
+            if !inputs.iter().any(|input| &input.name == name) {
+                self.state.graph.remove_input_param(*in_id);
+            }
+        }
+
+        // create inputs that don't exist but are in `inputs` arg
+        let ui_inputs = self.user_state.node_ui_inputs.get_mut(&node_id).unwrap();
+        for input in inputs {
+            if !curr_inputs.iter().any(|(name, _)| name == &input.name) {
+                self.state.graph.add_input_param(
+                    node_id,
+                    input.name.clone(),
+                    SynthDataType,
+                    SynthValueType(0.0),
+                    InputParamKind::ConnectionOrConstant,
+                    true,
+                );
+            }
+
+            if let Some(default_value) = input.default_value {
+                ui_inputs.insert(input.name, default_value);
+            }
+        }
+
+        // recalculate runtime inputs
+        let mut rt_inputs = Vec::new();
+        for in_id in self.state.graph.nodes.get(node_id).unwrap().input_ids() {
+            let src = self
+                .state
+                .graph
+                .connection(in_id)
+                .map(|out| self.state.graph.get_output(out))
+                .map(|out_params| out_params.node)
+                .and_then(|node_id| self.remote.mapping.get_by_left(&node_id))
+                .cloned();
+            rt_inputs.push(src);
+        }
+        self.remote.set_inputs(node_id, rt_inputs);
+    }
 }
 
 impl eframe::App for SynthApp {
@@ -653,24 +575,6 @@ impl eframe::App for SynthApp {
                     println!("connect {out_node_id:?} to {in_node_id:?}:{in_idx:?}");
                     self.remote.connect(out_node_id, in_node_id, in_idx);
                 }
-                NodeResponse::User(SynthNodeResponse::ParamUpdate(id, param_name, param_value)) => {
-                    let param_full = self
-                        .user_state
-                        .param_states
-                        .get(&id)
-                        .unwrap()
-                        .iter()
-                        .map(|(name, _sig, value)| (name, value))
-                        .map(|(name, value)| {
-                            if name == &param_name {
-                                param_value.clone()
-                            } else {
-                                value.clone()
-                            }
-                        })
-                        .collect();
-                    self.remote.set_param(id, param_full);
-                }
                 NodeResponse::User(SynthNodeResponse::SetActiveNode(id)) => {
                     println!("set active {id:?}");
                     self.user_state.active_node = Some(id);
@@ -685,12 +589,21 @@ impl eframe::App for SynthApp {
             }
         }
 
-        for (node_id, param_states) in self.remote.param_updates.drain(..) {
-            self.user_state.param_states.insert(node_id, param_states);
+        for (idx, evs) in self.remote.events() {
+            let Some(&node_id) = self.remote.mapping.get_by_right(&idx) else {
+                continue;
+            };
+
+            for ev in evs {
+                match ev {
+                    NodeEvent::RecalcInputs(inputs) => {
+                        self.recalc_inputs(node_id, inputs);
+                    }
+                }
+            }
         }
 
         self.remote.wait();
-
-        if let Some(_node) = self.user_state.active_node {}
+        ctx.request_repaint();
     }
 }

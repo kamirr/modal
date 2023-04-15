@@ -94,7 +94,6 @@ impl Biquad {
             + (self.b[2] / self.a[0]) * self.in_hist[0]
             - (self.a[1] / self.a[0]) * self.out_hist[1]
             - (self.a[2] / self.a[0]) * self.out_hist[0];
-        //dbg!(out);
 
         self.out_hist = [self.out_hist[1], out];
     }

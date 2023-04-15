@@ -100,6 +100,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8da52d66c7071e2e3fa2a1e5c6d088fec47b593032b254f5e980de8ea54454d6"
 
 [[package]]
+name = "atomic_float"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "62af46d040ba9df09edc6528dae9d8e49f5f3e82f55b7d2ec31a733c38dbc49d"
+
+[[package]]
 name = "atomic_refcell"
 version = "0.1.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1116,10 +1122,13 @@ name = "modal"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "atomic_float",
  "bimap",
  "dyn-clone",
  "eframe",
  "egui_node_graph",
+ "num-derive",
+ "num-traits",
  "rand",
  "rodio",
  "thunderdome",

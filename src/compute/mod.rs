@@ -1,21 +1,18 @@
 pub mod node;
 
-use node::{basic::Placeholder, Node};
+use node::Node;
 use thunderdome::{Arena, Index};
 
-use self::node::{Param, ParamSignature};
+use self::node::NodeEvent;
 
 struct Entry {
-    inputs: Vec<Index>,
+    inputs: Vec<Option<Index>>,
     node: Box<dyn Node>,
 }
 
 impl Entry {
-    fn new(inputs: Vec<Index>, node: Box<dyn Node>) -> Self {
-        Entry {
-            inputs: inputs.into(),
-            node,
-        }
+    fn new(inputs: Vec<Option<Index>>, node: Box<dyn Node>) -> Self {
+        Entry { inputs, node }
     }
 }
 
@@ -32,65 +29,30 @@ impl Runtime {
         }
     }
 
-    pub fn insert(&mut self, inputs: impl Into<Vec<Index>>, node: impl Node + 'static) -> Index {
-        self.insert_box(inputs, Box::new(node))
-    }
-
-    pub fn insert_box(
+    pub fn insert(
         &mut self,
-        inputs: impl Into<Vec<Index>>,
+        inputs: impl Into<Vec<Option<Index>>>,
         node: Box<dyn Node + 'static>,
     ) -> Index {
-        self.nodes.insert(Entry::new(inputs.into(), node))
-    }
-
-    pub fn reserve(&mut self) -> Index {
-        self.nodes.insert(Entry::new(vec![], Box::new(Placeholder)))
-    }
-
-    pub fn insert_at(
-        &mut self,
-        index: Index,
-        inputs: impl Into<Vec<Index>>,
-        node: impl Node + 'static,
-    ) {
-        self.insert_box_at(index, inputs, Box::new(node));
-    }
-
-    pub fn insert_box_at(
-        &mut self,
-        index: Index,
-        inputs: impl Into<Vec<Index>>,
-        node: Box<dyn Node + 'static>,
-    ) {
-        self.nodes[index] = Entry::new(inputs.into(), node);
+        let inputs = inputs.into();
+        assert_eq!(inputs.len(), node.inputs().len());
+        self.nodes.insert(Entry::new(inputs, node))
     }
 
     pub fn remove(&mut self, index: Index) {
         self.nodes.remove(index);
     }
 
-    pub fn set_input(&mut self, index: Index, port: usize, new_input: Index) {
+    pub fn set_input(&mut self, index: Index, port: usize, new_input: Option<Index>) {
         self.nodes[index].inputs[port] = new_input;
     }
 
-    pub fn set_param(&mut self, index: Index, param: Vec<Param>) {
-        let node = &mut self.nodes[index].node;
-        node.set_param(param.as_slice());
+    pub fn set_all_inputs(&mut self, index: Index, new_inputs: Vec<Option<Index>>) {
+        self.nodes[index].inputs = new_inputs;
     }
 
-    pub fn get_param(&mut self, index: Index) -> Vec<(String, ParamSignature, Param)> {
-        let node = &mut self.nodes[index].node;
-
-        node.meta()
-            .params
-            .into_iter()
-            .zip(node.get_param().into_iter())
-            .map(|((name, sig), param)| (name, sig, param))
-            .collect()
-    }
-
-    pub fn step(&mut self) {
+    pub fn step(&mut self) -> Vec<(Index, Vec<NodeEvent>)> {
+        let mut evs = Vec::new();
         let mut buf = Vec::new();
 
         self.values.clear();
@@ -99,17 +61,26 @@ impl Runtime {
             self.values.insert_at_slot(idx.slot(), entry.node.read());
         }
 
-        for (_idx, entry) in &mut self.nodes {
+        for (idx, entry) in &mut self.nodes {
             buf.clear();
             for &mut input in &mut entry.inputs {
-                buf.push(*self.values.get_by_slot(input.slot()).unwrap().1);
+                buf.push(match input {
+                    Some(in_index) => Some(*self.values.get_by_slot(in_index.slot()).unwrap().1),
+                    None => None,
+                });
             }
 
-            entry.node.feed(&buf);
+            let evs_one = entry.node.feed(&buf);
+            evs.push((idx, evs_one));
         }
+
+        evs
     }
 
     pub fn peek(&self, index: Index) -> f32 {
-        *self.values.get_by_slot(index.slot()).unwrap().1
+        self.values
+            .get_by_slot(index.slot())
+            .map(|(_idx, val)| *val)
+            .unwrap_or(0.0)
     }
 }
