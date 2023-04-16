@@ -20,6 +20,7 @@ enum BiquadTy {
     Lpf,
     Hpf,
     Bpf,
+    Apf,
     Notch,
 }
 
@@ -92,6 +93,7 @@ impl NodeConfig for BiquadConfig {
                 ui.selectable_value(&mut filt_ty, BiquadTy::Lpf, "Lpf");
                 ui.selectable_value(&mut filt_ty, BiquadTy::Hpf, "Hpf");
                 ui.selectable_value(&mut filt_ty, BiquadTy::Bpf, "Bpf");
+                ui.selectable_value(&mut filt_ty, BiquadTy::Apf, "Apf");
                 ui.selectable_value(&mut filt_ty, BiquadTy::Notch, "Notch");
             });
         ComboBox::from_id_source("bar")
@@ -175,6 +177,10 @@ impl Biquad {
             BiquadTy::Bpf => (
                 [1.0 + alpha, -2.0 * w0cos, 1.0 - alpha],
                 [alpha, 0.0, -alpha],
+            ),
+            BiquadTy::Apf => (
+                [1.0 + alpha, -2.0 * w0cos, 1.0 - alpha],
+                [1.0 - alpha, -2.0 * w0cos, 1.0 + alpha],
             ),
             BiquadTy::Notch => (
                 [1.0 + alpha, -2.0 * w0cos, 1.0 - alpha],
