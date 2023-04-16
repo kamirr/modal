@@ -68,6 +68,7 @@ impl SynthApp {
                 user_state,
                 all_nodes: graph::AllSynthNodeTemplates::new(vec![
                     Box::new(Basic),
+                    Box::new(Filters),
                     Box::new(Noise),
                 ]),
                 remote: remote::RuntimeRemote::with_rt_and_mapping(rt, mapping),
@@ -78,6 +79,7 @@ impl SynthApp {
                 user_state: Default::default(),
                 all_nodes: graph::AllSynthNodeTemplates::new(vec![
                     Box::new(Basic),
+                    Box::new(Filters),
                     Box::new(Noise),
                 ]),
                 remote: Default::default(),
