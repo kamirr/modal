@@ -3,6 +3,7 @@ pub mod adsr;
 pub mod constant;
 pub mod delay;
 pub mod gain;
+pub mod mix;
 pub mod oscillator;
 
 use super::{Node, NodeList};
@@ -17,6 +18,7 @@ impl NodeList for Basic {
             (constant::constant(), "Constant".into()),
             (delay::delay(), "Delay".into()),
             (gain::gain(), "Gain".into()),
+            (mix::mix(), "Mix".into()),
             (oscillator::oscillator(), "Oscillator".into()),
         ]
     }
