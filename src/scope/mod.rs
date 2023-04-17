@@ -36,7 +36,10 @@ impl Debug for MyPlanner {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Scope {
+    // general
     mode: ScopeMode,
+
+    // fft
     freq_range: (usize, usize),
 
     memory: VecDeque<f32>,
@@ -116,6 +119,19 @@ impl Scope {
     }
 
     fn show_fft(&mut self, ui: &mut egui::Ui) {
+        ui.horizontal(|ui| {
+            ui.label("From");
+            ui.add(
+                egui::DragValue::new(&mut self.freq_range.0).clamp_range(1..=self.freq_range.1 - 1),
+            );
+            ui.label("Hz to");
+            ui.add(
+                egui::DragValue::new(&mut self.freq_range.1)
+                    .clamp_range(self.freq_range.0 + 1..=12000),
+            );
+            ui.label("Hz");
+        });
+
         let mut ys = self
             .memory
             .iter()
@@ -128,13 +144,16 @@ impl Scope {
             .plan_fft_forward(ys.len())
             .process_with_scratch(&mut ys, &mut self.scratch);
 
+        let hz_per_i = 44100.0 / (ys.len() as f32);
+        let start_i = (self.freq_range.0 as f32 / hz_per_i).round() as usize;
+        let end_i = (self.freq_range.1 as f32 / hz_per_i).round() as usize;
         let xys: PlotPoints = ys
             .iter()
             .enumerate()
-            .skip(self.freq_range.0)
-            .take(self.freq_range.1 - self.freq_range.0)
+            .skip(start_i)
+            .take(end_i - start_i + 1)
             .map(|(i, y)| {
-                let f = i as f64;
+                let f = i as f64 * (hz_per_i as f64);
 
                 [f, y.norm() as f64]
             })
@@ -163,6 +182,25 @@ impl Scope {
     }
 
     pub fn show(&mut self, ui: &mut egui::Ui) {
+        let mut mem_s = self.memory.len() as f32 / 44100.0;
+        let drag = egui::DragValue::new(&mut mem_s)
+            .speed(0.01)
+            .clamp_range(0.01..=120.0);
+        ui.horizontal(|ui| {
+            ui.label("memory");
+            ui.add(drag);
+            ui.label("s");
+        });
+
+        let new_mem = (mem_s * 44100.0).round() as usize;
+        if new_mem < self.memory.len() {
+            self.memory.drain(0..self.memory.len() - new_mem);
+        } else {
+            for _ in 0..(new_mem - self.memory.len()) {
+                self.memory.push_front(0.0);
+            }
+        }
+
         egui::ComboBox::new("scope-combo-box", "")
             .selected_text(format!("{:?}", self.mode))
             .show_ui(ui, |ui| {
