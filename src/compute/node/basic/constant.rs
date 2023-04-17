@@ -2,11 +2,11 @@ use std::sync::Arc;
 
 use serde::{Deserialize, Serialize};
 
-use crate::compute::node::{inputs::sig::SigInput, Input, InputUi, Node, NodeEvent};
+use crate::compute::node::{inputs::real::RealInput, Input, InputUi, Node, NodeEvent};
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Constant {
-    value: Arc<SigInput>,
+    value: Arc<RealInput>,
     out: f32,
 }
 
@@ -32,7 +32,7 @@ impl Node for Constant {
 
 pub fn constant() -> Box<dyn Node> {
     Box::new(Constant {
-        value: Arc::new(SigInput::new(0.0)),
+        value: Arc::new(RealInput::new(0.0)),
         out: 0.0,
     })
 }
