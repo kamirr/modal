@@ -1,6 +1,7 @@
 mod compute;
 mod graph;
 mod remote;
+mod scope;
 
 mod util;
 
@@ -63,6 +64,14 @@ impl SynthApp {
                 }
             }
 
+            let mut remote = remote::RuntimeRemote::with_rt_and_mapping(rt, mapping);
+
+            for (node_id, node) in &editor.graph.nodes {
+                if node.user_data.scope.borrow().is_some() {
+                    remote.record(node_id);
+                }
+            }
+
             SynthApp {
                 state: editor,
                 user_state,
@@ -71,7 +80,7 @@ impl SynthApp {
                     Box::new(Filters),
                     Box::new(Noise),
                 ]),
-                remote: remote::RuntimeRemote::with_rt_and_mapping(rt, mapping),
+                remote,
             }
         } else {
             SynthApp {
@@ -143,12 +152,17 @@ impl eframe::App for SynthApp {
         println!("state saved");
     }
 
+    fn on_exit(&mut self, _gl: Option<&eframe::glow::Context>) {
+        self.remote.shutdown();
+    }
+
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         egui::TopBottomPanel::top("top").show(ctx, |ui| {
             egui::menu::bar(ui, |ui| {
                 egui::widgets::global_dark_light_mode_switch(ui);
             });
         });
+
         let graph_response = egui::CentralPanel::default()
             .show(ctx, |ui| {
                 self.state
@@ -200,12 +214,20 @@ impl eframe::App for SynthApp {
                 NodeResponse::User(graph::SynthNodeResponse::SetActiveNode(id)) => {
                     println!("set active {id:?}");
                     self.user_state.active_node = Some(id);
-                    self.remote.record(Some(id));
+                    self.remote.play(Some(id));
                 }
                 NodeResponse::User(graph::SynthNodeResponse::ClearActiveNode) => {
                     println!("unset active");
                     self.user_state.active_node = None;
-                    self.remote.record(None);
+                    self.remote.play(None);
+                }
+                NodeResponse::User(graph::SynthNodeResponse::StartRecording(node)) => {
+                    println!("record {node:?}");
+                    self.remote.record(node);
+                }
+                NodeResponse::User(graph::SynthNodeResponse::StopRecording(node)) => {
+                    println!("record {node:?}");
+                    self.remote.stop_recording(node);
                 }
                 _ => {}
             }
@@ -223,6 +245,20 @@ impl eframe::App for SynthApp {
                     }
                 }
             }
+        }
+
+        for (node_id, samples) in self.remote.recordings() {
+            let Some(node) = self.state.graph.nodes.get(node_id) else {
+                continue;
+            };
+
+            let mut scope_guard = node.user_data.scope.borrow_mut();
+
+            let Some(scope) = &mut *scope_guard else {
+                continue;
+            };
+
+            scope.feed(samples.into_iter());
         }
 
         self.remote.wait();

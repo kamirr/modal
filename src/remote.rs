@@ -1,4 +1,7 @@
-use std::sync::mpsc::{channel, Receiver, Sender, TryRecvError};
+use std::{
+    collections::HashMap,
+    sync::mpsc::{channel, Receiver, Sender, TryRecvError},
+};
 
 use bimap::BiHashMap;
 use egui_node_graph::NodeId;
@@ -27,13 +30,17 @@ pub enum RtRequest {
         inputs: Vec<Option<Index>>,
     },
     Play(Option<Index>),
+    Record(Index),
+    StopRecording(Index),
     CloneRuntime,
+    Shutdown,
 }
 
 pub enum RtResponse {
     Inserted(NodeId, Index),
     NodeEvents(Vec<(Index, Vec<NodeEvent>)>),
     RuntimeCloned(Runtime),
+    Samples(Index, Vec<f32>),
     Step,
 }
 
@@ -42,6 +49,7 @@ pub struct RuntimeRemote {
     rx: Receiver<RtResponse>,
     must_wait: bool,
     mapping: BiHashMap<NodeId, Index>,
+    recordings: HashMap<NodeId, Vec<f32>>,
     node_events: Vec<(Index, Vec<NodeEvent>)>,
     runtime: Option<Runtime>,
 }
@@ -65,62 +73,78 @@ impl RuntimeRemote {
         }
         sink.play();
 
-        std::thread::spawn(move || loop {
-            while sink.len() as f32 * buf_size as f32 / 44100.0 < 0.1 {
-                if let Some(record) = record {
+        let mut recording = HashMap::<Index, Vec<f32>>::new();
+
+        std::thread::spawn(move || {
+            loop {
+                while sink.len() as f32 * buf_size as f32 / 44100.0 < 0.1 {
                     for s in &mut buf {
                         let evs = rt.step();
                         if !evs.is_empty() {
                             resp_tx.send(RtResponse::NodeEvents(evs)).ok();
                         }
 
-                        *s = rt.peek(record);
-                    }
-                } else {
-                    for s in &mut buf {
-                        let evs = rt.step();
-                        if !evs.is_empty() {
-                            resp_tx.send(RtResponse::NodeEvents(evs)).ok();
+                        *s = record.map(|idx| rt.peek(idx)).unwrap_or_default();
+
+                        for (idx, buffer) in &mut recording {
+                            buffer.push(rt.peek(*idx));
                         }
+                    }
 
-                        *s = 0.0;
+                    let source = rodio::buffer::SamplesBuffer::new(1, 44100, buf.clone());
+                    sink.append(source);
+                }
+
+                for (idx, buffer) in &mut recording {
+                    if !buffer.is_empty() {
+                        resp_tx
+                            .send(RtResponse::Samples(*idx, std::mem::take(buffer)))
+                            .ok();
                     }
                 }
 
-                let source = rodio::buffer::SamplesBuffer::new(1, 44100, buf.clone());
-                sink.append(source);
+                let cmd = match cmd_rx.try_recv() {
+                    Ok(cmd) => cmd,
+                    Err(TryRecvError::Empty) => continue,
+                    Err(TryRecvError::Disconnected) => break,
+                };
+
+                match cmd {
+                    RtRequest::Insert { id, inputs, node } => {
+                        let idx = rt.insert(inputs, node);
+                        resp_tx.send(RtResponse::Inserted(id, idx)).ok();
+                    }
+                    RtRequest::Remove(index) => {
+                        rt.remove(index);
+                        recording.remove(&index);
+                    }
+                    RtRequest::SetInput { src, dst, port } => {
+                        rt.set_input(dst, port, src);
+                    }
+                    RtRequest::SetAllInputs { dst, inputs } => {
+                        rt.set_all_inputs(dst, inputs);
+                    }
+                    RtRequest::Play(node) => {
+                        record = node;
+                    }
+                    RtRequest::Record(index) => {
+                        recording.insert(index, Vec::new());
+                    }
+                    RtRequest::StopRecording(index) => {
+                        recording.remove(&index);
+                    }
+                    RtRequest::CloneRuntime => {
+                        resp_tx.send(RtResponse::RuntimeCloned(rt.clone())).ok();
+                    }
+                    RtRequest::Shutdown => {
+                        break;
+                    }
+                }
+
+                resp_tx.send(RtResponse::Step).ok();
             }
 
-            let cmd = match cmd_rx.try_recv() {
-                Ok(cmd) => cmd,
-                Err(TryRecvError::Empty) => continue,
-                Err(TryRecvError::Disconnected) => return,
-            };
-
-            match cmd {
-                RtRequest::Insert { id, inputs, node } => {
-                    let idx = rt.insert(inputs, node);
-                    resp_tx.send(RtResponse::Inserted(id, idx)).ok();
-                }
-                RtRequest::Play(node) => {
-                    record = node;
-                    eprintln!("playback from {record:?}");
-                }
-                RtRequest::SetInput { src, dst, port } => {
-                    rt.set_input(dst, port, src);
-                }
-                RtRequest::SetAllInputs { dst, inputs } => {
-                    rt.set_all_inputs(dst, inputs);
-                }
-                RtRequest::Remove(index) => {
-                    rt.remove(index);
-                }
-                RtRequest::CloneRuntime => {
-                    resp_tx.send(RtResponse::RuntimeCloned(rt.clone())).ok();
-                }
-            }
-
-            resp_tx.send(RtResponse::Step).ok();
+            println!("Runtime stopped");
         });
 
         RuntimeRemote {
@@ -131,6 +155,7 @@ impl RuntimeRemote {
                 .into_iter()
                 .map(|(id, bits)| (id, Index::from_bits(bits).unwrap()))
                 .collect(),
+            recordings: HashMap::new(),
             node_events: Vec::new(),
             runtime: None,
         }
@@ -185,9 +210,23 @@ impl RuntimeRemote {
             .ok();
     }
 
-    pub fn record(&mut self, id: Option<NodeId>) {
+    pub fn play(&mut self, id: Option<NodeId>) {
         let idx = id.and_then(|id| self.mapping.get_by_left(&id).cloned());
         self.tx.send(RtRequest::Play(idx)).ok();
+    }
+
+    pub fn record(&mut self, id: NodeId) {
+        let idx = *self.mapping.get_by_left(&id).unwrap();
+        self.tx.send(RtRequest::Record(idx)).ok();
+    }
+
+    pub fn stop_recording(&mut self, id: NodeId) {
+        let idx = *self.mapping.get_by_left(&id).unwrap();
+        self.tx.send(RtRequest::StopRecording(idx)).ok();
+    }
+
+    pub fn shutdown(&mut self) {
+        self.tx.send(RtRequest::Shutdown).ok();
     }
 
     pub fn process(&mut self, resp: RtResponse) {
@@ -198,10 +237,19 @@ impl RuntimeRemote {
             RtResponse::NodeEvents(evs) => {
                 self.node_events.extend(evs.into_iter());
             }
-            RtResponse::Step => {}
             RtResponse::RuntimeCloned(runtime) => {
                 self.runtime = Some(runtime);
             }
+            RtResponse::Samples(index, samples) => {
+                let Some(&node_id) = self.mapping.get_by_right(&index) else {
+                    return;
+                };
+                self.recordings
+                    .entry(node_id)
+                    .or_default()
+                    .extend(samples.into_iter());
+            }
+            RtResponse::Step => {}
         }
     }
 
@@ -250,6 +298,14 @@ impl RuntimeRemote {
             self.must_wait = true;
             self.wait();
         }
+    }
+
+    pub fn recordings(&mut self) -> Vec<(NodeId, Vec<f32>)> {
+        self.recordings
+            .iter_mut()
+            .filter(|(_, buf)| !buf.is_empty())
+            .map(|(k, v)| (*k, std::mem::take(v)))
+            .collect()
     }
 }
 

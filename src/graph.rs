@@ -1,5 +1,6 @@
 use std::{
     borrow::Cow,
+    cell::RefCell,
     collections::HashMap,
     sync::{Arc, Weak},
 };
@@ -12,10 +13,15 @@ use egui_node_graph::{
 use eframe::egui;
 use serde::{Deserialize, Serialize};
 
-use crate::compute::node::{InputUi, Node, NodeConfig, NodeList};
+use crate::{
+    compute::node::{InputUi, Node, NodeConfig, NodeList},
+    scope::Scope,
+};
 
 #[derive(Debug, Serialize, Deserialize)]
-pub struct SynthNodeData;
+pub struct SynthNodeData {
+    pub scope: RefCell<Option<Scope>>,
+}
 
 impl NodeDataTrait for SynthNodeData {
     type Response = SynthNodeResponse;
@@ -48,17 +54,38 @@ impl NodeDataTrait for SynthNodeData {
         }
 
         if !is_active {
-            if ui.button("👁 Set active").clicked() {
+            if ui.button("👂 Play").clicked() {
                 responses.push(NodeResponse::User(SynthNodeResponse::SetActiveNode(
                     node_id,
                 )));
             }
         } else {
             let button =
-                egui::Button::new(egui::RichText::new("👁 Active").color(egui::Color32::BLACK))
+                egui::Button::new(egui::RichText::new("👂 Playing").color(egui::Color32::BLACK))
                     .fill(egui::Color32::GOLD);
             if ui.add(button).clicked() {
                 responses.push(NodeResponse::User(SynthNodeResponse::ClearActiveNode));
+            }
+        }
+
+        if self.scope.borrow().is_none() {
+            if ui.button("👁 Show Scope").clicked() {
+                *self.scope.borrow_mut() = Some(Scope::new());
+                responses.push(NodeResponse::User(SynthNodeResponse::StartRecording(
+                    node_id,
+                )));
+            }
+        } else {
+            let button =
+                egui::Button::new(egui::RichText::new("👁 Hide Scope").color(egui::Color32::BLACK))
+                    .fill(egui::Color32::GOLD);
+            if ui.add(button).clicked() {
+                *self.scope.borrow_mut() = None;
+                responses.push(NodeResponse::User(SynthNodeResponse::StopRecording(
+                    node_id,
+                )));
+            } else {
+                self.scope.borrow_mut().as_mut().unwrap().show(ui)
             }
         }
 
@@ -110,6 +137,7 @@ impl WidgetValueTrait for SynthValueType {
                 input.show(ui);
             }
         });
+        //if node_data
 
         Default::default()
     }
@@ -145,7 +173,9 @@ impl NodeTemplateTrait for SynthNodeTemplate {
     }
 
     fn user_data(&self, _user_state: &mut Self::UserState) -> Self::NodeData {
-        SynthNodeData
+        SynthNodeData {
+            scope: RefCell::new(None),
+        }
     }
 
     fn build_node(
@@ -219,6 +249,8 @@ impl NodeTemplateIter for &AllSynthNodeTemplates {
 pub enum SynthNodeResponse {
     SetActiveNode(NodeId),
     ClearActiveNode,
+    StartRecording(NodeId),
+    StopRecording(NodeId),
 }
 
 impl UserResponseTrait for SynthNodeResponse {}
