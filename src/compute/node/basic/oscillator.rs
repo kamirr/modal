@@ -20,6 +20,7 @@ use crate::compute::node::{
 enum OscType {
     Sine = 0,
     Square,
+    Saw,
 }
 
 impl Serialize for AtomicOscType {
@@ -55,7 +56,8 @@ impl NodeConfig for OscillatorConfig {
             .selected_text(format!("{ty:?}"))
             .show_ui(ui, |ui| {
                 ui.selectable_value(&mut ty, OscType::Sine, "Sine");
-                ui.selectable_value(&mut ty, OscType::Square, "Square")
+                ui.selectable_value(&mut ty, OscType::Square, "Square");
+                ui.selectable_value(&mut ty, OscType::Saw, "Saw");
             });
         ui.checkbox(&mut manual_range, "Manual range");
 
@@ -77,7 +79,7 @@ struct Oscillator {
 
 impl Oscillator {
     fn hz_to_dt() -> f32 {
-        2.0 * std::f32::consts::PI / 44100.0
+        1.0 / 44100.0
     }
 }
 
@@ -95,17 +97,18 @@ impl Node for Oscillator {
             .unwrap_or(self.max.value());
 
         let step = f * Self::hz_to_dt();
-        self.t = (self.t + step) % (8.0 * PI);
+        self.t = (self.t + step) % 4.0;
 
         let m1_to_p1 = match self.config.ty.load(Ordering::Relaxed) {
-            OscType::Sine => self.t.sin(),
+            OscType::Sine => (self.t * 2.0 * PI).sin(),
             OscType::Square => {
-                if self.t.sin() > 0.0 {
+                if (self.t * 2.0 * PI).sin() > 0.0 {
                     1.0
                 } else {
                     -1.0
                 }
             }
+            OscType::Saw => (self.t - self.t.floor()) * 2.0 - 1.0,
         };
 
         let zero_to_one = (m1_to_p1 + 1.0) / 2.0;
