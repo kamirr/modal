@@ -1,4 +1,7 @@
-use std::sync::{Arc, RwLock};
+use std::{
+    any::Any,
+    sync::{Arc, RwLock},
+};
 
 use eframe::egui::{ComboBox, DragValue};
 use rand::Rng;
@@ -22,7 +25,7 @@ struct NoiseGenConfig {
 }
 
 impl NodeConfig for NoiseGenConfig {
-    fn show(&self, ui: &mut eframe::egui::Ui) {
+    fn show(&self, ui: &mut eframe::egui::Ui, _data: &dyn Any) {
         let mut ty = self.ty.read().unwrap().clone();
         let old_ty = ty.clone();
 

@@ -1,4 +1,5 @@
 use std::{
+    any::Any,
     f32::consts::PI,
     sync::{
         atomic::{AtomicBool, AtomicUsize, Ordering},
@@ -48,7 +49,7 @@ struct OscillatorConfig {
 }
 
 impl NodeConfig for OscillatorConfig {
-    fn show(&self, ui: &mut eframe::egui::Ui) {
+    fn show(&self, ui: &mut eframe::egui::Ui, _data: &dyn Any) {
         let mut ty = self.ty.load(Ordering::Acquire);
         let mut manual_range = self.manual_range.load(Ordering::Acquire);
 

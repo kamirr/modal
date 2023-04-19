@@ -1,6 +1,9 @@
-use std::sync::{
-    atomic::{AtomicU32, Ordering},
-    Arc,
+use std::{
+    any::Any,
+    sync::{
+        atomic::{AtomicU32, Ordering},
+        Arc,
+    },
 };
 
 use eframe::egui::DragValue;
@@ -15,7 +18,7 @@ struct AddConfig {
 }
 
 impl NodeConfig for AddConfig {
-    fn show(&self, ui: &mut eframe::egui::Ui) {
+    fn show(&self, ui: &mut eframe::egui::Ui, _data: &dyn Any) {
         let mut ins = self.ins.load(Ordering::Acquire);
 
         ui.horizontal(|ui| {

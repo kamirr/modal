@@ -1,17 +1,16 @@
 use eframe::egui;
-use std::{fmt::Debug, sync::Arc};
+use std::{any::Any, fmt::Debug, sync::Arc};
 
 use dyn_clone::DynClone;
 
 pub mod basic;
 pub mod filters;
 pub mod inputs;
+pub mod midi;
 pub mod noise;
-//pub mod compose;
-//pub mod filter;
 
 pub trait NodeConfig {
-    fn show(&self, ui: &mut egui::Ui);
+    fn show(&self, ui: &mut egui::Ui, data: &dyn Any);
 }
 
 pub trait InputUi: Send + Sync {
@@ -85,7 +84,6 @@ pub trait NodeList {
 pub mod all {
     pub use super::basic::*;
     pub use super::filters::*;
+    pub use super::midi::*;
     pub use super::noise::*;
-    /*pub use super::compose::*;
-    pub use super::filter::*;*/
 }

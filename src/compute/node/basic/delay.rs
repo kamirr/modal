@@ -1,4 +1,5 @@
 use std::{
+    any::Any,
     collections::VecDeque,
     sync::{
         atomic::{AtomicU8, AtomicUsize, Ordering},
@@ -18,7 +19,7 @@ struct DelayConfig {
 }
 
 impl NodeConfig for DelayConfig {
-    fn show(&self, ui: &mut eframe::egui::Ui) {
+    fn show(&self, ui: &mut eframe::egui::Ui, _data: &dyn Any) {
         let mut in_ty = self.in_ty.load(Ordering::Acquire);
         let mut samples = self.samples.load(Ordering::Acquire);
 

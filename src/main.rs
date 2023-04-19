@@ -1,5 +1,6 @@
 mod compute;
 mod graph;
+mod midi;
 mod remote;
 mod scope;
 
@@ -11,6 +12,7 @@ use eframe::egui;
 use egui_node_graph::{InputParamKind, NodeId, NodeResponse};
 
 use compute::node::{self, Input, NodeEvent};
+use midi::MidiPlayback;
 
 use crate::{
     compute::Runtime,
@@ -78,6 +80,7 @@ impl SynthApp {
                 all_nodes: graph::AllSynthNodeTemplates::new(vec![
                     Box::new(Basic),
                     Box::new(Filters),
+                    Box::new(Midi),
                     Box::new(Noise),
                 ]),
                 remote,
@@ -89,6 +92,7 @@ impl SynthApp {
                 all_nodes: graph::AllSynthNodeTemplates::new(vec![
                     Box::new(Basic),
                     Box::new(Filters),
+                    Box::new(Midi),
                     Box::new(Noise),
                 ]),
                 remote: Default::default(),
@@ -141,6 +145,20 @@ impl SynthApp {
         }
         self.remote.set_inputs(node_id, rt_inputs);
     }
+
+    fn load_midi(&mut self) {
+        if let Some(path) = rfd::FileDialog::new().pick_file() {
+            let Ok(bytes) = std::fs::read(&path) else {
+                println!("can't read {path:?}");
+                return;
+            };
+            let Ok(smf) = midly::Smf::parse(&bytes) else {
+                println!("midi parse error");
+                return;
+            };
+            self.user_state.ctx.midi = Some(MidiPlayback::new(smf.to_static()));
+        }
+    }
 }
 
 impl eframe::App for SynthApp {
@@ -160,6 +178,14 @@ impl eframe::App for SynthApp {
         egui::TopBottomPanel::top("top").show(ctx, |ui| {
             egui::menu::bar(ui, |ui| {
                 egui::widgets::global_dark_light_mode_switch(ui);
+                if ui.button("Open Midi").clicked() {
+                    self.load_midi();
+                }
+                if ui.button("Start Midi").clicked() {
+                    if let Some(playback) = &mut self.user_state.ctx.midi {
+                        playback.start();
+                    }
+                }
             });
         });
 
@@ -263,5 +289,8 @@ impl eframe::App for SynthApp {
 
         self.remote.wait();
         ctx.request_repaint();
+        if let Some(playback) = &mut self.user_state.ctx.midi {
+            playback.step();
+        }
     }
 }

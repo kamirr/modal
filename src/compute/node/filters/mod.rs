@@ -7,6 +7,7 @@ use super::{
     Input, InputUi, Node, NodeConfig, NodeEvent, NodeList,
 };
 use std::{
+    any::Any,
     f32::consts::PI,
     sync::{
         atomic::{AtomicUsize, Ordering},
@@ -83,7 +84,7 @@ impl BiquadConfig {
 }
 
 impl NodeConfig for BiquadConfig {
-    fn show(&self, ui: &mut eframe::egui::Ui) {
+    fn show(&self, ui: &mut eframe::egui::Ui, _data: &dyn Any) {
         let mut filt_ty = self.filt_ty.load(Ordering::Acquire);
         let mut param_ty = self.param_ty.load(Ordering::Acquire);
 

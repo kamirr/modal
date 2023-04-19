@@ -3,8 +3,6 @@ name = "modal"
 version = "0.1.0"
 edition = "2021"
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-
 [dependencies]
 atomic_enum = "0.2.0"
 atomic_float = { git = "https://github.com/kamirr/atomic_float", branch = "main", default-features = false, features = ["serde"] }
@@ -13,6 +11,7 @@ bimap = "0.6.3"
 dyn-clone = "1.0.11"
 eframe = { version = "=0.19.0", features = ["persistence"] }
 egui_node_graph = { version = "0.4.0", features = ["persistence"] }
+midly = "0.5.3"
 num-traits = "0.2"
 num-derive = "0.3"
 rand = "0.8.5"

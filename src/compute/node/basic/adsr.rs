@@ -1,4 +1,7 @@
-use std::sync::{atomic::Ordering, Arc};
+use std::{
+    any::Any,
+    sync::{atomic::Ordering, Arc},
+};
 
 use atomic_float::AtomicF32;
 use eframe::egui::DragValue;
@@ -16,7 +19,7 @@ struct AdsrConfig {
 }
 
 impl NodeConfig for AdsrConfig {
-    fn show(&self, ui: &mut eframe::egui::Ui) {
+    fn show(&self, ui: &mut eframe::egui::Ui, _data: &dyn Any) {
         let mut trigger = self.trigger.load(Ordering::Acquire);
         let mut attack = self.attack.load(Ordering::Acquire);
         let mut decay = self.decay.load(Ordering::Acquire);
@@ -74,7 +77,7 @@ impl Adsr {
     pub fn new() -> Self {
         Adsr {
             config: Arc::new(AdsrConfig {
-                trigger: AtomicF32::new(0.0),
+                trigger: AtomicF32::new(0.5),
                 attack: AtomicF32::new(0.05),
                 decay: AtomicF32::new(0.05),
                 sustain_ratio: AtomicF32::new(0.7),

@@ -15,6 +15,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     compute::node::{InputUi, Node, NodeConfig, NodeList},
+    midi::MidiPlayback,
     scope::Scope,
 };
 
@@ -50,7 +51,7 @@ impl NodeDataTrait for SynthNodeData {
             .get(&node_id)
             .and_then(|wk| wk.upgrade())
         {
-            config.show(ui);
+            config.show(ui, &user_state.ctx);
         }
 
         if !is_active {
@@ -255,12 +256,18 @@ pub enum SynthNodeResponse {
 
 impl UserResponseTrait for SynthNodeResponse {}
 
+#[derive(Debug, Clone, Default)]
+pub struct SynthCtx {
+    pub midi: Option<MidiPlayback>,
+}
+
 #[derive(Default)]
 pub struct SynthGraphState {
     pub active_node: Option<NodeId>,
     pub node_ui_inputs: HashMap<NodeId, HashMap<String, Arc<dyn InputUi>>>,
     pub node_configs: HashMap<NodeId, Weak<dyn NodeConfig>>,
     pub nodes: HashMap<NodeId, Box<dyn Node>>,
+    pub ctx: SynthCtx,
 }
 
 pub type SynthGraph = Graph<SynthNodeData, SynthDataType, SynthValueType>;
