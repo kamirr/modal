@@ -1,4 +1,4 @@
-pub mod rwlock_serde {
+pub mod serde_rwlock {
     use serde::de::Deserializer;
     use serde::ser::Serializer;
     use serde::{Deserialize, Serialize};
@@ -51,5 +51,34 @@ pub mod serde_arena {
         }
 
         Ok(arena)
+    }
+}
+
+pub mod serde_smf {
+    use serde::{Deserialize, Deserializer, Serialize, Serializer};
+
+    #[derive(Serialize, Deserialize)]
+    struct Smf(Vec<u8>);
+
+    pub fn serialize<'smf, S>(val: &midly::Smf<'smf>, s: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        let mut bytes = Vec::new();
+        val.write(&mut bytes).unwrap();
+        let smf_serializable = Smf(bytes);
+
+        smf_serializable.serialize(s)
+    }
+
+    pub fn deserialize<'de, D>(d: D) -> Result<midly::Smf<'static>, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let smf_deserializable = Smf::deserialize(d)?;
+
+        Ok(midly::Smf::parse(&smf_deserializable.0)
+            .unwrap()
+            .make_static())
     }
 }

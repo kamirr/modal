@@ -256,18 +256,25 @@ pub enum SynthNodeResponse {
 
 impl UserResponseTrait for SynthNodeResponse {}
 
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct SynthCtx {
     pub midi: Option<MidiPlayback>,
 }
 
-#[derive(Default)]
+#[derive(Default, Serialize, Deserialize)]
 pub struct SynthGraphState {
     pub active_node: Option<NodeId>,
-    pub node_ui_inputs: HashMap<NodeId, HashMap<String, Arc<dyn InputUi>>>,
-    pub node_configs: HashMap<NodeId, Weak<dyn NodeConfig>>,
-    pub nodes: HashMap<NodeId, Box<dyn Node>>,
     pub ctx: SynthCtx,
+
+    // node_ui_inputs and node_configs need to be initialized separately
+    #[serde(skip)]
+    pub node_ui_inputs: HashMap<NodeId, HashMap<String, Arc<dyn InputUi>>>,
+    #[serde(skip)]
+    pub node_configs: HashMap<NodeId, Weak<dyn NodeConfig>>,
+
+    // this only stores intermediate values, can be skipped during serde
+    #[serde(skip)]
+    pub nodes: HashMap<NodeId, Box<dyn Node>>,
 }
 
 pub type SynthGraph = Graph<SynthNodeData, SynthDataType, SynthValueType>;

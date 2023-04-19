@@ -39,12 +39,15 @@ impl SynthApp {
     fn new(cc: &eframe::CreationContext) -> Self {
         pub use node::all::*;
 
-        let state: Option<((Runtime, Vec<(NodeId, u64)>), SynthEditorState)> = cc
+        let state: Option<(
+            (Runtime, Vec<(NodeId, u64)>),
+            SynthEditorState,
+            SynthGraphState,
+        )> = cc
             .storage
             .and_then(|storage| eframe::get_value(storage, "synth-app"));
 
-        if let Some(((rt, mapping), editor)) = state {
-            let mut user_state = SynthGraphState::default();
+        if let Some(((rt, mapping), editor, mut user_state)) = state {
             for (idx, node) in rt.nodes() {
                 let node_id = mapping
                     .iter()
@@ -73,6 +76,8 @@ impl SynthApp {
                     remote.record(node_id);
                 }
             }
+
+            remote.play(user_state.active_node);
 
             SynthApp {
                 state: editor,
@@ -165,7 +170,8 @@ impl eframe::App for SynthApp {
     fn save(&mut self, storage: &mut dyn eframe::Storage) {
         let rt_state = self.remote.save_state();
         let editor_state = &self.state;
-        let full_state = (rt_state, editor_state);
+        let user_state = &self.user_state;
+        let full_state = (rt_state, editor_state, user_state);
         eframe::set_value(storage, "synth-app", &full_state);
         println!("state saved");
     }

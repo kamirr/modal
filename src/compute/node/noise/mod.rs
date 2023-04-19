@@ -20,7 +20,7 @@ impl Eq for NoiseType {}
 
 #[derive(Debug, Serialize, Deserialize)]
 struct NoiseGenConfig {
-    #[serde(with = "crate::util::rwlock_serde")]
+    #[serde(with = "crate::util::serde_rwlock")]
     ty: RwLock<NoiseType>,
 }
 

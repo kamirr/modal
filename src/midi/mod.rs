@@ -3,9 +3,10 @@ use std::{
     time::{Duration, Instant},
 };
 
-use midly::{num::u7, MetaMessage, MidiMessage, Smf, Timing, TrackEventKind};
+use midly::{MetaMessage, MidiMessage, Smf, Timing, TrackEventKind};
+use serde::{Deserialize, Serialize};
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, Serialize, Deserialize)]
 struct Beat {
     us: u32,
 }
@@ -28,9 +29,9 @@ impl Default for Beat {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 struct Controller {
-    values: HashMap<u7, u7>,
+    values: HashMap<u8, u8>,
 }
 
 impl Controller {
@@ -43,36 +44,33 @@ impl Controller {
     fn update(&mut self, message: &MidiMessage) {
         match message {
             MidiMessage::Controller { controller, value } => {
-                self.values.insert(*controller, *value);
+                self.values.insert(controller.as_int(), value.as_int());
             }
             _ => {}
         }
     }
 }
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, Serialize, Deserialize)]
 struct MonoNote {
-    key: u7,
-    vel: u7,
+    key: u8,
+    vel: u8,
 }
 
 impl MonoNote {
     fn new() -> Self {
-        MonoNote {
-            key: 0.into(),
-            vel: 0.into(),
-        }
+        MonoNote { key: 0, vel: 0 }
     }
 
     fn update(&mut self, message: &MidiMessage) {
         match message {
             MidiMessage::NoteOn { key, vel } => {
-                self.key = *key;
-                self.vel = *vel;
+                self.key = key.as_int();
+                self.vel = vel.as_int();
             }
             MidiMessage::NoteOff { key, .. } => {
                 if key == &self.key {
-                    self.vel = 0.into()
+                    self.vel = 0;
                 }
             }
             _ => {}
@@ -80,7 +78,7 @@ impl MonoNote {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Instrument {
     mono_note: MonoNote,
     controller: Controller,
@@ -100,27 +98,30 @@ impl Instrument {
     }
 
     pub fn freq(&self) -> f32 {
-        let key = self.mono_note.key.as_int() as f32;
+        let key = self.mono_note.key as f32;
         440.0 * 2f32.powf((key - 69.0) / 12.0)
     }
 
     pub fn vel(&self) -> f32 {
-        self.mono_note.vel.as_int() as f32 / 127.0
+        self.mono_note.vel as f32 / 127.0
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 struct MidiState {
     tick: Duration,
     instruments: Vec<Instrument>,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct MidiPlayback {
     state: MidiState,
+    #[serde(with = "crate::util::serde_smf")]
     smf: Smf<'static>,
     cursors: Vec<usize>,
     last_ev_tick: Vec<u32>,
+    #[serde(skip)]
+    #[serde(default = "Instant::now")]
     t0: Instant,
 }
 
