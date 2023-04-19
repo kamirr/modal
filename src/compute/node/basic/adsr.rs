@@ -69,6 +69,9 @@ pub struct Adsr {
     config: Arc<AdsrConfig>,
     state: AdsrState,
     prev_trig: f32,
+    attack_start_gain: f32,
+    release_start_gain: f32,
+    gain: f32,
     out: f32,
     cnt: usize,
 }
@@ -85,6 +88,9 @@ impl Adsr {
             }),
             state: AdsrState::Release,
             prev_trig: 0.0,
+            attack_start_gain: 0.0,
+            release_start_gain: 0.0,
+            gain: 0.0,
             out: 0.0,
             cnt: 0,
         }
@@ -105,10 +111,12 @@ impl Node for Adsr {
 
         if self.prev_trig < conf_trigger && trigger > conf_trigger {
             self.state = AdsrState::Attack;
+            self.attack_start_gain = self.gain;
             self.cnt = 0;
         }
         if trigger < conf_trigger && self.state != AdsrState::Release {
             self.state = AdsrState::Release;
+            self.release_start_gain = self.gain;
             self.cnt = 0;
         }
 
@@ -117,34 +125,37 @@ impl Node for Adsr {
         match self.state {
             AdsrState::Attack => {
                 if t >= conf_attack {
-                    self.out = sig;
+                    self.gain = 1.0;
                     self.state = AdsrState::Decay;
                     self.cnt = 0;
                 } else {
-                    self.out = sig * (t / conf_attack);
+                    self.gain =
+                        (t / conf_attack) + self.attack_start_gain * (1.0 - t / conf_attack);
                 }
             }
             AdsrState::Decay => {
                 if t >= conf_decay {
-                    self.out = sig * conf_sustain_r;
+                    self.gain = conf_sustain_r;
                     self.state = AdsrState::Sustain;
                     self.cnt = 0;
                 } else {
                     let r = t / conf_decay;
-                    self.out = sig * ((conf_sustain_r - 1.0) * r + 1.0);
+                    self.gain = (conf_sustain_r - 1.0) * r + 1.0;
                 }
             }
             AdsrState::Sustain => {
-                self.out = sig * conf_sustain_r;
+                self.gain = conf_sustain_r;
             }
             AdsrState::Release => {
                 if t >= conf_release {
-                    self.out = 0.0;
+                    self.gain = 0.0;
                 } else {
-                    self.out = sig * conf_sustain_r * (1.0 - t / conf_release);
+                    self.gain = self.release_start_gain * (1.0 - t / conf_release);
                 }
             }
         }
+
+        self.out = self.gain * sig;
 
         self.prev_trig = trigger;
         self.cnt += 1;
