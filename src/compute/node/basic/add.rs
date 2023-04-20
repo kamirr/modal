@@ -63,8 +63,8 @@ impl Node for Add {
     fn feed(&mut self, data: &[Option<f32>]) -> Vec<NodeEvent> {
         self.out = data
             .iter()
-            .enumerate()
-            .map(|(i, opt)| opt.unwrap_or(self.defaults[i].value()))
+            .zip(self.defaults.iter())
+            .map(|(sample, default)| sample.unwrap_or(default.value()))
             .sum();
 
         let new_ins = self.config.ins.load(Ordering::Relaxed);
