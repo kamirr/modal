@@ -7,11 +7,12 @@ use atomic_float::AtomicF32;
 use eframe::egui::DragValue;
 use serde::{Deserialize, Serialize};
 
-use crate::compute::node::{Input, Node, NodeConfig, NodeEvent};
+use crate::compute::node::{
+    inputs::trigger::TriggerInput, Input, InputUi, Node, NodeConfig, NodeEvent,
+};
 
 #[derive(Debug, Serialize, Deserialize)]
 struct AdsrConfig {
-    trigger: AtomicF32,
     attack: AtomicF32,
     decay: AtomicF32,
     sustain_ratio: AtomicF32,
@@ -20,16 +21,11 @@ struct AdsrConfig {
 
 impl NodeConfig for AdsrConfig {
     fn show(&self, ui: &mut eframe::egui::Ui, _data: &dyn Any) {
-        let mut trigger = self.trigger.load(Ordering::Acquire);
         let mut attack = self.attack.load(Ordering::Acquire);
         let mut decay = self.decay.load(Ordering::Acquire);
         let mut sustain_ratio = self.sustain_ratio.load(Ordering::Acquire) * 100.0;
         let mut release = self.release.load(Ordering::Acquire);
 
-        ui.horizontal(|ui| {
-            ui.label("trigger");
-            ui.add(DragValue::new(&mut trigger).clamp_range(-1.0..=1.0));
-        });
         ui.horizontal(|ui| {
             ui.label("attack");
             ui.add(DragValue::new(&mut attack).clamp_range(0.01..=1.0));
@@ -47,7 +43,6 @@ impl NodeConfig for AdsrConfig {
             ui.add(DragValue::new(&mut release).clamp_range(0.01..=1.0));
         });
 
-        self.trigger.store(trigger, Ordering::Release);
         self.attack.store(attack, Ordering::Release);
         self.decay.store(decay, Ordering::Release);
         self.sustain_ratio
@@ -67,6 +62,7 @@ enum AdsrState {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Adsr {
     config: Arc<AdsrConfig>,
+    trigger: Arc<TriggerInput>,
     state: AdsrState,
     prev_trig: f32,
     attack_start_gain: f32,
@@ -80,12 +76,12 @@ impl Adsr {
     pub fn new() -> Self {
         Adsr {
             config: Arc::new(AdsrConfig {
-                trigger: AtomicF32::new(0.5),
                 attack: AtomicF32::new(0.05),
                 decay: AtomicF32::new(0.05),
                 sustain_ratio: AtomicF32::new(0.7),
                 release: AtomicF32::new(0.5),
             }),
+            trigger: Arc::new(TriggerInput::new(0.5)),
             state: AdsrState::Release,
             prev_trig: 0.0,
             attack_start_gain: 0.0,
@@ -103,18 +99,18 @@ impl Node for Adsr {
         let trigger = data[0].unwrap_or(0.0);
         let sig = data[1].unwrap_or(0.0);
 
-        let conf_trigger = self.config.trigger.load(Ordering::Relaxed);
         let conf_attack = self.config.attack.load(Ordering::Relaxed);
         let conf_decay = self.config.decay.load(Ordering::Relaxed);
         let conf_sustain_r = self.config.sustain_ratio.load(Ordering::Relaxed);
         let conf_release = self.config.release.load(Ordering::Relaxed);
 
-        if self.prev_trig < conf_trigger && trigger > conf_trigger {
+        if self.trigger.value(Some(trigger)) > 0.5 {
             self.state = AdsrState::Attack;
             self.attack_start_gain = self.gain;
             self.cnt = 0;
         }
-        if trigger < conf_trigger && self.state != AdsrState::Release {
+
+        if trigger < self.trigger.level() && self.state != AdsrState::Release {
             self.state = AdsrState::Release;
             self.release_start_gain = self.gain;
             self.cnt = 0;
@@ -172,7 +168,10 @@ impl Node for Adsr {
     }
 
     fn inputs(&self) -> Vec<Input> {
-        vec![Input::new("trigger"), Input::new("signal")]
+        vec![
+            Input::with_default("trigger", &self.trigger),
+            Input::new("signal"),
+        ]
     }
 }
 
