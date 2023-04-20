@@ -60,8 +60,8 @@ pub struct NoiseGen {
 #[typetag::serde]
 impl Node for NoiseGen {
     fn feed(&mut self, data: &[Option<f32>]) -> Vec<NodeEvent> {
-        let min = data[0].unwrap_or(self.min.value());
-        let max = data[1].unwrap_or(self.max.value());
+        let min = self.min.value(data[0]);
+        let max = self.max.value(data[1]);
         let ty = self.config.ty.read().unwrap().clone();
 
         let m1_to_p1 = match ty {

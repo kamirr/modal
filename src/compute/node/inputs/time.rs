@@ -61,7 +61,7 @@ impl InputUi for TimeInput {
         self.samples.store(samples, Ordering::Release);
     }
 
-    fn value(&self) -> f32 {
-        self.samples.load(Ordering::Relaxed) as f32
+    fn value(&self, recv: Option<f32>) -> f32 {
+        recv.unwrap_or(self.samples.load(Ordering::Relaxed) as f32)
     }
 }

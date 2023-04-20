@@ -27,7 +27,7 @@ impl InputUi for FreqInput {
         self.f.store(f, Ordering::Release);
     }
 
-    fn value(&self) -> f32 {
-        self.f.load(Ordering::Relaxed)
+    fn value(&self, recv: Option<f32>) -> f32 {
+        recv.unwrap_or(self.f.load(Ordering::Relaxed))
     }
 }

@@ -64,7 +64,7 @@ impl Node for Add {
         self.out = data
             .iter()
             .zip(self.defaults.iter())
-            .map(|(sample, default)| sample.unwrap_or(default.value()))
+            .map(|(sample, default)| default.value(*sample))
             .sum();
 
         let new_ins = self.config.ins.load(Ordering::Relaxed);

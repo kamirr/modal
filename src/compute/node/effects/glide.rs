@@ -86,18 +86,12 @@ impl Node for Glide {
 
         self.out = match self.ty {
             GlideType::Lerp => {
-                let lerp_r_exp = data
-                    .get(1)
-                    .unwrap_or(&None)
-                    .unwrap_or(self.lerp_coeff.value());
+                let lerp_r_exp = self.lerp_coeff.value(*data.get(1).unwrap_or(&None));
                 let lerp_r = 10f32.powf(lerp_r_exp);
                 self.out * (1.0 - lerp_r) + next * lerp_r
             }
             GlideType::Exponential => {
-                let rate_coeff = data
-                    .get(1)
-                    .unwrap_or(&None)
-                    .unwrap_or(self.rate_limit.value());
+                let rate_coeff = self.rate_limit.value(*data.get(1).unwrap_or(&None));
                 let rate = rate_coeff * self.out / 44100.0;
 
                 if rate.abs() > (self.out - next).abs() {
@@ -111,9 +105,9 @@ impl Node for Glide {
                 }
             }
             GlideType::Pid => {
-                let p = data.get(1).unwrap_or(&None).unwrap_or(self.pid[0].value());
-                let i = data.get(2).unwrap_or(&None).unwrap_or(self.pid[1].value());
-                let d = data.get(3).unwrap_or(&None).unwrap_or(self.pid[2].value());
+                let p = self.pid[0].value(*data.get(1).unwrap_or(&None));
+                let i = self.pid[1].value(*data.get(2).unwrap_or(&None));
+                let d = self.pid[2].value(*data.get(3).unwrap_or(&None));
                 let lim = 44100.0 * 10.0;
 
                 self.pid_ctrl.output_limit = 44100.0;

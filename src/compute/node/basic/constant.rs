@@ -13,7 +13,7 @@ pub struct Constant {
 #[typetag::serde]
 impl Node for Constant {
     fn feed(&mut self, data: &[Option<f32>]) -> Vec<NodeEvent> {
-        self.out = data[0].unwrap_or(self.value.value());
+        self.out = self.value.value(data[0]);
 
         Default::default()
     }

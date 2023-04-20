@@ -17,7 +17,7 @@ pub trait NodeConfig {
 pub trait InputUi: Send + Sync {
     fn show_always(&self, _ui: &mut egui::Ui) {}
     fn show_disconnected(&self, _ui: &mut egui::Ui) {}
-    fn value(&self) -> f32;
+    fn value(&self, recv: Option<f32>) -> f32;
 }
 
 pub struct Input {

@@ -118,11 +118,11 @@ impl Biquad {
         let ty = self.config.filt_ty.load(Ordering::Relaxed);
         let param_ty = self.config.param_ty.load(Ordering::Relaxed);
 
-        let f0 = f0.unwrap_or(self.f0.value());
-        let param = param.unwrap_or(match param_ty {
-            ParamTy::Q => self.q.value(),
-            ParamTy::Bw => self.bw.value(),
-        });
+        let f0 = self.f0.value(f0);
+        let param = match param_ty {
+            ParamTy::Q => self.q.value(param),
+            ParamTy::Bw => self.bw.value(param),
+        };
 
         let w0 = 2.0 * PI * (f0 as f32) / 44100.0;
         let w0sin = w0.sin();

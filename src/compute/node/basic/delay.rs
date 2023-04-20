@@ -24,7 +24,7 @@ impl Delay {
 #[typetag::serde]
 impl Node for Delay {
     fn feed(&mut self, data: &[Option<f32>]) -> Vec<NodeEvent> {
-        let target_len = data[1].unwrap_or(self.time_in.value()) as usize;
+        let target_len = self.time_in.value(data[1]) as usize;
         while target_len > self.data.len() {
             self.data.push_back(0.0);
         }

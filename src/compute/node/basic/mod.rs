@@ -5,6 +5,7 @@ pub mod delay;
 pub mod gain;
 pub mod mix;
 pub mod oscillator;
+pub mod pulse;
 
 use super::{Node, NodeList};
 
@@ -20,6 +21,7 @@ impl NodeList for Basic {
             (gain::gain(), "Gain".into()),
             (mix::mix(), "Mix".into()),
             (oscillator::oscillator(), "Oscillator".into()),
+            (pulse::pulse(), "Pulse".into()),
         ]
     }
 }

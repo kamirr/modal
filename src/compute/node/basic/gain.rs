@@ -14,7 +14,7 @@ struct Gain {
 impl Node for Gain {
     fn feed(&mut self, data: &[Option<f32>]) -> Vec<NodeEvent> {
         let s0 = data[0].unwrap_or(0.0);
-        let s1 = data[1].unwrap_or(self.s1.value());
+        let s1 = self.s1.value(data[1]);
 
         self.out = s0 * s1;
 

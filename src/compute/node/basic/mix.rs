@@ -24,7 +24,7 @@ impl Node for Mix {
     fn feed(&mut self, data: &[Option<f32>]) -> Vec<NodeEvent> {
         let sig0 = data[0].unwrap_or(0.0);
         let sig1 = data[1].unwrap_or(0.0);
-        let ratio = data[2].unwrap_or(self.ratio.value());
+        let ratio = self.ratio.value(data[2]);
 
         self.out = sig0 * ratio + sig1 * (1.0 - ratio);
 

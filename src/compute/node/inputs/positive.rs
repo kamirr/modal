@@ -45,7 +45,7 @@ impl InputUi for PositiveInput {
         self.s.store(s, Ordering::Release);
     }
 
-    fn value(&self) -> f32 {
-        self.s.load(Ordering::Relaxed)
+    fn value(&self, recv: Option<f32>) -> f32 {
+        recv.unwrap_or(self.s.load(Ordering::Relaxed))
     }
 }

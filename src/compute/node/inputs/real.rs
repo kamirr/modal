@@ -1,21 +1,19 @@
 use atomic_float::AtomicF32;
 use eframe::egui::DragValue;
 use serde::{Deserialize, Serialize};
-use std::{ops::RangeInclusive, sync::atomic::Ordering};
+use std::sync::atomic::Ordering;
 
 use crate::compute::node::InputUi;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct RealInput {
     s: AtomicF32,
-    clamp: RangeInclusive<f32>,
 }
 
 impl RealInput {
     pub fn new(f: f32) -> Self {
         RealInput {
             s: AtomicF32::new(f),
-            clamp: -999999.0..=999999.0,
         }
     }
 }
@@ -27,7 +25,7 @@ impl InputUi for RealInput {
 
         ui.add(
             DragValue::new(&mut s)
-                .clamp_range(self.clamp.clone())
+                .clamp_range(-999999.0..=999999.0)
                 .fixed_decimals(if s_old.abs() < 1.0 {
                     2
                 } else if s_old.abs() < 10.0 {
@@ -47,7 +45,7 @@ impl InputUi for RealInput {
         self.s.store(s, Ordering::Release);
     }
 
-    fn value(&self) -> f32 {
-        self.s.load(Ordering::Relaxed)
+    fn value(&self, recv: Option<f32>) -> f32 {
+        recv.unwrap_or(self.s.load(Ordering::Relaxed))
     }
 }
