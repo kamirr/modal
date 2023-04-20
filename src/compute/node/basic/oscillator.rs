@@ -23,6 +23,7 @@ use crate::{
 #[derive(PartialEq, Eq, Serialize)]
 enum OscType {
     Sine = 0,
+    Triangle,
     Square,
     Saw,
 }
@@ -44,6 +45,7 @@ impl NodeConfig for OscillatorConfig {
             .selected_text(format!("{ty:?}"))
             .show_ui(ui, |ui| {
                 ui.selectable_value(&mut ty, OscType::Sine, "Sine");
+                ui.selectable_value(&mut ty, OscType::Triangle, "Triangle");
                 ui.selectable_value(&mut ty, OscType::Square, "Square");
                 ui.selectable_value(&mut ty, OscType::Saw, "Saw");
             });
@@ -89,6 +91,7 @@ impl Node for Oscillator {
 
         let m1_to_p1 = match self.config.ty.load(Ordering::Relaxed) {
             OscType::Sine => (self.t * 2.0 * PI).sin(),
+            OscType::Triangle => 4.0 * (self.t - (self.t + 0.5).floor()).abs() - 1.0,
             OscType::Square => {
                 if (self.t * 2.0 * PI).sin() > 0.0 {
                     1.0
