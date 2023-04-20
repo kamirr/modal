@@ -7,10 +7,7 @@ use atomic_float::AtomicF32;
 use eframe::egui::DragValue;
 use serde::{Deserialize, Serialize};
 
-use crate::compute::node::{
-    inputs::trigger::{TriggerInput, TriggerMode},
-    Input, InputUi, Node, NodeConfig, NodeEvent,
-};
+use crate::compute::node::{inputs::gate::GateInput, Input, InputUi, Node, NodeConfig, NodeEvent};
 
 #[derive(Debug, Serialize, Deserialize)]
 struct AdsrConfig {
@@ -63,7 +60,7 @@ enum AdsrState {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Adsr {
     config: Arc<AdsrConfig>,
-    trigger: Arc<TriggerInput>,
+    gate: Arc<GateInput>,
     state: AdsrState,
     prev_trig: f32,
     attack_start_gain: f32,
@@ -82,7 +79,7 @@ impl Adsr {
                 sustain_ratio: AtomicF32::new(0.7),
                 release: AtomicF32::new(0.5),
             }),
-            trigger: Arc::new(TriggerInput::new(TriggerMode::Up, 0.5)),
+            gate: Arc::new(GateInput::new(0.5)),
             state: AdsrState::Release,
             prev_trig: 0.0,
             attack_start_gain: 0.0,
@@ -97,7 +94,7 @@ impl Adsr {
 #[typetag::serde]
 impl Node for Adsr {
     fn feed(&mut self, data: &[Option<f32>]) -> Vec<NodeEvent> {
-        let trigger = data[0].unwrap_or(0.0);
+        let gate = data[0].unwrap_or(0.0);
         let sig = data[1].unwrap_or(0.0);
 
         let conf_attack = self.config.attack.load(Ordering::Relaxed);
@@ -105,13 +102,12 @@ impl Node for Adsr {
         let conf_sustain_r = self.config.sustain_ratio.load(Ordering::Relaxed);
         let conf_release = self.config.release.load(Ordering::Relaxed);
 
-        if self.trigger.value(Some(trigger)) > 0.5 {
+        let _: f32 = self.gate.value(Some(gate));
+        if self.gate.positive_edge() {
             self.state = AdsrState::Attack;
             self.attack_start_gain = self.gain;
             self.cnt = 0;
-        }
-
-        if trigger < self.trigger.level() && self.state != AdsrState::Release {
+        } else if self.gate.negative_edge() {
             self.state = AdsrState::Release;
             self.release_start_gain = self.gain;
             self.cnt = 0;
@@ -154,7 +150,7 @@ impl Node for Adsr {
 
         self.out = self.gain * sig;
 
-        self.prev_trig = trigger;
+        self.prev_trig = gate;
         self.cnt += 1;
 
         Default::default()
@@ -170,7 +166,7 @@ impl Node for Adsr {
 
     fn inputs(&self) -> Vec<Input> {
         vec![
-            Input::with_default("trigger", &self.trigger),
+            Input::with_default("gate", &self.gate),
             Input::new("signal"),
         ]
     }

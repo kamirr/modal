@@ -1,4 +1,5 @@
 pub mod freq;
+pub mod gate;
 pub mod positive;
 pub mod real;
 pub mod slider;

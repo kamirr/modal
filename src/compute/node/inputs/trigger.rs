@@ -32,10 +32,6 @@ impl TriggerInput {
             prev: AtomicF32::new(0.0),
         }
     }
-
-    pub fn level(&self) -> f32 {
-        self.level.value(None)
-    }
 }
 
 impl InputUi for TriggerInput {
