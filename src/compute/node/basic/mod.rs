@@ -1,5 +1,6 @@
 pub mod add;
 pub mod adsr;
+pub mod any;
 pub mod constant;
 pub mod convert;
 pub mod delay;
@@ -17,6 +18,7 @@ impl NodeList for Basic {
         vec![
             (add::add(), "Add".into()),
             (adsr::adsr(), "Adsr".into()),
+            (any::any(), "Any".into()),
             (constant::constant(), "Constant".into()),
             (convert::convert(), "Convert".into()),
             (delay::delay(), "Delay".into()),
