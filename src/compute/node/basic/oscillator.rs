@@ -8,7 +8,7 @@ use std::{
 };
 
 use atomic_enum::atomic_enum;
-use eframe::egui::ComboBox;
+use eframe::egui;
 use serde::{Deserialize, Serialize};
 
 use crate::{
@@ -41,7 +41,7 @@ impl NodeConfig for OscillatorConfig {
         let mut ty = self.ty.load(Ordering::Acquire);
         let mut manual_range = self.manual_range.load(Ordering::Acquire);
 
-        ComboBox::from_label("")
+        egui::ComboBox::from_label("")
             .selected_text(format!("{ty:?}"))
             .show_ui(ui, |ui| {
                 ui.selectable_value(&mut ty, OscType::Sine, "Sine");
