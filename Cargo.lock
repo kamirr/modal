@@ -1561,6 +1561,7 @@ dependencies = [
  "midly",
  "num-derive",
  "num-traits",
+ "pid",
  "rand",
  "rand_distr",
  "rfd",
@@ -1930,6 +1931,15 @@ name = "percent-encoding"
 version = "2.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "478c572c3d73181ff3c2539045f6eb99e5491218eae919370993b890cdbdd98e"
+
+[[package]]
+name = "pid"
+version = "4.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d7c931ef9756cd5e3fa3d395bfe09df4dfa6f0612c6ca8f6b12927d17ca34e36"
+dependencies = [
+ "num-traits",
+]
 
 [[package]]
 name = "pin-project-lite"

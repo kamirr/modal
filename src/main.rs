@@ -84,6 +84,7 @@ impl SynthApp {
                 user_state,
                 all_nodes: graph::AllSynthNodeTemplates::new(vec![
                     Box::new(Basic),
+                    Box::new(Effects),
                     Box::new(Filters),
                     Box::new(Midi),
                     Box::new(Noise),
@@ -96,6 +97,7 @@ impl SynthApp {
                 user_state: Default::default(),
                 all_nodes: graph::AllSynthNodeTemplates::new(vec![
                     Box::new(Basic),
+                    Box::new(Effects),
                     Box::new(Filters),
                     Box::new(Midi),
                     Box::new(Noise),

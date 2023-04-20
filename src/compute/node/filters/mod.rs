@@ -2,6 +2,8 @@ use atomic_enum::atomic_enum;
 use eframe::egui::ComboBox;
 use serde::{Deserialize, Serialize};
 
+use crate::serde_atomic_enum;
+
 use super::{
     inputs::{freq::FreqInput, positive::PositiveInput},
     Input, InputUi, Node, NodeConfig, NodeEvent, NodeList,
@@ -9,10 +11,7 @@ use super::{
 use std::{
     any::Any,
     f32::consts::PI,
-    sync::{
-        atomic::{AtomicUsize, Ordering},
-        Arc,
-    },
+    sync::{atomic::Ordering, Arc},
 };
 
 #[atomic_enum]
@@ -25,23 +24,7 @@ enum BiquadTy {
     Notch,
 }
 
-impl Serialize for AtomicBiquadTy {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: serde::Serializer,
-    {
-        self.0.serialize(serializer)
-    }
-}
-
-impl<'de> Deserialize<'de> for AtomicBiquadTy {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: serde::Deserializer<'de>,
-    {
-        AtomicUsize::deserialize(deserializer).map(|inner| AtomicBiquadTy(inner))
-    }
-}
+serde_atomic_enum!(AtomicBiquadTy);
 
 #[atomic_enum]
 #[derive(PartialEq, Serialize, Deserialize)]
@@ -50,23 +33,7 @@ enum ParamTy {
     Bw,
 }
 
-impl Serialize for AtomicParamTy {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: serde::Serializer,
-    {
-        self.0.serialize(serializer)
-    }
-}
-
-impl<'de> Deserialize<'de> for AtomicParamTy {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: serde::Deserializer<'de>,
-    {
-        AtomicUsize::deserialize(deserializer).map(|inner| AtomicParamTy(inner))
-    }
-}
+serde_atomic_enum!(AtomicParamTy);
 
 #[derive(Debug, Serialize, Deserialize)]
 struct BiquadConfig {

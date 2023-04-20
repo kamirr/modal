@@ -82,3 +82,86 @@ pub mod serde_smf {
             .make_static())
     }
 }
+
+pub mod serde_pid {
+    use num_traits::float::FloatCore;
+    use serde::{Deserialize, Deserializer, Serialize, Serializer};
+
+    #[derive(Serialize, Deserialize)]
+    struct Pid {
+        setpoint: f32,
+        output_limit: f32,
+        kp: f32,
+        ki: f32,
+        kd: f32,
+        p_limit: f32,
+        i_limit: f32,
+        d_limit: f32,
+    }
+
+    impl Pid {
+        fn as_pid(&self) -> pid::Pid<f32> {
+            let mut pid = pid::Pid::new(self.setpoint, self.output_limit);
+            pid.p(self.kp, self.p_limit)
+                .i(self.ki, self.i_limit)
+                .d(self.kd, self.d_limit);
+
+            pid
+        }
+    }
+
+    impl<'a, T: Into<f32> + FloatCore> From<&'a pid::Pid<T>> for Pid {
+        fn from(pid: &'a pid::Pid<T>) -> Self {
+            Pid {
+                setpoint: pid.setpoint.into(),
+                output_limit: pid.output_limit.into(),
+                kp: pid.kp.into(),
+                ki: pid.ki.into(),
+                kd: pid.kd.into(),
+                p_limit: pid.p_limit.into(),
+                i_limit: pid.i_limit.into(),
+                d_limit: pid.d_limit.into(),
+            }
+        }
+    }
+
+    pub fn serialize<T: FloatCore + Into<f32>, S>(
+        val: &pid::Pid<T>,
+        s: S,
+    ) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        Pid::from(val).serialize(s)
+    }
+
+    pub fn deserialize<'de, D>(d: D) -> Result<pid::Pid<f32>, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        Pid::deserialize(d).map(|pid_deser| pid_deser.as_pid())
+    }
+}
+
+#[macro_export]
+macro_rules! serde_atomic_enum {
+    ($ty:ident) => {
+        impl ::serde::Serialize for $ty {
+            fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+            where
+                S: ::serde::Serializer,
+            {
+                self.0.serialize(serializer)
+            }
+        }
+
+        impl<'de> serde::Deserialize<'de> for $ty {
+            fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+            where
+                D: ::serde::Deserializer<'de>,
+            {
+                ::std::sync::atomic::AtomicUsize::deserialize(deserializer).map(|inner| $ty(inner))
+            }
+        }
+    };
+}

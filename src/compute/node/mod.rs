@@ -4,6 +4,7 @@ use std::{any::Any, fmt::Debug, sync::Arc};
 use dyn_clone::DynClone;
 
 pub mod basic;
+pub mod effects;
 pub mod filters;
 pub mod inputs;
 pub mod midi;
@@ -83,6 +84,7 @@ pub trait NodeList {
 
 pub mod all {
     pub use super::basic::*;
+    pub use super::effects::*;
     pub use super::filters::*;
     pub use super::midi::*;
     pub use super::noise::*;

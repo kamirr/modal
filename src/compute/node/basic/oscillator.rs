@@ -2,7 +2,7 @@ use std::{
     any::Any,
     f32::consts::PI,
     sync::{
-        atomic::{AtomicBool, AtomicUsize, Ordering},
+        atomic::{AtomicBool, Ordering},
         Arc,
     },
 };
@@ -11,9 +11,12 @@ use atomic_enum::atomic_enum;
 use eframe::egui::ComboBox;
 use serde::{Deserialize, Serialize};
 
-use crate::compute::node::{
-    inputs::{freq::FreqInput, real::RealInput},
-    Input, InputUi, Node, NodeConfig, NodeEvent,
+use crate::{
+    compute::node::{
+        inputs::{freq::FreqInput, real::RealInput},
+        Input, InputUi, Node, NodeConfig, NodeEvent,
+    },
+    serde_atomic_enum,
 };
 
 #[atomic_enum]
@@ -24,23 +27,7 @@ enum OscType {
     Saw,
 }
 
-impl Serialize for AtomicOscType {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: serde::Serializer,
-    {
-        self.0.serialize(serializer)
-    }
-}
-
-impl<'de> Deserialize<'de> for AtomicOscType {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: serde::Deserializer<'de>,
-    {
-        AtomicUsize::deserialize(deserializer).map(|inner| AtomicOscType(inner))
-    }
-}
+serde_atomic_enum!(AtomicOscType);
 
 #[derive(Debug, Serialize, Deserialize)]
 struct OscillatorConfig {
