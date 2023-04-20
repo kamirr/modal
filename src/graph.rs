@@ -132,13 +132,27 @@ impl WidgetValueTrait for SynthValueType {
         _node_data: &Self::NodeData,
     ) -> Vec<Self::Response> {
         let ui_inputs = user_state.node_ui_inputs.get(&node_id).unwrap();
-        ui.horizontal(|ui| {
-            ui.label(param_name);
-            if let Some(input) = ui_inputs.get(param_name) {
-                input.show(ui);
-            }
-        });
-        //if node_data
+        if let Some(input) = ui_inputs.get(param_name) {
+            input.show_disconnected(ui);
+        }
+
+        Default::default()
+    }
+
+    fn value_widget_always(
+        &mut self,
+        param_name: &str,
+        node_id: NodeId,
+        ui: &mut egui::Ui,
+        user_state: &mut Self::UserState,
+        _node_data: &Self::NodeData,
+    ) -> Vec<Self::Response> {
+        ui.label(param_name);
+
+        let ui_inputs = user_state.node_ui_inputs.get(&node_id).unwrap();
+        if let Some(input) = ui_inputs.get(param_name) {
+            input.show_always(ui);
+        }
 
         Default::default()
     }

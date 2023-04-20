@@ -30,3 +30,4 @@ typetag = "0.2.7"
 [patch.crates-io]
 eframe = { path = "../egui/crates/eframe" }
 egui = { path = "../egui/crates/egui" }
+egui_node_graph = { path = "../egui_node_graph/egui_node_graph" }

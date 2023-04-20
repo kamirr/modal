@@ -23,7 +23,7 @@ impl SliderInput {
 }
 
 impl InputUi for SliderInput {
-    fn show(&self, ui: &mut eframe::egui::Ui) {
+    fn show_disconnected(&self, ui: &mut eframe::egui::Ui) {
         let mut s = self.s.load(Ordering::Acquire);
 
         ui.add(egui::Slider::new(&mut s, self.min..=self.max));

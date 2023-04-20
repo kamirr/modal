@@ -775,8 +775,6 @@ dependencies = [
 [[package]]
 name = "egui_node_graph"
 version = "0.4.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d0759e8cf3b27a5787137636e26d8b59c4ec9842e13ff15616c5b776c2559a71"
 dependencies = [
  "egui",
  "serde",
