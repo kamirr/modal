@@ -8,7 +8,8 @@ use eframe::egui::DragValue;
 use serde::{Deserialize, Serialize};
 
 use crate::compute::node::{
-    inputs::trigger::TriggerInput, Input, InputUi, Node, NodeConfig, NodeEvent,
+    inputs::trigger::{TriggerInput, TriggerMode},
+    Input, InputUi, Node, NodeConfig, NodeEvent,
 };
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -81,7 +82,7 @@ impl Adsr {
                 sustain_ratio: AtomicF32::new(0.7),
                 release: AtomicF32::new(0.5),
             }),
-            trigger: Arc::new(TriggerInput::new(0.5)),
+            trigger: Arc::new(TriggerInput::new(TriggerMode::Up, 0.5)),
             state: AdsrState::Release,
             prev_trig: 0.0,
             attack_start_gain: 0.0,

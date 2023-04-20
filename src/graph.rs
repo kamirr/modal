@@ -151,7 +151,9 @@ impl WidgetValueTrait for SynthValueType {
 
         let ui_inputs = user_state.node_ui_inputs.get(&node_id).unwrap();
         if let Some(input) = ui_inputs.get(param_name) {
-            input.show_always(ui);
+            ui.push_id(param_name, |ui| {
+                input.show_always(ui);
+            });
         }
 
         Default::default()

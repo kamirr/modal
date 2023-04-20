@@ -3,7 +3,10 @@ use std::sync::Arc;
 use serde::{Deserialize, Serialize};
 
 use crate::compute::node::{
-    inputs::{time::TimeInput, trigger::TriggerInput},
+    inputs::{
+        time::TimeInput,
+        trigger::{TriggerInput, TriggerMode},
+    },
     Input, InputUi, Node, NodeEvent,
 };
 
@@ -41,7 +44,7 @@ pub struct Pulse {
 impl Pulse {
     fn new(trigger_level: f32) -> Self {
         Pulse {
-            trigger: Arc::new(TriggerInput::new(trigger_level)),
+            trigger: Arc::new(TriggerInput::new(TriggerMode::Up, trigger_level)),
             time: Arc::new(TimeInput::new(4410)),
             state: PulseState::Idle,
             out: 0.0,
