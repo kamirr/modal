@@ -6,7 +6,7 @@ use thunderdome::{Arena, Index};
 
 use self::node::NodeEvent;
 
-#[derive(Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize)]
 struct Entry {
     #[serde(with = "vec_opt_idx")]
     inputs: Vec<Option<Index>>,
@@ -54,10 +54,10 @@ impl Entry {
     }
 }
 
-#[derive(Clone, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Runtime {
     #[serde(skip)]
-    values: Arena<f32>,
+    values: Vec<f32>,
     #[serde(with = "crate::util::serde_arena")]
     nodes: Arena<Entry>,
 }
@@ -65,7 +65,7 @@ pub struct Runtime {
 impl Runtime {
     pub fn new() -> Self {
         Runtime {
-            values: Arena::new(),
+            values: Vec::new(),
             nodes: Arena::new(),
         }
     }
@@ -99,14 +99,17 @@ impl Runtime {
         self.values.clear();
 
         for (idx, entry) in &self.nodes {
-            self.values.insert_at_slot(idx.slot(), entry.node.read());
+            while self.values.len() <= idx.slot() as usize {
+                self.values.push(0.0);
+            }
+            self.values[idx.slot() as usize] = entry.node.read();
         }
 
         for (idx, entry) in &mut self.nodes {
             buf.clear();
             for &mut input in &mut entry.inputs {
                 buf.push(match input {
-                    Some(in_index) => Some(*self.values.get_by_slot(in_index.slot()).unwrap().1),
+                    Some(in_index) => Some(self.values[in_index.slot() as usize]),
                     None => None,
                 });
             }
@@ -119,10 +122,7 @@ impl Runtime {
     }
 
     pub fn peek(&self, index: Index) -> f32 {
-        self.values
-            .get_by_slot(index.slot())
-            .map(|(_idx, val)| *val)
-            .unwrap_or(0.0)
+        *self.values.get(index.slot() as usize).unwrap_or(&0.0)
     }
 
     pub fn nodes(&self) -> impl Iterator<Item = (Index, &Box<dyn Node>)> {

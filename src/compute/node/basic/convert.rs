@@ -66,7 +66,7 @@ impl Convert {
 impl Node for Convert {
     fn feed(&mut self, data: &[Option<f32>]) -> Vec<NodeEvent> {
         self.out = match self.conf.convert_type() {
-            ConvTy::FreqToTime => 44100.0 / data[0].unwrap_or(0.0),
+            ConvTy::FreqToTime => data[0].map(|f| 44100.0 / f).unwrap_or(0.0),
         };
 
         Default::default()
