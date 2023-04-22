@@ -1,15 +1,14 @@
 use std::sync::atomic::Ordering;
 
 use atomic_float::AtomicF32;
-use eframe::egui;
 use serde::{Deserialize, Serialize};
 
-use crate::{compute::node::InputUi, serde_atomic_enum};
+use crate::{compute::node::InputUi, serde_atomic_enum, util::enum_combo_box};
 
 use super::real::RealInput;
 
 #[atomic_enum::atomic_enum]
-#[derive(PartialEq, Eq)]
+#[derive(PartialEq, Eq, derive_more::Display, strum::EnumIter)]
 pub enum TriggerMode {
     Up,
     Change,
@@ -37,12 +36,7 @@ impl TriggerInput {
 impl InputUi for TriggerInput {
     fn show_always(&self, ui: &mut eframe::egui::Ui) {
         let mut mode = self.mode.load(Ordering::Acquire);
-        egui::ComboBox::from_label("")
-            .selected_text(format!("{mode:?}"))
-            .show_ui(ui, |ui| {
-                ui.selectable_value(&mut mode, TriggerMode::Up, "Up");
-                ui.selectable_value(&mut mode, TriggerMode::Change, "Change");
-            });
+        enum_combo_box(ui, &mut mode);
 
         self.mode.store(mode, Ordering::Release);
 

@@ -165,3 +165,19 @@ macro_rules! serde_atomic_enum {
         }
     };
 }
+
+pub fn enum_combo_box<
+    E: strum::IntoEnumIterator + std::fmt::Display + PartialEq + std::any::Any,
+>(
+    ui: &mut eframe::egui::Ui,
+    e: &mut E,
+) {
+    eframe::egui::ComboBox::from_id_source(e.type_id())
+        .selected_text(format!("{e}"))
+        .show_ui(ui, |ui| {
+            for variant in E::iter() {
+                let name = format!("{variant}");
+                ui.selectable_value(e, variant, name);
+            }
+        });
+}

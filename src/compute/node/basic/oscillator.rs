@@ -8,7 +8,6 @@ use std::{
 };
 
 use atomic_enum::atomic_enum;
-use eframe::egui;
 use serde::{Deserialize, Serialize};
 
 use crate::{
@@ -17,10 +16,11 @@ use crate::{
         Input, InputUi, Node, NodeConfig, NodeEvent,
     },
     serde_atomic_enum,
+    util::enum_combo_box,
 };
 
 #[atomic_enum]
-#[derive(PartialEq, Eq, Serialize)]
+#[derive(PartialEq, Eq, Serialize, derive_more::Display, strum::EnumIter)]
 enum OscType {
     Sine = 0,
     Triangle,
@@ -41,14 +41,8 @@ impl NodeConfig for OscillatorConfig {
         let mut ty = self.ty.load(Ordering::Acquire);
         let mut manual_range = self.manual_range.load(Ordering::Acquire);
 
-        egui::ComboBox::from_label("")
-            .selected_text(format!("{ty:?}"))
-            .show_ui(ui, |ui| {
-                ui.selectable_value(&mut ty, OscType::Sine, "Sine");
-                ui.selectable_value(&mut ty, OscType::Triangle, "Triangle");
-                ui.selectable_value(&mut ty, OscType::Square, "Square");
-                ui.selectable_value(&mut ty, OscType::Saw, "Saw");
-            });
+        enum_combo_box(ui, &mut ty);
+
         ui.checkbox(&mut manual_range, "Manual range");
 
         self.ty.store(ty, Ordering::Release);

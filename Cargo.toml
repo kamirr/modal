@@ -8,6 +8,7 @@ atomic_enum = "0.2.0"
 atomic_float = { git = "https://github.com/kamirr/atomic_float", branch = "main", default-features = false, features = ["serde"] }
 anyhow = "1.0.70"
 bimap = "0.6.3"
+derive_more = "0.99.17"
 dyn-clone = "1.0.11"
 eframe = { version = "=0.19.0", features = ["persistence"] }
 egui_node_graph = { version = "0.4.0", features = ["persistence"] }
@@ -20,6 +21,7 @@ rand_distr = "0.4.3"
 rfd = "0.11.3"
 rodio = "0.17.1"
 rustfft = "6.1.0"
+strum = { version = "0.24.1", features = ["derive"] }
 thunderdome = "0.6.0"
 wav = "1.0.0"
 

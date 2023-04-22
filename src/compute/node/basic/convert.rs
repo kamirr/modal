@@ -1,16 +1,17 @@
 use std::sync::{atomic::Ordering, Arc};
 
-use eframe::egui;
 use serde::{Deserialize, Serialize};
 
 use crate::{
     compute::node::{Input, Node, NodeConfig, NodeEvent},
     serde_atomic_enum,
+    util::enum_combo_box,
 };
 
 #[atomic_enum::atomic_enum]
-#[derive(PartialEq, Eq)]
+#[derive(PartialEq, Eq, derive_more::Display, strum::EnumIter)]
 pub enum ConvTy {
+    #[display(fmt = "Freq to Time")]
     FreqToTime,
 }
 
@@ -37,11 +38,7 @@ impl NodeConfig for ConvertConfig {
     fn show(&self, ui: &mut eframe::egui::Ui, _data: &dyn std::any::Any) {
         let mut ty = self.ty.load(Ordering::Acquire);
 
-        egui::ComboBox::from_label("")
-            .selected_text(format!("{ty:?}"))
-            .show_ui(ui, |ui| {
-                ui.selectable_value(&mut ty, ConvTy::FreqToTime, "Freq to Time");
-            });
+        enum_combo_box(ui, &mut ty);
 
         self.ty.store(ty, Ordering::Release);
     }

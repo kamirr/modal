@@ -3,10 +3,10 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 use eframe::egui;
 use serde::{Deserialize, Serialize};
 
-use crate::{compute::node::InputUi, serde_atomic_enum};
+use crate::{compute::node::InputUi, serde_atomic_enum, util::enum_combo_box};
 
 #[atomic_enum::atomic_enum]
-#[derive(PartialEq, Eq)]
+#[derive(PartialEq, Eq, derive_more::Display, strum::EnumIter)]
 enum TimeUnit {
     Samples,
     Seconds,
@@ -33,12 +33,7 @@ impl InputUi for TimeInput {
     fn show_always(&self, ui: &mut egui::Ui) {
         let mut ty = self.in_ty.load(Ordering::Acquire);
 
-        egui::ComboBox::from_label("")
-            .selected_text(format!("{ty:?}"))
-            .show_ui(ui, |ui| {
-                ui.selectable_value(&mut ty, TimeUnit::Samples, "Samples");
-                ui.selectable_value(&mut ty, TimeUnit::Seconds, "Seconds");
-            });
+        enum_combo_box(ui, &mut ty);
 
         self.in_ty.store(ty, Ordering::Release);
     }

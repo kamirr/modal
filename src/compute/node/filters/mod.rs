@@ -1,8 +1,7 @@
 use atomic_enum::atomic_enum;
-use eframe::egui::ComboBox;
 use serde::{Deserialize, Serialize};
 
-use crate::serde_atomic_enum;
+use crate::{serde_atomic_enum, util::enum_combo_box};
 
 use super::{
     inputs::{freq::FreqInput, positive::PositiveInput},
@@ -15,7 +14,7 @@ use std::{
 };
 
 #[atomic_enum]
-#[derive(PartialEq)]
+#[derive(PartialEq, derive_more::Display, strum::EnumIter)]
 enum BiquadTy {
     Lpf,
     Hpf,
@@ -27,7 +26,7 @@ enum BiquadTy {
 serde_atomic_enum!(AtomicBiquadTy);
 
 #[atomic_enum]
-#[derive(PartialEq, Serialize, Deserialize)]
+#[derive(PartialEq, Serialize, Deserialize, derive_more::Display, strum::EnumIter)]
 enum ParamTy {
     Q,
     Bw,
@@ -55,21 +54,8 @@ impl NodeConfig for BiquadConfig {
         let mut filt_ty = self.filt_ty.load(Ordering::Acquire);
         let mut param_ty = self.param_ty.load(Ordering::Acquire);
 
-        ComboBox::from_id_source("foo")
-            .selected_text(format!("{filt_ty:?}"))
-            .show_ui(ui, |ui| {
-                ui.selectable_value(&mut filt_ty, BiquadTy::Lpf, "Lpf");
-                ui.selectable_value(&mut filt_ty, BiquadTy::Hpf, "Hpf");
-                ui.selectable_value(&mut filt_ty, BiquadTy::Bpf, "Bpf");
-                ui.selectable_value(&mut filt_ty, BiquadTy::Apf, "Apf");
-                ui.selectable_value(&mut filt_ty, BiquadTy::Notch, "Notch");
-            });
-        ComboBox::from_id_source("bar")
-            .selected_text(format!("{param_ty:?}"))
-            .show_ui(ui, |ui| {
-                ui.selectable_value(&mut param_ty, ParamTy::Q, "Q");
-                ui.selectable_value(&mut param_ty, ParamTy::Bw, "BW");
-            });
+        enum_combo_box(ui, &mut filt_ty);
+        enum_combo_box(ui, &mut param_ty);
 
         self.filt_ty.store(filt_ty, Ordering::Release);
         self.param_ty.store(param_ty, Ordering::Release);

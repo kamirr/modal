@@ -1,7 +1,6 @@
 use std::sync::{atomic::Ordering, Arc};
 
 use atomic_enum::atomic_enum;
-use eframe::egui;
 use serde::{Deserialize, Serialize};
 
 use crate::{
@@ -10,10 +9,11 @@ use crate::{
         Input, InputUi, Node, NodeConfig, NodeEvent,
     },
     serde_atomic_enum,
+    util::enum_combo_box,
 };
 
 #[atomic_enum]
-#[derive(PartialEq, Eq, Serialize, Deserialize)]
+#[derive(PartialEq, Eq, Serialize, Deserialize, derive_more::Display, strum::EnumIter)]
 enum GlideType {
     Lerp,
     Exponential,
@@ -31,13 +31,7 @@ impl NodeConfig for GlideConfig {
     fn show(&self, ui: &mut eframe::egui::Ui, _data: &dyn std::any::Any) {
         let mut ty = self.ty.load(Ordering::Acquire);
 
-        egui::ComboBox::from_label("")
-            .selected_text(format!("{ty:?}"))
-            .show_ui(ui, |ui| {
-                ui.selectable_value(&mut ty, GlideType::Lerp, "Lerp");
-                ui.selectable_value(&mut ty, GlideType::Exponential, "Exponential");
-                ui.selectable_value(&mut ty, GlideType::Pid, "Pid");
-            });
+        enum_combo_box(ui, &mut ty);
 
         self.ty.store(ty, Ordering::Release);
     }
