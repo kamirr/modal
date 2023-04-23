@@ -117,6 +117,9 @@ impl RuntimeRemote {
                     RtRequest::Remove(index) => {
                         rt.remove(index);
                         recording.remove(&index);
+                        if record == Some(index) {
+                            record = None;
+                        }
                     }
                     RtRequest::SetInput { src, dst, port } => {
                         rt.set_input(dst, port, src);

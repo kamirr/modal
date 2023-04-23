@@ -25,7 +25,7 @@ fn main() {
         ..Default::default()
     };
 
-    eframe::run_native("Modal", options, Box::new(|cc| Box::new(SynthApp::new(cc))));
+    eframe::run_native("Modal", options, Box::new(|cc| Box::new(SynthApp::new(cc)))).unwrap();
 }
 
 struct SynthApp {
