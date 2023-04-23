@@ -1,51 +1,50 @@
 use std::{
     any::Any,
-    sync::{Arc, RwLock},
+    sync::{atomic::Ordering, Arc},
 };
 
-use eframe::egui::{ComboBox, DragValue};
 use rand::Rng;
-use rand_distr::{Distribution, Normal};
 use serde::{Deserialize, Serialize};
 
-use super::{inputs::real::RealInput, Input, InputUi, Node, NodeConfig, NodeEvent, NodeList};
+use crate::{
+    serde_atomic_enum,
+    util::{enum_combo_box, perlin::Perlin1D},
+};
 
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+use super::{
+    inputs::{freq::FreqInput, real::RealInput},
+    Input, InputUi, Node, NodeConfig, NodeEvent, NodeList,
+};
+
+#[atomic_enum::atomic_enum]
+#[derive(Serialize, Deserialize, PartialEq, derive_more::Display, strum::EnumIter)]
 enum NoiseType {
     Uniform,
-    White { std_dev: f32 },
+    Perlin,
 }
+
+serde_atomic_enum!(AtomicNoiseType);
 
 impl Eq for NoiseType {}
 
 #[derive(Debug, Serialize, Deserialize)]
 struct NoiseGenConfig {
-    #[serde(with = "crate::util::serde_rwlock")]
-    ty: RwLock<NoiseType>,
+    ty: AtomicNoiseType,
+}
+
+impl NoiseGenConfig {
+    fn noise_type(&self) -> NoiseType {
+        self.ty.load(Ordering::Relaxed)
+    }
 }
 
 impl NodeConfig for NoiseGenConfig {
     fn show(&self, ui: &mut eframe::egui::Ui, _data: &dyn Any) {
-        let mut ty = self.ty.read().unwrap().clone();
-        let old_ty = ty.clone();
+        let mut ty = self.ty.load(Ordering::Acquire);
 
-        ComboBox::from_label("")
-            .selected_text(format!("{ty:?}"))
-            .show_ui(ui, |ui| {
-                ui.selectable_value(&mut ty, NoiseType::Uniform, "Uniform");
-                ui.selectable_value(&mut ty, NoiseType::White { std_dev: 0.1 }, "Normal");
-            });
+        enum_combo_box(ui, &mut ty);
 
-        if let NoiseType::White { std_dev } = &mut ty {
-            ui.horizontal(|ui| {
-                ui.label("σ");
-                ui.add(DragValue::new(std_dev).clamp_range(0.0..=1.0).speed(0.02));
-            });
-        }
-
-        if old_ty != ty {
-            *self.ty.write().unwrap() = ty;
-        }
+        self.ty.store(ty, Ordering::Release);
     }
 }
 
@@ -54,7 +53,11 @@ pub struct NoiseGen {
     config: Arc<NoiseGenConfig>,
     min: Arc<RealInput>,
     max: Arc<RealInput>,
+    frequency_input: Arc<FreqInput>,
+    ty: NoiseType,
+    perlin_noise: Perlin1D,
     out: f32,
+    t: u64,
 }
 
 #[typetag::serde]
@@ -62,13 +65,19 @@ impl Node for NoiseGen {
     fn feed(&mut self, data: &[Option<f32>]) -> Vec<NodeEvent> {
         let min = self.min.value(data[0]);
         let max = self.max.value(data[1]);
-        let ty = self.config.ty.read().unwrap().clone();
+        let ty = self.config.noise_type();
+
+        let emit = ty != self.ty;
+        self.ty = ty;
 
         let m1_to_p1 = match ty {
             NoiseType::Uniform => rand::thread_rng().gen_range(min..=max),
-            NoiseType::White { std_dev } => {
-                let normal = Normal::new(0.0, std_dev).unwrap();
-                normal.sample(&mut rand::thread_rng())
+            NoiseType::Perlin => {
+                let frequency = self.frequency_input.value(data.get(2).copied().flatten());
+                self.t += 1;
+                let perlin_arg = self.t as f32 / 44100.0 * frequency;
+
+                self.perlin_noise.noise(perlin_arg)
             }
         };
 
@@ -76,7 +85,11 @@ impl Node for NoiseGen {
 
         self.out = z_to_p1 * (max - min) + min;
 
-        Default::default()
+        if emit {
+            vec![NodeEvent::RecalcInputs(self.inputs())]
+        } else {
+            Default::default()
+        }
     }
 
     fn read(&self) -> f32 {
@@ -88,21 +101,32 @@ impl Node for NoiseGen {
     }
 
     fn inputs(&self) -> Vec<Input> {
-        vec![
+        let mut ins = vec![
             Input::with_default("min", &self.min),
             Input::with_default("max", &self.max),
-        ]
+        ];
+
+        match self.ty {
+            NoiseType::Perlin => ins.push(Input::with_default("f", &self.frequency_input)),
+            _ => {}
+        }
+
+        ins
     }
 }
 
 fn noise_gen() -> Box<dyn Node> {
     Box::new(NoiseGen {
         config: Arc::new(NoiseGenConfig {
-            ty: RwLock::new(NoiseType::Uniform),
+            ty: AtomicNoiseType::new(NoiseType::Uniform),
         }),
         min: Arc::new(RealInput::new(-1.0)),
         max: Arc::new(RealInput::new(1.0)),
+        frequency_input: Arc::new(FreqInput::new(440.0)),
+        ty: NoiseType::Uniform,
+        perlin_noise: Perlin1D::new(),
         out: 0.0,
+        t: 0,
     })
 }
 

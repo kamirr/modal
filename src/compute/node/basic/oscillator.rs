@@ -72,7 +72,7 @@ impl Node for Oscillator {
     fn feed(&mut self, data: &[Option<f32>]) -> Vec<NodeEvent> {
         let f = self.f.value(data[0]);
         let min = self.min.value(*data.get(1).unwrap_or(&Some(-1.0)));
-        let max = self.min.value(*data.get(2).unwrap_or(&Some(1.0)));
+        let max = self.max.value(*data.get(2).unwrap_or(&Some(1.0)));
 
         let step = f * Self::hz_to_dt();
         self.t = (self.t + step) % 4.0;

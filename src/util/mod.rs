@@ -1,3 +1,5 @@
+#![allow(dead_code)]
+
 pub mod serde_rwlock {
     use serde::de::Deserializer;
     use serde::ser::Serializer;
@@ -143,6 +145,32 @@ pub mod serde_pid {
     }
 }
 
+pub mod serde_perlin {
+    use noise::Seedable;
+    use serde::{Deserialize, Deserializer, Serialize, Serializer};
+
+    #[derive(Serialize, Deserialize)]
+    struct Perlin(u32);
+
+    pub fn serialize<'smf, S>(val: &noise::Perlin, s: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        let perlin = Perlin(val.seed());
+
+        perlin.serialize(s)
+    }
+
+    pub fn deserialize<'de, D>(d: D) -> Result<noise::Perlin, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let perlin = Perlin::deserialize(d)?;
+
+        Ok(noise::Perlin::new(perlin.0))
+    }
+}
+
 #[macro_export]
 macro_rules! serde_atomic_enum {
     ($ty:ident) => {
@@ -180,4 +208,47 @@ pub fn enum_combo_box<
                 ui.selectable_value(e, variant, name);
             }
         });
+}
+
+pub mod perlin {
+    use serde::{Deserialize, Serialize};
+
+    #[derive(Clone, Debug, Serialize, Deserialize)]
+    pub struct Perlin1D {
+        rand_noise: Vec<f32>,
+    }
+
+    impl Perlin1D {
+        pub fn new() -> Self {
+            Perlin1D {
+                rand_noise: (0..44100).map(|_| rand::random()).collect(),
+            }
+        }
+
+        fn fade(t: f32) -> f32 {
+            t * t * t * (t * (t * 6.0 - 15.0) + 10.0)
+        }
+
+        fn grad(&self, p: f32) -> f32 {
+            let v = self.rand_noise[p.floor() as usize % self.rand_noise.len()];
+            if v > 0.5 {
+                1.0
+            } else {
+                -1.0
+            }
+        }
+
+        pub fn noise(&self, p: f32) -> f32 {
+            let p0 = p.floor();
+            let p1 = p0 + 1.0;
+
+            let t = p - p0;
+            let fade_t = Self::fade(t);
+
+            let g0 = self.grad(p0);
+            let g1 = self.grad(p1);
+
+            (1.0 - fade_t) * g0 * (p - p0) + fade_t * g1 * (p - p1)
+        }
+    }
 }
