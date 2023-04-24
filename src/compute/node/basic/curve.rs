@@ -165,8 +165,8 @@ impl Node for Curve {
             self.t = 0;
         }
 
-        self.out = match self.status {
-            CurveStatus::Done => *self.config.values.read().unwrap().last().unwrap(),
+        let raw_out = match self.status {
+            CurveStatus::Done => self.config.values.read().unwrap()[0],
             CurveStatus::Playing => {
                 let values = self.config.values.read().unwrap();
                 let t = self.t as f32 / length;
@@ -179,12 +179,11 @@ impl Node for Curve {
                 let next = values[idx + 1];
                 let f = idx_f32 - idx as f32;
 
-                let raw_out = curr * (1.0 - f) + next * f;
-
-                (raw_out - 50.0) / 50.0 * (max - min) + min
+                curr * (1.0 - f) + next * f
             }
         };
 
+        self.out = raw_out / 100.0 * (max - min) + min;
         self.t += 1;
 
         Default::default()
