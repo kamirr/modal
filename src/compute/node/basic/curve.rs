@@ -12,7 +12,10 @@ use crate::compute::node::{
     },
     Input, InputUi, Node, NodeConfig, NodeEvent,
 };
-use eframe::{egui, epaint::Color32};
+use eframe::{
+    egui,
+    epaint::{Color32, Vec2},
+};
 use egui_curve_edit as egui_curve;
 use serde::{Deserialize, Serialize};
 
@@ -37,18 +40,47 @@ impl NodeConfig for CurveConfig {
     fn show(&self, ui: &mut eframe::egui::Ui, _data: &dyn std::any::Any) {
         let mut edit = self.edit.load(Ordering::Acquire);
 
-        if !edit {
-            if ui.button("Edit").clicked() {
-                edit = true;
-            }
-        } else {
-            let button = egui::Button::new(egui::RichText::new("Edit").color(Color32::BLACK))
-                .fill(Color32::GOLD);
+        egui::CollapsingHeader::new("Shape").show(ui, |ui| {
+            ui.vertical(|ui| {
+                let button = if edit {
+                    egui::Button::new(egui::RichText::new("Edit").color(Color32::BLACK))
+                        .fill(Color32::GOLD)
+                } else {
+                    egui::Button::new("Edit")
+                }
+                .min_size(Vec2::new(ui.available_width(), 0.0));
 
-            if ui.add(button).clicked() {
-                edit = false;
-            }
-        }
+                if ui.add(button).clicked() {
+                    edit = !edit;
+                }
+
+                let values = self.values.read().unwrap();
+                let xys: Vec<_> = values
+                    .iter()
+                    .enumerate()
+                    .map(|(i, y)| [i as f64 / (values.len() - 1) as f64, *y as f64])
+                    .collect();
+
+                let line = egui::plot::Line::new(xys);
+
+                egui::plot::Plot::new("plot")
+                    .show_x(false)
+                    .show_y(false)
+                    .allow_zoom(false)
+                    .allow_scroll(false)
+                    .allow_boxed_zoom(false)
+                    .allow_drag(false)
+                    .view_aspect(2.0)
+                    .show_axes([false, false])
+                    .include_x(0.0)
+                    .include_x(1.0)
+                    .include_y(0.0)
+                    .include_y(100.0)
+                    .show(ui, |ui| {
+                        ui.line(line);
+                    });
+            });
+        });
 
         if edit {
             let mut curve = self.curve.write().unwrap();
