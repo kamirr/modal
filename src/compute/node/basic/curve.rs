@@ -1,0 +1,179 @@
+use std::sync::{
+    atomic::{AtomicBool, Ordering},
+    Arc, RwLock,
+};
+
+use crate::compute::node::{
+    inputs::{
+        gate::GateInput,
+        real::RealInput,
+        time::TimeInput,
+        trigger::{TriggerInput, TriggerMode},
+    },
+    Input, InputUi, Node, NodeConfig, NodeEvent,
+};
+use eframe::{egui, epaint::Color32};
+use egui_curve_edit as egui_curve;
+use serde::{Deserialize, Serialize};
+
+#[derive(Debug, Serialize, Deserialize)]
+struct CurveConfig {
+    curve: RwLock<egui_curve::Curve>,
+    values: RwLock<Vec<f32>>,
+    edit: AtomicBool,
+}
+
+impl CurveConfig {
+    fn new() -> Self {
+        CurveConfig {
+            curve: RwLock::new(egui_curve::Curve::new([0.0, 50.0], [100.0, 50.0])),
+            values: RwLock::new(vec![0.0, 0.0, 0.0]),
+            edit: AtomicBool::new(false),
+        }
+    }
+}
+
+impl NodeConfig for CurveConfig {
+    fn show(&self, ui: &mut eframe::egui::Ui, _data: &dyn std::any::Any) {
+        let mut edit = self.edit.load(Ordering::Acquire);
+
+        if !edit {
+            if ui.button("Edit").clicked() {
+                edit = true;
+            }
+        } else {
+            let button = egui::Button::new(egui::RichText::new("Edit").color(Color32::BLACK))
+                .fill(Color32::GOLD);
+
+            if ui.add(button).clicked() {
+                edit = false;
+            }
+        }
+
+        if edit {
+            let mut curve = self.curve.write().unwrap();
+
+            egui::Window::new("Curve").show(ui.ctx(), |ui| {
+                ui.add(egui_curve::CurveEdit::new(&mut *curve, 0.0..=100.0));
+            });
+
+            *self.values.write().unwrap() = curve.sample_along_x(256, 0.0..=100.0);
+        }
+
+        self.edit.store(edit, Ordering::Release);
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+enum CurveStatus {
+    Playing,
+    Done,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Curve {
+    config: Arc<CurveConfig>,
+
+    trigger: Arc<TriggerInput>,
+    length: Arc<TimeInput>,
+    min: Arc<RealInput>,
+    max: Arc<RealInput>,
+    repeat: Arc<GateInput>,
+    resettable: Arc<GateInput>,
+
+    status: CurveStatus,
+    t: usize,
+    out: f32,
+}
+
+impl Curve {
+    pub fn new() -> Self {
+        Curve {
+            config: Arc::new(CurveConfig::new()),
+
+            trigger: Arc::new(TriggerInput::new(TriggerMode::Up, 0.5)),
+            length: Arc::new(TimeInput::new(44100)),
+            min: Arc::new(RealInput::new(-1.0)),
+            max: Arc::new(RealInput::new(1.0)),
+            repeat: Arc::new(GateInput::new(0.5)),
+            resettable: Arc::new(GateInput::new(0.5)),
+
+            status: CurveStatus::Done,
+            t: 0,
+            out: 0.0,
+        }
+    }
+}
+
+#[typetag::serde]
+impl Node for Curve {
+    fn feed(&mut self, data: &[Option<f32>]) -> Vec<NodeEvent> {
+        let trigger = self.trigger.value(data[0]);
+        let length = self.length.value(data[1]);
+        let min = self.min.value(data[2]);
+        let max = self.max.value(data[3]);
+        let repeat = self.repeat.value(data[4]);
+        let resettable = self.resettable.value(data[5]);
+
+        if trigger > 0.5 && (self.status == CurveStatus::Done || resettable > 0.5) {
+            self.status = CurveStatus::Playing;
+            self.t = 0;
+        }
+
+        if self.t > length as usize {
+            self.status = CurveStatus::Done;
+        }
+
+        if self.status == CurveStatus::Done && repeat > 0.5 {
+            self.status = CurveStatus::Playing;
+            self.t = 0;
+        }
+
+        self.out = match self.status {
+            CurveStatus::Done => *self.config.values.read().unwrap().last().unwrap(),
+            CurveStatus::Playing => {
+                let values = self.config.values.read().unwrap();
+                let t = self.t as f32 / length;
+
+                let idx_f32 = t * values.len() as f32;
+                let idx = idx_f32 as usize;
+                let idx = idx.clamp(0, values.len() - 2);
+
+                let curr = values[idx];
+                let next = values[idx + 1];
+                let f = idx_f32 - idx as f32;
+
+                let raw_out = curr * (1.0 - f) + next * f;
+
+                (raw_out - 50.0) / 50.0 * (max - min) + min
+            }
+        };
+
+        self.t += 1;
+
+        Default::default()
+    }
+
+    fn read(&self) -> f32 {
+        self.out
+    }
+
+    fn config(&self) -> Option<Arc<dyn NodeConfig>> {
+        Some(Arc::clone(&self.config) as Arc<_>)
+    }
+
+    fn inputs(&self) -> Vec<Input> {
+        vec![
+            Input::with_default("trigger", &self.trigger),
+            Input::with_default("length", &self.length),
+            Input::with_default("min", &self.min),
+            Input::with_default("max", &self.max),
+            Input::with_default("repeat", &self.repeat),
+            Input::with_default("resettable", &self.resettable),
+        ]
+    }
+}
+
+pub fn curve() -> Box<dyn Node> {
+    Box::new(Curve::new())
+}

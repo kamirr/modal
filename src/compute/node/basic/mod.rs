@@ -3,6 +3,7 @@ pub mod adsr;
 pub mod any;
 pub mod constant;
 pub mod convert;
+pub mod curve;
 pub mod delay;
 pub mod gain;
 pub mod mix;
@@ -21,6 +22,7 @@ impl NodeList for Basic {
             (any::any(), "Any".into()),
             (constant::constant(), "Constant".into()),
             (convert::convert(), "Convert".into()),
+            (curve::curve(), "Curve".into()),
             (delay::delay(), "Delay".into()),
             (gain::gain(), "Gain".into()),
             (mix::mix(), "Mix".into()),
