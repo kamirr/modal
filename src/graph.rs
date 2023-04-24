@@ -54,40 +54,56 @@ impl NodeDataTrait for SynthNodeData {
             config.show(ui, &user_state.ctx);
         }
 
-        if !is_active {
-            if ui.button("👂 Play").clicked() {
-                responses.push(NodeResponse::User(SynthNodeResponse::SetActiveNode(
-                    node_id,
-                )));
-            }
-        } else {
-            let button =
-                egui::Button::new(egui::RichText::new("👂 Playing").color(egui::Color32::BLACK))
+        let show_scope = ui
+            .horizontal(|ui| {
+                if !is_active {
+                    if ui.button("👂Play").clicked() {
+                        responses.push(NodeResponse::User(SynthNodeResponse::SetActiveNode(
+                            node_id,
+                        )));
+                    }
+                } else {
+                    let button = egui::Button::new(
+                        egui::RichText::new("👂Play").color(egui::Color32::BLACK),
+                    )
                     .fill(egui::Color32::GOLD);
-            if ui.add(button).clicked() {
-                responses.push(NodeResponse::User(SynthNodeResponse::ClearActiveNode));
-            }
-        }
+                    if ui.add(button).clicked() {
+                        responses.push(NodeResponse::User(SynthNodeResponse::ClearActiveNode));
+                    }
+                }
 
-        if self.scope.borrow().is_none() {
-            if ui.button("👁 Show Scope").clicked() {
-                *self.scope.borrow_mut() = Some(Scope::new());
-                responses.push(NodeResponse::User(SynthNodeResponse::StartRecording(
-                    node_id,
-                )));
-            }
-        } else {
-            let button =
-                egui::Button::new(egui::RichText::new("👁 Hide Scope").color(egui::Color32::BLACK))
+                if self.scope.borrow().is_none() {
+                    if ui.button("👁Scope").clicked() {
+                        *self.scope.borrow_mut() = Some(Scope::new());
+                        responses.push(NodeResponse::User(SynthNodeResponse::StartRecording(
+                            node_id,
+                        )));
+
+                        true
+                    } else {
+                        false
+                    }
+                } else {
+                    let button = egui::Button::new(
+                        egui::RichText::new("👁Scope").color(egui::Color32::BLACK),
+                    )
                     .fill(egui::Color32::GOLD);
-            if ui.add(button).clicked() {
-                *self.scope.borrow_mut() = None;
-                responses.push(NodeResponse::User(SynthNodeResponse::StopRecording(
-                    node_id,
-                )));
-            } else {
-                self.scope.borrow_mut().as_mut().unwrap().show(ui)
-            }
+                    if ui.add(button).clicked() {
+                        *self.scope.borrow_mut() = None;
+                        responses.push(NodeResponse::User(SynthNodeResponse::StopRecording(
+                            node_id,
+                        )));
+
+                        false
+                    } else {
+                        true
+                    }
+                }
+            })
+            .inner;
+
+        if show_scope {
+            self.scope.borrow_mut().as_mut().unwrap().show(ui);
         }
 
         responses
