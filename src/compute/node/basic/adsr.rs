@@ -94,7 +94,7 @@ impl Adsr {
 #[typetag::serde]
 impl Node for Adsr {
     fn feed(&mut self, data: &[Option<f32>]) -> Vec<NodeEvent> {
-        let gate = data[0].unwrap_or(0.0);
+        let gate: f32 = self.gate.value(data[0]);
         let sig = data[1].unwrap_or(0.0);
 
         let conf_attack = self.config.attack.load(Ordering::Relaxed);
@@ -102,7 +102,6 @@ impl Node for Adsr {
         let conf_sustain_r = self.config.sustain_ratio.load(Ordering::Relaxed);
         let conf_release = self.config.release.load(Ordering::Relaxed);
 
-        let _: f32 = self.gate.value(Some(gate));
         if self.gate.positive_edge() {
             self.state = AdsrState::Attack;
             self.attack_start_gain = self.gain;

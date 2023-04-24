@@ -1,4 +1,4 @@
-use std::sync::atomic::Ordering;
+use std::sync::atomic::{AtomicBool, Ordering};
 
 use atomic_float::AtomicF32;
 use serde::{Deserialize, Serialize};
@@ -20,6 +20,7 @@ serde_atomic_enum!(AtomicEdge);
 #[derive(Debug, Serialize, Deserialize)]
 pub struct GateInput {
     threshold: RealInput,
+    default: AtomicBool,
     edge: AtomicEdge,
     prev: AtomicF32,
 }
@@ -28,6 +29,7 @@ impl GateInput {
     pub fn new(threshold: f32) -> Self {
         GateInput {
             threshold: RealInput::new(threshold),
+            default: AtomicBool::new(false),
             edge: AtomicEdge::new(Edge::None),
             prev: AtomicF32::new(0.0),
         }
@@ -47,10 +49,23 @@ impl InputUi for GateInput {
         self.threshold.show_disconnected(ui);
     }
 
+    fn show_disconnected(&self, ui: &mut eframe::egui::Ui) {
+        let mut default = self.default.load(Ordering::Acquire);
+        ui.checkbox(&mut default, "default");
+
+        self.default.store(default, Ordering::Release);
+    }
+
     fn value(&self, recv: Option<f32>) -> f32 {
-        let curr = recv.unwrap_or(0.0);
         let prev = self.prev.load(Ordering::Acquire);
+        let default = self.default.load(Ordering::Acquire);
         let threshold = self.threshold.value(None);
+
+        let curr = recv.unwrap_or(if default {
+            threshold + 1.0
+        } else {
+            threshold - 1.0
+        });
 
         let edge = if curr >= threshold && prev < threshold {
             Edge::Positive
