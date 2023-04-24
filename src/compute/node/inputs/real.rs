@@ -19,7 +19,7 @@ impl RealInput {
 }
 
 impl InputUi for RealInput {
-    fn show_disconnected(&self, ui: &mut eframe::egui::Ui) {
+    fn show_disconnected(&self, ui: &mut eframe::egui::Ui, _verbose: bool) {
         let mut s = self.s.load(Ordering::Acquire);
         let s_old = s;
 

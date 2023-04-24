@@ -19,7 +19,7 @@ impl FreqInput {
 }
 
 impl InputUi for FreqInput {
-    fn show_disconnected(&self, ui: &mut eframe::egui::Ui) {
+    fn show_disconnected(&self, ui: &mut eframe::egui::Ui, _verbose: bool) {
         let mut f = self.f.load(Ordering::Acquire);
 
         ui.add(DragValue::new(&mut f));

@@ -45,11 +45,13 @@ impl GateInput {
 }
 
 impl InputUi for GateInput {
-    fn show_always(&self, ui: &mut eframe::egui::Ui) {
-        self.threshold.show_disconnected(ui);
+    fn show_always(&self, ui: &mut eframe::egui::Ui, verbose: bool) {
+        if verbose {
+            self.threshold.show_disconnected(ui, verbose);
+        }
     }
 
-    fn show_disconnected(&self, ui: &mut eframe::egui::Ui) {
+    fn show_disconnected(&self, ui: &mut eframe::egui::Ui, _verbose: bool) {
         let mut default = self.default.load(Ordering::Acquire);
         ui.checkbox(&mut default, "default");
 

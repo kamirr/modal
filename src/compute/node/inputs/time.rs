@@ -30,15 +30,17 @@ impl TimeInput {
 }
 
 impl InputUi for TimeInput {
-    fn show_always(&self, ui: &mut egui::Ui) {
-        let mut ty = self.in_ty.load(Ordering::Acquire);
+    fn show_always(&self, ui: &mut egui::Ui, verbose: bool) {
+        if verbose {
+            let mut ty = self.in_ty.load(Ordering::Acquire);
 
-        enum_combo_box(ui, &mut ty);
+            enum_combo_box(ui, &mut ty);
 
-        self.in_ty.store(ty, Ordering::Release);
+            self.in_ty.store(ty, Ordering::Release);
+        }
     }
 
-    fn show_disconnected(&self, ui: &mut eframe::egui::Ui) {
+    fn show_disconnected(&self, ui: &mut eframe::egui::Ui, _verbose: bool) {
         let ty = self.in_ty.load(Ordering::Relaxed);
         let mut samples = self.samples.load(Ordering::Acquire);
 

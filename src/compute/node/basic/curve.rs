@@ -37,7 +37,7 @@ impl CurveConfig {
 }
 
 impl NodeConfig for CurveConfig {
-    fn show(&self, ui: &mut eframe::egui::Ui, _data: &dyn std::any::Any) {
+    fn show(&self, ui: &mut egui::Ui, _data: &dyn std::any::Any) {
         let mut edit = self.edit.load(Ordering::Acquire);
 
         egui::CollapsingHeader::new("Shape").show(ui, |ui| {
@@ -93,6 +93,10 @@ impl NodeConfig for CurveConfig {
         }
 
         self.edit.store(edit, Ordering::Release);
+    }
+
+    fn show_short(&self, ui: &mut egui::Ui, data: &dyn std::any::Any) {
+        self.show(ui, data);
     }
 }
 

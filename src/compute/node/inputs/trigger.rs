@@ -34,18 +34,19 @@ impl TriggerInput {
 }
 
 impl InputUi for TriggerInput {
-    fn show_always(&self, ui: &mut eframe::egui::Ui) {
+    fn show_always(&self, ui: &mut eframe::egui::Ui, verbose: bool) {
         let mut mode = self.mode.load(Ordering::Acquire);
         enum_combo_box(ui, &mut mode);
-
         self.mode.store(mode, Ordering::Release);
 
-        match mode {
-            TriggerMode::Up => {
-                self.level.show_disconnected(ui);
-            }
-            TriggerMode::Change => {}
-        };
+        if verbose {
+            match mode {
+                TriggerMode::Up => {
+                    self.level.show_disconnected(ui, verbose);
+                }
+                TriggerMode::Change => {}
+            };
+        }
     }
 
     fn value(&self, recv: Option<f32>) -> f32 {

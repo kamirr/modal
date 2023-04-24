@@ -17,11 +17,13 @@ use crate::{
     compute::node::{InputUi, Node, NodeConfig, NodeList},
     midi::MidiPlayback,
     scope::Scope,
+    util::toggle_button,
 };
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct SynthNodeData {
     pub scope: RefCell<Option<Scope>>,
+    verbose: RefCell<bool>,
 }
 
 impl NodeDataTrait for SynthNodeData {
@@ -29,6 +31,27 @@ impl NodeDataTrait for SynthNodeData {
     type UserState = SynthGraphState;
     type DataType = SynthDataType;
     type ValueType = SynthValueType;
+
+    fn top_bar_ui(
+        &self,
+        ui: &mut egui::Ui,
+        _node_id: NodeId,
+        _graph: &egui_node_graph::Graph<Self, Self::DataType, Self::ValueType>,
+        _user_state: &mut Self::UserState,
+    ) -> Vec<egui_node_graph::NodeResponse<Self::Response, Self>>
+    where
+        Self::Response: UserResponseTrait,
+    {
+        if ui
+            .add(toggle_button("Full", *self.verbose.borrow()))
+            .clicked()
+        {
+            let mut state = self.verbose.borrow_mut();
+            *state = !*state;
+        }
+
+        Default::default()
+    }
 
     fn bottom_ui(
         &self,
@@ -40,6 +63,18 @@ impl NodeDataTrait for SynthNodeData {
     where
         Self::Response: UserResponseTrait,
     {
+        if !*self.verbose.borrow() {
+            if let Some(config) = user_state
+                .node_configs
+                .get(&node_id)
+                .and_then(|wk| wk.upgrade())
+            {
+                config.show_short(ui, &user_state.ctx);
+            }
+
+            return Default::default();
+        }
+
         let mut responses = vec![];
         let is_active = user_state
             .active_node
@@ -145,11 +180,11 @@ impl WidgetValueTrait for SynthValueType {
         node_id: NodeId,
         ui: &mut egui::Ui,
         user_state: &mut Self::UserState,
-        _node_data: &Self::NodeData,
+        node_data: &Self::NodeData,
     ) -> Vec<Self::Response> {
         let ui_inputs = user_state.node_ui_inputs.get(&node_id).unwrap();
         if let Some(input) = ui_inputs.get(param_name) {
-            input.show_disconnected(ui);
+            input.show_disconnected(ui, *node_data.verbose.borrow());
         }
 
         Default::default()
@@ -161,14 +196,14 @@ impl WidgetValueTrait for SynthValueType {
         node_id: NodeId,
         ui: &mut egui::Ui,
         user_state: &mut Self::UserState,
-        _node_data: &Self::NodeData,
+        node_data: &Self::NodeData,
     ) -> Vec<Self::Response> {
         ui.label(param_name);
 
         let ui_inputs = user_state.node_ui_inputs.get(&node_id).unwrap();
         if let Some(input) = ui_inputs.get(param_name) {
             ui.push_id(param_name, |ui| {
-                input.show_always(ui);
+                input.show_always(ui, *node_data.verbose.borrow());
             });
         }
 
@@ -208,6 +243,7 @@ impl NodeTemplateTrait for SynthNodeTemplate {
     fn user_data(&self, _user_state: &mut Self::UserState) -> Self::NodeData {
         SynthNodeData {
             scope: RefCell::new(None),
+            verbose: RefCell::new(true),
         }
     }
 

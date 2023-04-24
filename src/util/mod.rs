@@ -252,3 +252,14 @@ pub mod perlin {
         }
     }
 }
+
+pub fn toggle_button(label: &str, state: bool) -> eframe::egui::Button {
+    if state {
+        eframe::egui::Button::new(
+            eframe::egui::RichText::new(label).color(eframe::epaint::Color32::BLACK),
+        )
+        .fill(eframe::epaint::Color32::GOLD)
+    } else {
+        eframe::egui::Button::new(label)
+    }
+}

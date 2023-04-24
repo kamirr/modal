@@ -12,11 +12,12 @@ pub mod noise;
 
 pub trait NodeConfig {
     fn show(&self, ui: &mut egui::Ui, data: &dyn Any);
+    fn show_short(&self, _ui: &mut egui::Ui, _data: &dyn Any) {}
 }
 
 pub trait InputUi: Send + Sync {
-    fn show_always(&self, _ui: &mut egui::Ui) {}
-    fn show_disconnected(&self, _ui: &mut egui::Ui) {}
+    fn show_always(&self, _ui: &mut egui::Ui, _verbose: bool) {}
+    fn show_disconnected(&self, _ui: &mut egui::Ui, _verbose: bool) {}
     fn value(&self, recv: Option<f32>) -> f32;
 }
 
