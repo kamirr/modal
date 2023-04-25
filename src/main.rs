@@ -1,5 +1,6 @@
 mod compute;
 mod graph;
+mod jack;
 mod midi;
 mod remote;
 mod scope;
@@ -17,6 +18,7 @@ use midi::SmfMidiPlayback;
 use crate::{
     compute::Runtime,
     graph::{SynthEditorState, SynthGraphState},
+    midi::JackMidiPlayback,
 };
 
 fn main() {
@@ -78,6 +80,13 @@ impl SynthApp {
             }
 
             remote.play(user_state.active_node);
+
+            if !user_state.ctx.midi.contains_key("jack") {
+                user_state
+                    .ctx
+                    .midi
+                    .insert("jack".into(), Box::new(JackMidiPlayback::new()));
+            }
 
             SynthApp {
                 state: editor,

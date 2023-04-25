@@ -1,6 +1,7 @@
 use std::{
     collections::HashMap,
     fmt::Debug,
+    sync::mpsc::Receiver,
     time::{Duration, Instant},
 };
 
@@ -112,15 +113,30 @@ impl Instrument {
     }
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub enum PlaybackStepResponse {
+    Idle,
+    Finished,
+    MadeProgress,
+}
+
+#[typetag::serde]
+pub trait MidiPlayback {
+    fn start(&mut self);
+    fn step(&mut self) -> PlaybackStepResponse;
+    fn tracks(&self) -> u32;
+    fn instrument(&self, track: u32) -> &Instrument;
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize)]
-struct MidiState {
+struct SfmMidiState {
     tick: Duration,
     instruments: Vec<Instrument>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct SmfMidiPlayback {
-    state: MidiState,
+    state: SfmMidiState,
     #[serde(with = "crate::util::serde_smf")]
     smf: Smf<'static>,
     cursors: Vec<usize>,
@@ -154,7 +170,7 @@ impl SmfMidiPlayback {
         let cursors = std::iter::repeat(0).take(smf.tracks.len()).collect();
         let last_ev_tick = std::iter::repeat(0).take(smf.tracks.len()).collect();
 
-        let state = MidiState { tick, instruments };
+        let state = SfmMidiState { tick, instruments };
 
         SmfMidiPlayback {
             state,
@@ -164,21 +180,6 @@ impl SmfMidiPlayback {
             t0: Instant::now(),
         }
     }
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub enum PlaybackStepResponse {
-    Idle,
-    Finished,
-    MadeProgress,
-}
-
-#[typetag::serde]
-pub trait MidiPlayback {
-    fn start(&mut self);
-    fn step(&mut self) -> PlaybackStepResponse;
-    fn tracks(&self) -> u32;
-    fn instrument(&self, track: u32) -> &Instrument;
 }
 
 #[typetag::serde]
@@ -229,5 +230,76 @@ impl MidiPlayback for SmfMidiPlayback {
     fn instrument(&self, track: u32) -> &Instrument {
         let idx = track as usize;
         &self.state.instruments[idx]
+    }
+}
+
+#[derive(Debug)]
+struct JackMidiSource {
+    midi_in: Receiver<TrackEventKind<'static>>,
+    client: Option<crate::jack::Client>,
+}
+
+impl Default for JackMidiSource {
+    fn default() -> Self {
+        let mut client = crate::jack::Client::default();
+        let midi_in = client.take_midi_stream().unwrap();
+
+        JackMidiSource {
+            midi_in,
+            client: Some(client),
+        }
+    }
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct JackMidiPlayback {
+    #[serde(skip)]
+    instruments: Vec<Instrument>,
+    #[serde(skip)]
+    midi_src: JackMidiSource,
+}
+
+impl JackMidiPlayback {
+    pub fn new() -> Self {
+        JackMidiPlayback {
+            instruments: Default::default(),
+            midi_src: Default::default(),
+        }
+    }
+
+    pub fn client(&mut self) -> Option<crate::jack::Client> {
+        self.midi_src.client.take()
+    }
+}
+
+#[typetag::serde]
+impl MidiPlayback for JackMidiPlayback {
+    fn start(&mut self) {}
+
+    fn step(&mut self) -> PlaybackStepResponse {
+        while let Ok(ev) = self.midi_src.midi_in.try_recv() {
+            if let TrackEventKind::Midi {
+                channel, message, ..
+            } = &ev
+            {
+                let channel = channel.as_int() as usize;
+
+                while self.instruments.len() < channel + 1 {
+                    self.instruments.push(Instrument::new());
+                }
+
+                self.instruments[channel].update(message);
+            }
+        }
+
+        PlaybackStepResponse::MadeProgress
+    }
+
+    fn tracks(&self) -> u32 {
+        self.instruments.len() as u32
+    }
+
+    fn instrument(&self, track: u32) -> &Instrument {
+        &self.instruments[track as usize]
     }
 }
