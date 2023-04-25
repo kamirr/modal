@@ -10,7 +10,7 @@ use midly::{live::LiveEvent, Arena};
 pub struct Client {
     _inner: Box<dyn Any>,
     midi_rx: Option<Receiver<midly::TrackEventKind<'static>>>,
-    audio_tx: Sender<Vec<f32>>,
+    audio_tx: Sender<f32>,
 }
 
 impl Client {
@@ -18,7 +18,7 @@ impl Client {
         self.midi_rx.take()
     }
 
-    pub fn audio_out(&self) -> Sender<Vec<f32>> {
+    pub fn audio_out(&self) -> Sender<f32> {
         self.audio_tx.clone()
     }
 }
@@ -26,7 +26,7 @@ impl Client {
 impl Default for Client {
     fn default() -> Self {
         let (midi_tx, midi_rx) = channel();
-        let (audio_tx, audio_rx) = channel::<Vec<f32>>();
+        let (audio_tx, audio_rx) = channel::<f32>();
 
         let (client, _status) =
             jack::Client::new("modal-synth", jack::ClientOptions::NO_START_SERVER).unwrap();
@@ -53,11 +53,11 @@ impl Default for Client {
             let sample_buf = audio_out.as_mut_slice(ps);
 
             while samples.len() < sample_buf.len() {
-                let Ok(new_samples) = audio_rx.try_recv() else {
+                let Ok(next_sample) = audio_rx.try_recv() else {
                     break;
                 };
 
-                samples.extend(new_samples.into_iter());
+                samples.push_back(next_sample);
             }
 
             for sample in sample_buf.iter_mut() {

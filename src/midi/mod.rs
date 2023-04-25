@@ -1,7 +1,7 @@
 use std::{
     collections::HashMap,
     fmt::Debug,
-    sync::mpsc::Receiver,
+    sync::mpsc::{Receiver, Sender},
     time::{Duration, Instant},
 };
 
@@ -236,7 +236,13 @@ impl MidiPlayback for SmfMidiPlayback {
 #[derive(Debug)]
 struct JackMidiSource {
     midi_in: Receiver<TrackEventKind<'static>>,
-    client: Option<crate::jack::Client>,
+    client: crate::jack::Client,
+}
+
+impl JackMidiSource {
+    pub fn audio_out(&self) -> Sender<f32> {
+        self.client.audio_out()
+    }
 }
 
 impl Default for JackMidiSource {
@@ -244,10 +250,7 @@ impl Default for JackMidiSource {
         let mut client = crate::jack::Client::default();
         let midi_in = client.take_midi_stream().unwrap();
 
-        JackMidiSource {
-            midi_in,
-            client: Some(client),
-        }
+        JackMidiSource { midi_in, client }
     }
 }
 
@@ -267,8 +270,8 @@ impl JackMidiPlayback {
         }
     }
 
-    pub fn client(&mut self) -> Option<crate::jack::Client> {
-        self.midi_src.client.take()
+    pub fn audio_out(&self) -> Sender<f32> {
+        self.midi_src.audio_out()
     }
 }
 

@@ -1,6 +1,7 @@
 use std::{
     collections::HashMap,
     sync::mpsc::{channel, Receiver, Sender, TryRecvError},
+    time::Duration,
 };
 
 use bimap::BiHashMap;
@@ -77,6 +78,10 @@ impl RuntimeRemote {
 
         std::thread::spawn(move || {
             loop {
+                while sink.len() as f32 * buf_size as f32 / 44100.0 > 0.08 {
+                    std::thread::sleep(Duration::from_millis(10));
+                }
+
                 while sink.len() as f32 * buf_size as f32 / 44100.0 < 0.1 {
                     for s in &mut buf {
                         let evs = rt.step();

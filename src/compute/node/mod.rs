@@ -9,6 +9,7 @@ pub mod filters;
 pub mod inputs;
 pub mod midi;
 pub mod noise;
+pub mod output;
 
 pub trait NodeConfig {
     fn show(&self, ui: &mut egui::Ui, data: &dyn Any);

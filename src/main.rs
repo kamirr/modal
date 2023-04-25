@@ -7,7 +7,10 @@ mod scope;
 
 mod util;
 
-use std::{collections::HashMap, sync::Arc};
+use std::{
+    collections::HashMap,
+    sync::{Arc},
+};
 
 use eframe::egui;
 use egui_node_graph::{InputParamKind, NodeId, NodeResponse};
@@ -16,7 +19,7 @@ use compute::node::{self, Input, NodeEvent};
 use midi::SmfMidiPlayback;
 
 use crate::{
-    compute::Runtime,
+    compute::{node::output::Output, Runtime},
     graph::{SynthEditorState, SynthGraphState},
     midi::JackMidiPlayback,
 };
@@ -81,12 +84,12 @@ impl SynthApp {
 
             remote.play(user_state.active_node);
 
-            if !user_state.ctx.midi.contains_key("jack") {
-                user_state
-                    .ctx
-                    .midi
-                    .insert("jack".into(), Box::new(JackMidiPlayback::new()));
-            }
+            let jack_playback = JackMidiPlayback::new();
+            user_state.ctx.audio_out = graph::AudioOut::new(jack_playback.audio_out());
+            user_state
+                .ctx
+                .midi
+                .insert("jack".into(), Box::new(jack_playback));
 
             SynthApp {
                 state: editor,
@@ -97,6 +100,7 @@ impl SynthApp {
                     Box::new(Filters),
                     Box::new(Midi),
                     Box::new(Noise),
+                    Box::new(Output),
                 ]),
                 remote,
             }
@@ -110,6 +114,7 @@ impl SynthApp {
                     Box::new(Filters),
                     Box::new(Midi),
                     Box::new(Noise),
+                    Box::new(Output),
                 ]),
                 remote: Default::default(),
             }

@@ -2,7 +2,7 @@ use std::{
     borrow::Cow,
     cell::RefCell,
     collections::HashMap,
-    sync::{Arc, Weak},
+    sync::{mpsc::Sender, Arc, Mutex, Weak},
 };
 
 use egui_node_graph::{
@@ -69,7 +69,7 @@ impl NodeDataTrait for SynthNodeData {
                 .get(&node_id)
                 .and_then(|wk| wk.upgrade())
             {
-                config.show_short(ui, &user_state.ctx);
+                config.show_short(ui, &mut user_state.ctx);
             }
 
             return Default::default();
@@ -86,7 +86,7 @@ impl NodeDataTrait for SynthNodeData {
             .get(&node_id)
             .and_then(|wk| wk.upgrade())
         {
-            config.show(ui, &user_state.ctx);
+            config.show(ui, &mut user_state.ctx);
         }
 
         let show_scope = ui
@@ -324,9 +324,32 @@ pub enum SynthNodeResponse {
 
 impl UserResponseTrait for SynthNodeResponse {}
 
+#[derive(Clone, Debug)]
+pub struct AudioOut {
+    pub stream: Arc<Mutex<Option<Sender<f32>>>>,
+}
+
+impl AudioOut {
+    pub fn new(stream: Sender<f32>) -> Self {
+        AudioOut {
+            stream: Arc::new(Mutex::new(Some(stream))),
+        }
+    }
+}
+
+impl Default for AudioOut {
+    fn default() -> Self {
+        AudioOut {
+            stream: Arc::new(Mutex::new(None)),
+        }
+    }
+}
+
 #[derive(Default, Serialize, Deserialize)]
 pub struct SynthCtx {
     pub midi: HashMap<String, Box<dyn MidiPlayback>>,
+    #[serde(skip)]
+    pub audio_out: AudioOut,
 }
 
 #[derive(Default, Serialize, Deserialize)]
