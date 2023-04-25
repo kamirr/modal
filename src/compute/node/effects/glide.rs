@@ -90,12 +90,10 @@ impl Node for Glide {
 
                 if rate.abs() > (self.out - next).abs() {
                     next
+                } else if next > self.out {
+                    self.out + rate
                 } else {
-                    if next > self.out {
-                        self.out + rate
-                    } else {
-                        self.out - rate
-                    }
+                    self.out - rate
                 }
             }
             GlideType::Pid => {

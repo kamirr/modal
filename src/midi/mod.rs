@@ -1,5 +1,6 @@
 use std::{
     collections::HashMap,
+    fmt::Debug,
     time::{Duration, Instant},
 };
 
@@ -30,12 +31,12 @@ impl Default for Beat {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-struct Controller {
+pub struct Controller {
     values: HashMap<u8, u8>,
 }
 
 impl Controller {
-    fn new() -> Self {
+    pub fn new() -> Self {
         Controller {
             values: HashMap::new(),
         }
@@ -49,10 +50,14 @@ impl Controller {
             _ => {}
         }
     }
+
+    pub fn get_control(&self, ctrl: u32) -> Option<f32> {
+        self.values.get(&(ctrl as u8)).map(|v| *v as f32 / 127.0)
+    }
 }
 
 #[derive(Clone, Copy, Debug, Serialize, Deserialize)]
-struct MonoNote {
+pub struct MonoNote {
     key: u8,
     vel: u8,
 }
@@ -80,12 +85,12 @@ impl MonoNote {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Instrument {
-    mono_note: MonoNote,
-    controller: Controller,
+    pub mono_note: MonoNote,
+    pub controller: Controller,
 }
 
 impl Instrument {
-    fn new() -> Self {
+    pub fn new() -> Self {
         Instrument {
             mono_note: MonoNote::new(),
             controller: Controller::new(),
@@ -114,7 +119,7 @@ struct MidiState {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct MidiPlayback {
+pub struct SmfMidiPlayback {
     state: MidiState,
     #[serde(with = "crate::util::serde_smf")]
     smf: Smf<'static>,
@@ -125,14 +130,7 @@ pub struct MidiPlayback {
     t0: Instant,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum PlaybackStepResponse {
-    Idle,
-    Finished,
-    MadeProgress,
-}
-
-impl MidiPlayback {
+impl SmfMidiPlayback {
     pub fn new(smf: Smf<'static>) -> Self {
         let mut beat = Beat::default();
         for ev in &smf.tracks[0] {
@@ -158,7 +156,7 @@ impl MidiPlayback {
 
         let state = MidiState { tick, instruments };
 
-        MidiPlayback {
+        SmfMidiPlayback {
             state,
             smf,
             cursors,
@@ -166,14 +164,32 @@ impl MidiPlayback {
             t0: Instant::now(),
         }
     }
+}
 
-    pub fn start(&mut self) {
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub enum PlaybackStepResponse {
+    Idle,
+    Finished,
+    MadeProgress,
+}
+
+#[typetag::serde]
+pub trait MidiPlayback {
+    fn start(&mut self);
+    fn step(&mut self) -> PlaybackStepResponse;
+    fn tracks(&self) -> u32;
+    fn instrument(&self, track: u32) -> &Instrument;
+}
+
+#[typetag::serde]
+impl MidiPlayback for SmfMidiPlayback {
+    fn start(&mut self) {
         self.cursors = std::iter::repeat(0).take(self.smf.tracks.len()).collect();
         self.last_ev_tick = std::iter::repeat(0).take(self.smf.tracks.len()).collect();
         self.t0 = Instant::now();
     }
 
-    pub fn step(&mut self) -> PlaybackStepResponse {
+    fn step(&mut self) -> PlaybackStepResponse {
         let t = Instant::now() - self.t0;
         let tick_f = t.as_secs_f64() / self.state.tick.as_secs_f64();
         let tick_n = tick_f.round() as u32;
@@ -206,11 +222,11 @@ impl MidiPlayback {
         response
     }
 
-    pub fn tracks(&self) -> u32 {
+    fn tracks(&self) -> u32 {
         self.smf.tracks.len() as _
     }
 
-    pub fn instrument(&self, track: u32) -> &Instrument {
+    fn instrument(&self, track: u32) -> &Instrument {
         let idx = track as usize;
         &self.state.instruments[idx]
     }

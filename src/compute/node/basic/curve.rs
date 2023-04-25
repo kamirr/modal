@@ -86,7 +86,7 @@ impl NodeConfig for CurveConfig {
             let mut curve = self.curve.write().unwrap();
 
             egui::Window::new("Curve").show(ui.ctx(), |ui| {
-                ui.add(egui_curve::CurveEdit::new(&mut *curve, 0.0..=100.0));
+                ui.add(egui_curve::CurveEdit::new(&mut curve, 0.0..=100.0));
             });
 
             *self.values.write().unwrap() = curve.sample_along_x(256, 0.0..=100.0);

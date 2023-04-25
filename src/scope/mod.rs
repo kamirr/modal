@@ -214,8 +214,8 @@ impl Scope {
         }
     }
 
-    pub fn feed(&mut self, mut data: impl Iterator<Item = f32>) {
-        while let Some(pt) = data.next() {
+    pub fn feed(&mut self, data: impl Iterator<Item = f32>) {
+        for pt in data {
             self.memory.pop_front();
             self.memory.push_back(pt);
         }

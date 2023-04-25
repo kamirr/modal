@@ -324,9 +324,9 @@ pub enum SynthNodeResponse {
 
 impl UserResponseTrait for SynthNodeResponse {}
 
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[derive(Default, Serialize, Deserialize)]
 pub struct SynthCtx {
-    pub midi: Option<MidiPlayback>,
+    pub midi: HashMap<String, Box<dyn MidiPlayback>>,
 }
 
 #[derive(Default, Serialize, Deserialize)]

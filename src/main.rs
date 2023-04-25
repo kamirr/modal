@@ -12,7 +12,7 @@ use eframe::egui;
 use egui_node_graph::{InputParamKind, NodeId, NodeResponse};
 
 use compute::node::{self, Input, NodeEvent};
-use midi::MidiPlayback;
+use midi::SmfMidiPlayback;
 
 use crate::{
     compute::Runtime,
@@ -163,7 +163,16 @@ impl SynthApp {
                 println!("midi parse error");
                 return;
             };
-            self.user_state.ctx.midi = Some(MidiPlayback::new(smf.to_static()));
+
+            let mut name = path.file_name().unwrap().to_string_lossy().to_string();
+            while self.user_state.ctx.midi.contains_key(&name) {
+                name.push('_');
+            }
+
+            self.user_state
+                .ctx
+                .midi
+                .insert(name, Box::new(SmfMidiPlayback::new(smf.to_static())));
         }
     }
 }
@@ -190,7 +199,7 @@ impl eframe::App for SynthApp {
                     self.load_midi();
                 }
                 if ui.button("Start Midi").clicked() {
-                    if let Some(playback) = &mut self.user_state.ctx.midi {
+                    for playback in self.user_state.ctx.midi.values_mut() {
                         playback.start();
                     }
                 }
@@ -295,10 +304,12 @@ impl eframe::App for SynthApp {
             scope.feed(samples.into_iter());
         }
 
-        self.remote.wait();
-        ctx.request_repaint();
-        if let Some(playback) = &mut self.user_state.ctx.midi {
+        for playback in self.user_state.ctx.midi.values_mut() {
             playback.step();
         }
+
+        self.remote.wait();
+
+        ctx.request_repaint();
     }
 }

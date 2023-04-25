@@ -110,7 +110,7 @@ impl Biquad {
             ParamTy::Bw => self.bw.value(param),
         };
 
-        let w0 = 2.0 * PI * (f0 as f32) / 44100.0;
+        let w0 = 2.0 * PI * f0 / 44100.0;
         let w0sin = w0.sin();
         let w0cos = w0.cos();
 
