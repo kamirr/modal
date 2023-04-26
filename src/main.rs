@@ -7,10 +7,7 @@ mod scope;
 
 mod util;
 
-use std::{
-    collections::HashMap,
-    sync::{Arc},
-};
+use std::{collections::HashMap, sync::Arc, time::Instant};
 
 use eframe::egui;
 use egui_node_graph::{InputParamKind, NodeId, NodeResponse};
@@ -38,6 +35,7 @@ struct SynthApp {
     user_state: graph::SynthGraphState,
     all_nodes: graph::AllSynthNodeTemplates,
     remote: remote::RuntimeRemote,
+    prev_frame: Instant,
 }
 
 impl SynthApp {
@@ -103,6 +101,7 @@ impl SynthApp {
                     Box::new(Output),
                 ]),
                 remote,
+                prev_frame: Instant::now(),
             }
         } else {
             SynthApp {
@@ -117,6 +116,7 @@ impl SynthApp {
                     Box::new(Output),
                 ]),
                 remote: Default::default(),
+                prev_frame: Instant::now(),
             }
         }
     }
@@ -217,6 +217,10 @@ impl eframe::App for SynthApp {
                         playback.start();
                     }
                 }
+
+                let fps = 1.0 / self.prev_frame.elapsed().as_secs_f32();
+                self.prev_frame = Instant::now();
+                ui.label(format!("fps: {fps:.2}"));
             });
         });
 
@@ -323,7 +327,6 @@ impl eframe::App for SynthApp {
         }
 
         self.remote.wait();
-
         ctx.request_repaint();
     }
 }
