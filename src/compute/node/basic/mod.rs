@@ -6,6 +6,8 @@ pub mod convert;
 pub mod curve;
 pub mod delay;
 pub mod gain;
+pub mod gate;
+pub mod latch;
 pub mod mix;
 pub mod oscillator;
 pub mod pulse;
@@ -25,6 +27,8 @@ impl NodeList for Basic {
             (curve::curve(), "Curve".into()),
             (delay::delay(), "Delay".into()),
             (gain::gain(), "Gain".into()),
+            (gate::gate(), "Gate".into()),
+            (latch::latch(), "Latch".into()),
             (mix::mix(), "Mix".into()),
             (oscillator::oscillator(), "Oscillator".into()),
             (pulse::pulse(), "Pulse".into()),

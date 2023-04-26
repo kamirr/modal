@@ -5,6 +5,8 @@ use serde::{Deserialize, Serialize};
 
 use crate::{compute::node::InputUi, serde_atomic_enum, util::enum_combo_box};
 
+use super::positive::PositiveInput;
+
 #[atomic_enum::atomic_enum]
 #[derive(PartialEq, Eq, derive_more::Display, strum::EnumIter)]
 enum TimeUnit {
@@ -40,7 +42,7 @@ impl InputUi for TimeInput {
         }
     }
 
-    fn show_disconnected(&self, ui: &mut eframe::egui::Ui, _verbose: bool) {
+    fn show_disconnected(&self, ui: &mut eframe::egui::Ui, verbose: bool) {
         let ty = self.in_ty.load(Ordering::Relaxed);
         let mut samples = self.samples.load(Ordering::Acquire);
 
@@ -50,7 +52,10 @@ impl InputUi for TimeInput {
             }
             TimeUnit::Seconds => {
                 let mut secs = samples as f32 / 44100.0;
-                ui.add(egui::DragValue::new(&mut secs).clamp_range(0.0001..=std::f32::MAX));
+                let input = PositiveInput::new(secs);
+                input.show_disconnected(ui, verbose);
+
+                secs = input.value(None);
                 samples = (secs * 44100.0).round() as _;
             }
         }
