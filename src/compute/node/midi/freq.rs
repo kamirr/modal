@@ -14,7 +14,7 @@ pub struct MidiFreq {
 impl MidiFreq {
     fn new() -> Self {
         MidiFreq {
-            config: Arc::new(MidiInConf::new()),
+            config: Arc::new(MidiInConf::new(false)),
         }
     }
 }

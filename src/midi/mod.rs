@@ -1,4 +1,5 @@
 use std::{
+    cell::RefCell,
     collections::HashMap,
     fmt::Debug,
     sync::mpsc::{Receiver, Sender},
@@ -126,6 +127,9 @@ pub trait MidiPlayback {
     fn step(&mut self) -> PlaybackStepResponse;
     fn tracks(&self) -> u32;
     fn instrument(&self, track: u32) -> &Instrument;
+
+    fn raw_messages(&self, enable: bool);
+    fn messages(&self) -> Vec<(u32, MidiMessage)>;
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -144,6 +148,10 @@ pub struct SmfMidiPlayback {
     #[serde(skip)]
     #[serde(default = "Instant::now")]
     t0: Instant,
+
+    record_raw: RefCell<bool>,
+    #[serde(skip)]
+    messages: RefCell<Vec<(u32, MidiMessage)>>,
 }
 
 impl SmfMidiPlayback {
@@ -178,6 +186,8 @@ impl SmfMidiPlayback {
             cursors,
             last_ev_tick,
             t0: Instant::now(),
+            record_raw: RefCell::new(false),
+            messages: RefCell::default(),
         }
     }
 }
@@ -211,6 +221,9 @@ impl MidiPlayback for SmfMidiPlayback {
             if tick_n >= target_tick {
                 if let TrackEventKind::Midi { message, .. } = &next_ev.kind {
                     self.state.instruments[k].update(message);
+                    if *self.record_raw.borrow() {
+                        self.messages.borrow_mut().push((k as u32, message.clone()));
+                    }
                 }
 
                 self.last_ev_tick[k] = target_tick;
@@ -230,6 +243,14 @@ impl MidiPlayback for SmfMidiPlayback {
     fn instrument(&self, track: u32) -> &Instrument {
         let idx = track as usize;
         &self.state.instruments[idx]
+    }
+
+    fn raw_messages(&self, enable: bool) {
+        *self.record_raw.borrow_mut() = enable;
+    }
+
+    fn messages(&self) -> Vec<(u32, MidiMessage)> {
+        std::mem::take(&mut *self.messages.borrow_mut())
     }
 }
 
@@ -260,6 +281,9 @@ pub struct JackMidiPlayback {
     instruments: Vec<Instrument>,
     #[serde(skip)]
     midi_src: JackMidiSource,
+    record_raw: RefCell<bool>,
+    #[serde(skip)]
+    messages: RefCell<Vec<(u32, MidiMessage)>>,
 }
 
 impl JackMidiPlayback {
@@ -267,6 +291,8 @@ impl JackMidiPlayback {
         JackMidiPlayback {
             instruments: Default::default(),
             midi_src: Default::default(),
+            record_raw: RefCell::new(false),
+            messages: RefCell::default(),
         }
     }
 
@@ -292,6 +318,11 @@ impl MidiPlayback for JackMidiPlayback {
                 }
 
                 self.instruments[channel].update(message);
+                if *self.record_raw.borrow() {
+                    self.messages
+                        .borrow_mut()
+                        .push((channel as u32, message.clone()));
+                }
             }
         }
 
@@ -304,5 +335,13 @@ impl MidiPlayback for JackMidiPlayback {
 
     fn instrument(&self, track: u32) -> &Instrument {
         &self.instruments[track as usize]
+    }
+
+    fn raw_messages(&self, enable: bool) {
+        *self.record_raw.borrow_mut() = enable;
+    }
+
+    fn messages(&self) -> Vec<(u32, MidiMessage)> {
+        std::mem::take(&mut *self.messages.borrow_mut())
     }
 }

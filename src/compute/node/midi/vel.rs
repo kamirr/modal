@@ -14,7 +14,7 @@ pub struct MidiVel {
 impl MidiVel {
     fn new() -> Self {
         MidiVel {
-            config: Arc::new(MidiInConf::new()),
+            config: Arc::new(MidiInConf::new(false)),
         }
     }
 }
