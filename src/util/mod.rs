@@ -171,6 +171,32 @@ pub mod serde_perlin {
     }
 }
 
+pub mod serde_vec_opt_idx {
+    use serde::{Deserialize, Deserializer, Serialize, Serializer};
+    use thunderdome::Index;
+
+    pub fn serialize<S>(val: &Vec<Option<Index>>, s: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        let serializable: Vec<_> = val.iter().map(|opt| opt.map(|idx| idx.to_bits())).collect();
+
+        Vec::<Option<u64>>::serialize(&serializable, s)
+    }
+
+    pub fn deserialize<'de, D>(d: D) -> Result<Vec<Option<Index>>, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let deserializable = Vec::<Option<u64>>::deserialize(d)?;
+
+        Ok(deserializable
+            .iter()
+            .map(|opt| opt.map(|bits| Index::from_bits(bits).unwrap()))
+            .collect())
+    }
+}
+
 #[macro_export]
 macro_rules! serde_atomic_enum {
     ($ty:ident) => {
