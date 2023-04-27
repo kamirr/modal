@@ -5,7 +5,10 @@ use std::{
 
 use serde::{Deserialize, Serialize};
 
-use crate::graph::{self, SynthCtx};
+use crate::{
+    compute::Value,
+    graph::{self, SynthCtx},
+};
 
 use super::{Input, Node, NodeConfig, NodeEvent, NodeList};
 
@@ -55,8 +58,8 @@ impl JackAudioOut {
 
 #[typetag::serde]
 impl Node for JackAudioOut {
-    fn feed(&mut self, data: &[Option<f32>]) -> Vec<NodeEvent> {
-        let sample = data[0].unwrap_or(0.0);
+    fn feed(&mut self, data: &[Value]) -> Vec<NodeEvent> {
+        let sample = data[0].as_float().unwrap_or_default();
 
         if let Some(sender) = &self.sender.0 {
             sender.send(sample).ok();

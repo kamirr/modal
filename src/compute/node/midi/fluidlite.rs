@@ -4,7 +4,10 @@ use fluidlite as fl;
 use midly::MidiMessage;
 use serde::{Deserialize, Serialize};
 
-use crate::compute::node::{Node, NodeConfig, NodeEvent};
+use crate::compute::{
+    node::{Node, NodeConfig, NodeEvent},
+    Value,
+};
 
 use super::MidiInConf;
 
@@ -55,7 +58,7 @@ impl Fluidlite {
 
 #[typetag::serde]
 impl Node for Fluidlite {
-    fn feed(&mut self, _data: &[Option<f32>]) -> Vec<NodeEvent> {
+    fn feed(&mut self, _data: &[Value]) -> Vec<NodeEvent> {
         for (channel, msg) in self.config.messages() {
             match msg {
                 MidiMessage::NoteOn { key, vel } => {
@@ -83,8 +86,8 @@ impl Node for Fluidlite {
         Default::default()
     }
 
-    fn read(&self) -> f32 {
-        self.out
+    fn read(&self) -> Value {
+        Value::Float(self.out)
     }
 
     fn config(&self) -> Option<Arc<dyn NodeConfig>> {

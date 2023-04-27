@@ -3,7 +3,11 @@ use std::sync::atomic::Ordering;
 use atomic_float::AtomicF32;
 use serde::{Deserialize, Serialize};
 
-use crate::{compute::node::InputUi, serde_atomic_enum, util::enum_combo_box};
+use crate::{
+    compute::{node::InputUi, Value},
+    serde_atomic_enum,
+    util::enum_combo_box,
+};
 
 use super::real::RealInput;
 
@@ -31,6 +35,23 @@ impl TriggerInput {
             prev: AtomicF32::new(0.0),
         }
     }
+
+    pub fn trigger(&self, recv: &Value) -> bool {
+        let (prev, curr) = (
+            self.prev.load(Ordering::Acquire),
+            recv.as_float().unwrap_or_default(),
+        );
+
+        self.prev.store(curr, Ordering::Release);
+
+        match self.mode.load(Ordering::Relaxed) {
+            TriggerMode::Up => {
+                let level = self.level.get_f32(&Value::None);
+                curr >= level && prev < level
+            }
+            TriggerMode::Change => curr != prev,
+        }
+    }
 }
 
 impl InputUi for TriggerInput {
@@ -46,26 +67,6 @@ impl InputUi for TriggerInput {
                 }
                 TriggerMode::Change => {}
             };
-        }
-    }
-
-    fn value(&self, recv: Option<f32>) -> f32 {
-        let (prev, curr) = (self.prev.load(Ordering::Acquire), recv.unwrap_or(0.0));
-
-        self.prev.store(curr, Ordering::Release);
-
-        let emit = match self.mode.load(Ordering::Relaxed) {
-            TriggerMode::Up => {
-                let level = self.level.value(None);
-                curr >= level && prev < level
-            }
-            TriggerMode::Change => curr != prev,
-        };
-
-        if emit {
-            1.0
-        } else {
-            0.0
         }
     }
 }

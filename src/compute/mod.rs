@@ -1,5 +1,6 @@
 pub mod node;
 
+use midly::MidiMessage;
 use node::Node;
 use serde::{Deserialize, Serialize};
 use thunderdome::{Arena, Index};
@@ -28,10 +29,42 @@ impl Entry {
     }
 }
 
+#[derive(Debug, Clone)]
+pub enum Value {
+    None,
+    Midi(MidiMessage),
+    Float(f32),
+    FloatArray(Vec<f32>),
+}
+
+impl Value {
+    pub fn as_midi(&self) -> Option<&MidiMessage> {
+        match self {
+            Value::Midi(msg) => Some(msg),
+            _ => None,
+        }
+    }
+
+    pub fn as_float(&self) -> Option<f32> {
+        match self {
+            Value::Float(s) => Some(*s),
+            _ => None,
+        }
+    }
+
+    pub fn as_float_array(&self) -> Option<Vec<f32>> {
+        match self {
+            Value::Float(s) => Some(vec![*s]),
+            Value::FloatArray(s) => Some(s.clone()),
+            _ => None,
+        }
+    }
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Runtime {
     #[serde(skip)]
-    values: Vec<f32>,
+    values: Vec<Value>,
     #[serde(with = "crate::util::serde_arena")]
     nodes: Arena<Entry>,
 }
@@ -74,7 +107,7 @@ impl Runtime {
 
         for (idx, entry) in &self.nodes {
             while self.values.len() <= idx.slot() as usize {
-                self.values.push(0.0);
+                self.values.push(Value::None);
             }
             self.values[idx.slot() as usize] = entry.node.read();
         }
@@ -83,8 +116,8 @@ impl Runtime {
             buf.clear();
             for &mut input in &mut entry.inputs {
                 buf.push(match input {
-                    Some(in_index) => Some(self.values[in_index.slot() as usize]),
-                    None => None,
+                    Some(in_index) => self.values[in_index.slot() as usize].clone(),
+                    None => Value::None,
                 });
             }
 
@@ -95,8 +128,11 @@ impl Runtime {
         evs
     }
 
-    pub fn peek(&self, index: Index) -> f32 {
-        *self.values.get(index.slot() as usize).unwrap_or(&0.0)
+    pub fn peek(&self, index: Index) -> Value {
+        self.values
+            .get(index.slot() as usize)
+            .cloned()
+            .unwrap_or(Value::None)
     }
 
     pub fn nodes(&self) -> impl Iterator<Item = (Index, &Box<dyn Node>)> {

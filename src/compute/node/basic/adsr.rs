@@ -7,7 +7,10 @@ use atomic_float::AtomicF32;
 use eframe::egui::DragValue;
 use serde::{Deserialize, Serialize};
 
-use crate::compute::node::{inputs::gate::GateInput, Input, InputUi, Node, NodeConfig, NodeEvent};
+use crate::compute::{
+    node::{inputs::gate::GateInput, Input, Node, NodeConfig, NodeEvent},
+    Value,
+};
 
 #[derive(Debug, Serialize, Deserialize)]
 struct AdsrConfig {
@@ -62,7 +65,6 @@ pub struct Adsr {
     config: Arc<AdsrConfig>,
     gate: Arc<GateInput>,
     state: AdsrState,
-    prev_trig: f32,
     attack_start_gain: f32,
     release_start_gain: f32,
     gain: f32,
@@ -81,7 +83,6 @@ impl Adsr {
             }),
             gate: Arc::new(GateInput::new(0.5)),
             state: AdsrState::Release,
-            prev_trig: 0.0,
             attack_start_gain: 0.0,
             release_start_gain: 0.0,
             gain: 0.0,
@@ -93,9 +94,9 @@ impl Adsr {
 
 #[typetag::serde]
 impl Node for Adsr {
-    fn feed(&mut self, data: &[Option<f32>]) -> Vec<NodeEvent> {
-        let gate: f32 = self.gate.value(data[0]);
-        let sig = data[1].unwrap_or(0.0);
+    fn feed(&mut self, data: &[Value]) -> Vec<NodeEvent> {
+        let _ = self.gate.gate(&data[0]);
+        let sig = data[1].as_float().unwrap_or(0.0);
 
         let conf_attack = self.config.attack.load(Ordering::Relaxed);
         let conf_decay = self.config.decay.load(Ordering::Relaxed);
@@ -149,14 +150,13 @@ impl Node for Adsr {
 
         self.out = self.gain * sig;
 
-        self.prev_trig = gate;
         self.cnt += 1;
 
         Default::default()
     }
 
-    fn read(&self) -> f32 {
-        self.out
+    fn read(&self) -> Value {
+        Value::Float(self.out)
     }
 
     fn config(&self) -> Option<Arc<dyn NodeConfig>> {

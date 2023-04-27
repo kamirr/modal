@@ -3,7 +3,7 @@ use eframe::egui;
 use serde::{Deserialize, Serialize};
 use std::sync::atomic::Ordering;
 
-use crate::compute::node::InputUi;
+use crate::compute::{node::InputUi, Value};
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct SliderInput {
@@ -20,6 +20,10 @@ impl SliderInput {
             max,
         }
     }
+
+    pub fn as_f32(&self, recv: &Value) -> f32 {
+        recv.as_float().unwrap_or(self.s.load(Ordering::Relaxed))
+    }
 }
 
 impl InputUi for SliderInput {
@@ -29,9 +33,5 @@ impl InputUi for SliderInput {
         ui.add(egui::Slider::new(&mut s, self.min..=self.max));
 
         self.s.store(s, Ordering::Release);
-    }
-
-    fn value(&self, recv: Option<f32>) -> f32 {
-        recv.unwrap_or(self.s.load(Ordering::Relaxed))
     }
 }

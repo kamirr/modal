@@ -3,6 +3,8 @@ use std::{any::Any, fmt::Debug, sync::Arc};
 
 use dyn_clone::DynClone;
 
+use super::Value;
+
 pub mod basic;
 pub mod effects;
 pub mod filters;
@@ -19,7 +21,6 @@ pub trait NodeConfig {
 pub trait InputUi: Send + Sync {
     fn show_always(&self, _ui: &mut egui::Ui, _verbose: bool) {}
     fn show_disconnected(&self, _ui: &mut egui::Ui, _verbose: bool) {}
-    fn value(&self, recv: Option<f32>) -> f32;
 }
 
 pub struct Input {
@@ -65,11 +66,11 @@ pub enum NodeEvent {
 
 #[typetag::serde(tag = "__ty")]
 pub trait Node: DynClone + Debug + Send {
-    fn feed(&mut self, _data: &[Option<f32>]) -> Vec<NodeEvent> {
+    fn feed(&mut self, _data: &[Value]) -> Vec<NodeEvent> {
         Default::default()
     }
-    fn read(&self) -> f32 {
-        0.0
+    fn read(&self) -> Value {
+        Value::None
     }
 
     fn config(&self) -> Option<Arc<dyn NodeConfig>> {

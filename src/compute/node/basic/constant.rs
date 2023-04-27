@@ -2,7 +2,10 @@ use std::sync::Arc;
 
 use serde::{Deserialize, Serialize};
 
-use crate::compute::node::{inputs::real::RealInput, Input, InputUi, Node, NodeEvent};
+use crate::compute::{
+    node::{inputs::real::RealInput, Input, Node, NodeEvent},
+    Value,
+};
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Constant {
@@ -12,14 +15,14 @@ pub struct Constant {
 
 #[typetag::serde]
 impl Node for Constant {
-    fn feed(&mut self, data: &[Option<f32>]) -> Vec<NodeEvent> {
-        self.out = self.value.value(data[0]);
+    fn feed(&mut self, data: &[Value]) -> Vec<NodeEvent> {
+        self.out = self.value.get_f32(&data[0]);
 
         Default::default()
     }
 
-    fn read(&self) -> f32 {
-        self.out
+    fn read(&self) -> Value {
+        Value::Float(self.out)
     }
 
     fn inputs(&self) -> Vec<Input> {

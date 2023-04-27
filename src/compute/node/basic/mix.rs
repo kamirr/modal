@@ -2,7 +2,10 @@ use std::sync::Arc;
 
 use serde::{Deserialize, Serialize};
 
-use crate::compute::node::{inputs::slider::SliderInput, Input, InputUi, Node, NodeEvent};
+use crate::compute::{
+    node::{inputs::slider::SliderInput, Input, Node, NodeEvent},
+    Value,
+};
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Mix {
@@ -21,18 +24,18 @@ impl Mix {
 
 #[typetag::serde]
 impl Node for Mix {
-    fn feed(&mut self, data: &[Option<f32>]) -> Vec<NodeEvent> {
-        let sig0 = data[0].unwrap_or(0.0);
-        let sig1 = data[1].unwrap_or(0.0);
-        let ratio = self.ratio.value(data[2]);
+    fn feed(&mut self, data: &[Value]) -> Vec<NodeEvent> {
+        let sig0 = data[0].as_float().unwrap_or_default();
+        let sig1 = data[1].as_float().unwrap_or_default();
+        let ratio = self.ratio.as_f32(&data[2]);
 
         self.out = sig0 * ratio + sig1 * (1.0 - ratio);
 
         Default::default()
     }
 
-    fn read(&self) -> f32 {
-        self.out
+    fn read(&self) -> Value {
+        Value::Float(self.out)
     }
 
     fn inputs(&self) -> Vec<Input> {

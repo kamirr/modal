@@ -4,9 +4,12 @@ use atomic_enum::atomic_enum;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    compute::node::{
-        inputs::{positive::PositiveInput, real::RealInput},
-        Input, InputUi, Node, NodeConfig, NodeEvent,
+    compute::{
+        node::{
+            inputs::{positive::PositiveInput, real::RealInput},
+            Input, Node, NodeConfig, NodeEvent,
+        },
+        Value,
     },
     serde_atomic_enum,
     util::enum_combo_box,
@@ -71,8 +74,8 @@ impl Glide {
 
 #[typetag::serde]
 impl Node for Glide {
-    fn feed(&mut self, data: &[Option<f32>]) -> Vec<NodeEvent> {
-        let next = data[0].unwrap_or(0.0);
+    fn feed(&mut self, data: &[Value]) -> Vec<NodeEvent> {
+        let next = data[0].as_float().unwrap_or_default();
 
         let new_ty = self.conf.ty.load(Ordering::Relaxed);
         let emit_ev = self.ty != new_ty;
@@ -80,12 +83,12 @@ impl Node for Glide {
 
         self.out = match self.ty {
             GlideType::Lerp => {
-                let lerp_r_exp = self.lerp_coeff.value(*data.get(1).unwrap_or(&None));
+                let lerp_r_exp = self.lerp_coeff.get_f32(data.get(1).unwrap_or(&Value::None));
                 let lerp_r = 10f32.powf(lerp_r_exp);
                 self.out * (1.0 - lerp_r) + next * lerp_r
             }
             GlideType::Exponential => {
-                let rate_coeff = self.rate_limit.value(*data.get(1).unwrap_or(&None));
+                let rate_coeff = self.rate_limit.get_f32(data.get(1).unwrap_or(&Value::None));
                 let rate = rate_coeff * self.out / 44100.0;
 
                 if rate.abs() > (self.out - next).abs() {
@@ -97,9 +100,9 @@ impl Node for Glide {
                 }
             }
             GlideType::Pid => {
-                let p = self.pid[0].value(*data.get(1).unwrap_or(&None));
-                let i = self.pid[1].value(*data.get(2).unwrap_or(&None));
-                let d = self.pid[2].value(*data.get(3).unwrap_or(&None));
+                let p = self.pid[0].get_f32(data.get(1).unwrap_or(&Value::None));
+                let i = self.pid[1].get_f32(data.get(2).unwrap_or(&Value::None));
+                let d = self.pid[2].get_f32(data.get(3).unwrap_or(&Value::None));
                 let lim = 44100.0 * 10.0;
 
                 self.pid_ctrl.output_limit = 44100.0;
@@ -116,8 +119,8 @@ impl Node for Glide {
         }
     }
 
-    fn read(&self) -> f32 {
-        self.out
+    fn read(&self) -> Value {
+        Value::Float(self.out)
     }
 
     fn config(&self) -> Option<Arc<dyn NodeConfig>> {

@@ -3,7 +3,11 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 use eframe::egui;
 use serde::{Deserialize, Serialize};
 
-use crate::{compute::node::InputUi, serde_atomic_enum, util::enum_combo_box};
+use crate::{
+    compute::{node::InputUi, Value},
+    serde_atomic_enum,
+    util::enum_combo_box,
+};
 
 use super::positive::PositiveInput;
 
@@ -28,6 +32,12 @@ impl TimeInput {
             samples: AtomicUsize::new(samples),
             in_ty: AtomicTimeUnit::new(TimeUnit::Samples),
         }
+    }
+
+    pub fn get_samples(&self, recv: &Value) -> usize {
+        recv.as_float()
+            .map(|f| f.round() as usize)
+            .unwrap_or(self.samples.load(Ordering::Relaxed))
     }
 }
 
@@ -55,15 +65,11 @@ impl InputUi for TimeInput {
                 let input = PositiveInput::new(secs);
                 input.show_disconnected(ui, verbose);
 
-                secs = input.value(None);
+                secs = input.get_f32(&Value::None);
                 samples = (secs * 44100.0).round() as _;
             }
         }
 
         self.samples.store(samples, Ordering::Release);
-    }
-
-    fn value(&self, recv: Option<f32>) -> f32 {
-        recv.unwrap_or(self.samples.load(Ordering::Relaxed) as f32)
     }
 }

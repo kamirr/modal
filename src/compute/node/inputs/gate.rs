@@ -3,7 +3,10 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use atomic_float::AtomicF32;
 use serde::{Deserialize, Serialize};
 
-use crate::{compute::node::InputUi, serde_atomic_enum};
+use crate::{
+    compute::{node::InputUi, Value},
+    serde_atomic_enum,
+};
 
 use super::real::RealInput;
 
@@ -42,28 +45,13 @@ impl GateInput {
     pub fn negative_edge(&self) -> bool {
         self.edge.load(Ordering::Relaxed) == Edge::Negative
     }
-}
 
-impl InputUi for GateInput {
-    fn show_always(&self, ui: &mut eframe::egui::Ui, verbose: bool) {
-        if verbose {
-            self.threshold.show_disconnected(ui, verbose);
-        }
-    }
-
-    fn show_disconnected(&self, ui: &mut eframe::egui::Ui, _verbose: bool) {
-        let mut default = self.default.load(Ordering::Acquire);
-        ui.checkbox(&mut default, "default");
-
-        self.default.store(default, Ordering::Release);
-    }
-
-    fn value(&self, recv: Option<f32>) -> f32 {
+    pub fn gate(&self, recv: &Value) -> bool {
         let prev = self.prev.load(Ordering::Acquire);
         let default = self.default.load(Ordering::Acquire);
-        let threshold = self.threshold.value(None);
+        let threshold = self.threshold.get_f32(&Value::None);
 
-        let curr = recv.unwrap_or(if default {
+        let curr = recv.as_float().unwrap_or(if default {
             threshold + 1.0
         } else {
             threshold - 1.0
@@ -80,10 +68,21 @@ impl InputUi for GateInput {
         self.edge.store(edge, Ordering::Relaxed);
         self.prev.store(curr, Ordering::Release);
 
-        if curr >= threshold {
-            1.0
-        } else {
-            0.0
+        curr >= threshold
+    }
+}
+
+impl InputUi for GateInput {
+    fn show_always(&self, ui: &mut eframe::egui::Ui, verbose: bool) {
+        if verbose {
+            self.threshold.show_disconnected(ui, verbose);
         }
+    }
+
+    fn show_disconnected(&self, ui: &mut eframe::egui::Ui, _verbose: bool) {
+        let mut default = self.default.load(Ordering::Acquire);
+        ui.checkbox(&mut default, "default");
+
+        self.default.store(default, Ordering::Release);
     }
 }

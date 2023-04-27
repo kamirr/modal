@@ -2,7 +2,10 @@ use std::{collections::VecDeque, sync::Arc};
 
 use serde::{Deserialize, Serialize};
 
-use crate::compute::node::{inputs::time::TimeInput, Input, InputUi, Node, NodeEvent};
+use crate::compute::{
+    node::{inputs::time::TimeInput, Input, Node, NodeEvent},
+    Value,
+};
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Delay {
@@ -23,8 +26,8 @@ impl Delay {
 
 #[typetag::serde]
 impl Node for Delay {
-    fn feed(&mut self, data: &[Option<f32>]) -> Vec<NodeEvent> {
-        let target_len = self.time_in.value(data[1]) as usize;
+    fn feed(&mut self, data: &[Value]) -> Vec<NodeEvent> {
+        let target_len = self.time_in.get_samples(&data[1]);
         while target_len > self.data.len() {
             self.data.push_back(0.0);
         }
@@ -32,14 +35,14 @@ impl Node for Delay {
             self.data.drain(0..(self.data.len() - target_len));
         }
 
-        self.data.push_back(data[0].unwrap_or(0.0));
+        self.data.push_back(data[0].as_float().unwrap_or(0.0));
         self.out = self.data.pop_front().unwrap();
 
         Default::default()
     }
 
-    fn read(&self) -> f32 {
-        self.out
+    fn read(&self) -> Value {
+        Value::Float(self.out)
     }
 
     fn inputs(&self) -> Vec<Input> {

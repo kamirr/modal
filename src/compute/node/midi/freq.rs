@@ -2,7 +2,10 @@ use std::{fmt::Debug, sync::Arc};
 
 use serde::{Deserialize, Serialize};
 
-use crate::compute::node::{Node, NodeConfig, NodeEvent};
+use crate::compute::{
+    node::{Node, NodeConfig, NodeEvent},
+    Value,
+};
 
 use super::MidiInConf;
 
@@ -21,12 +24,12 @@ impl MidiFreq {
 
 #[typetag::serde]
 impl Node for MidiFreq {
-    fn feed(&mut self, _data: &[Option<f32>]) -> Vec<NodeEvent> {
+    fn feed(&mut self, _data: &[Value]) -> Vec<NodeEvent> {
         Default::default()
     }
 
-    fn read(&self) -> f32 {
-        self.config.instrument().freq()
+    fn read(&self) -> Value {
+        Value::Float(self.config.instrument().freq())
     }
 
     fn config(&self) -> Option<Arc<dyn NodeConfig>> {

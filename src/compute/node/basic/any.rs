@@ -6,9 +6,12 @@ use std::sync::{
 use eframe::egui::DragValue;
 use serde::{Deserialize, Serialize};
 
-use crate::compute::node::{
-    inputs::trigger::{TriggerInput, TriggerMode},
-    Input, InputUi, Node, NodeConfig, NodeEvent,
+use crate::compute::{
+    node::{
+        inputs::trigger::{TriggerInput, TriggerMode},
+        Input, Node, NodeConfig, NodeEvent,
+    },
+    Value,
 };
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -62,12 +65,12 @@ impl Any {
 
 #[typetag::serde]
 impl Node for Any {
-    fn feed(&mut self, data: &[Option<f32>]) -> Vec<NodeEvent> {
+    fn feed(&mut self, data: &[Value]) -> Vec<NodeEvent> {
         let emit = data
             .iter()
             .zip(self.defaults.iter())
-            .map(|(sample, default)| default.value(*sample))
-            .any(|f| f > 0.5);
+            .map(|(sample, default)| default.trigger(sample))
+            .any(|trig| trig);
         self.out = if emit { 1.0 } else { 0.0 };
 
         let new_ins = self.config.ins.load(Ordering::Relaxed);
@@ -87,8 +90,8 @@ impl Node for Any {
         }
     }
 
-    fn read(&self) -> f32 {
-        self.out
+    fn read(&self) -> Value {
+        Value::Float(self.out)
     }
 
     fn config(&self) -> Option<Arc<dyn NodeConfig>> {

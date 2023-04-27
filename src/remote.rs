@@ -10,7 +10,7 @@ use thunderdome::Index;
 
 use crate::compute::{
     node::{Node, NodeEvent},
-    Runtime,
+    Runtime, Value,
 };
 
 #[derive(Debug)]
@@ -89,10 +89,14 @@ impl RuntimeRemote {
                             resp_tx.send(RtResponse::NodeEvents(evs)).ok();
                         }
 
-                        *s = record.map(|idx| rt.peek(idx)).unwrap_or_default();
+                        *s = record
+                            .map(|idx| rt.peek(idx))
+                            .as_ref()
+                            .and_then(Value::as_float)
+                            .unwrap_or_default();
 
                         for (idx, buffer) in &mut recording {
-                            buffer.push(rt.peek(*idx));
+                            buffer.push(rt.peek(*idx).as_float().unwrap_or_default());
                         }
                     }
 

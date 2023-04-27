@@ -7,13 +7,14 @@ use rand::Rng;
 use serde::{Deserialize, Serialize};
 
 use crate::{
+    compute::Value,
     serde_atomic_enum,
     util::{enum_combo_box, perlin::Perlin1D},
 };
 
 use super::{
     inputs::{freq::FreqInput, real::RealInput},
-    Input, InputUi, Node, NodeConfig, NodeEvent, NodeList,
+    Input, Node, NodeConfig, NodeEvent, NodeList,
 };
 
 #[atomic_enum::atomic_enum]
@@ -62,9 +63,9 @@ pub struct NoiseGen {
 
 #[typetag::serde]
 impl Node for NoiseGen {
-    fn feed(&mut self, data: &[Option<f32>]) -> Vec<NodeEvent> {
-        let min = self.min.value(data[0]);
-        let max = self.max.value(data[1]);
+    fn feed(&mut self, data: &[Value]) -> Vec<NodeEvent> {
+        let min = self.min.get_f32(&data[0]);
+        let max = self.max.get_f32(&data[1]);
         let ty = self.config.noise_type();
 
         let emit = ty != self.ty;
@@ -73,7 +74,9 @@ impl Node for NoiseGen {
         let m1_to_p1 = match ty {
             NoiseType::Uniform => rand::thread_rng().gen_range(min..=max),
             NoiseType::Perlin => {
-                let frequency = self.frequency_input.value(data.get(2).copied().flatten());
+                let frequency = self
+                    .frequency_input
+                    .get_f32(data.get(2).unwrap_or(&Value::None));
                 self.t += 1;
                 let perlin_arg = self.t as f32 / 44100.0 * frequency;
 
@@ -92,8 +95,8 @@ impl Node for NoiseGen {
         }
     }
 
-    fn read(&self) -> f32 {
-        self.out
+    fn read(&self) -> Value {
+        Value::Float(self.out)
     }
 
     fn config(&self) -> Option<Arc<dyn NodeConfig>> {

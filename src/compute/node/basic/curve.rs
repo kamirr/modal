@@ -3,14 +3,17 @@ use std::sync::{
     Arc, RwLock,
 };
 
-use crate::compute::node::{
-    inputs::{
-        gate::GateInput,
-        real::RealInput,
-        time::TimeInput,
-        trigger::{TriggerInput, TriggerMode},
+use crate::compute::{
+    node::{
+        inputs::{
+            gate::GateInput,
+            real::RealInput,
+            time::TimeInput,
+            trigger::{TriggerInput, TriggerMode},
+        },
+        Input, Node, NodeConfig, NodeEvent,
     },
-    Input, InputUi, Node, NodeConfig, NodeEvent,
+    Value,
 };
 use eframe::{
     egui,
@@ -143,15 +146,14 @@ impl Curve {
 
 #[typetag::serde]
 impl Node for Curve {
-    fn feed(&mut self, data: &[Option<f32>]) -> Vec<NodeEvent> {
-        let trigger = self.trigger.value(data[0]);
-        let length = self.length.value(data[1]);
-        let min = self.min.value(data[2]);
-        let max = self.max.value(data[3]);
-        let repeat = self.repeat.value(data[4]);
-        let resettable = self.resettable.value(data[5]);
-
-        if trigger > 0.5 && (self.status == CurveStatus::Done || resettable > 0.5) {
+    fn feed(&mut self, data: &[Value]) -> Vec<NodeEvent> {
+        let trigger = self.trigger.trigger(&data[0]);
+        let length = self.length.get_samples(&data[1]);
+        let min = self.min.get_f32(&data[2]);
+        let max = self.max.get_f32(&data[3]);
+        let repeat = self.repeat.gate(&data[4]);
+        let resettable = self.resettable.gate(&data[5]);
+        if trigger && (self.status == CurveStatus::Done || resettable) {
             self.status = CurveStatus::Playing;
             self.t = 0;
         }
@@ -160,7 +162,7 @@ impl Node for Curve {
             self.status = CurveStatus::Done;
         }
 
-        if self.status == CurveStatus::Done && repeat > 0.5 {
+        if self.status == CurveStatus::Done && repeat {
             self.status = CurveStatus::Playing;
             self.t = 0;
         }
@@ -169,7 +171,7 @@ impl Node for Curve {
             CurveStatus::Done => self.config.values.read().unwrap()[0],
             CurveStatus::Playing => {
                 let values = self.config.values.read().unwrap();
-                let t = self.t as f32 / length;
+                let t = self.t as f32 / length as f32;
 
                 let idx_f32 = t * values.len() as f32;
                 let idx = idx_f32 as usize;
@@ -189,8 +191,8 @@ impl Node for Curve {
         Default::default()
     }
 
-    fn read(&self) -> f32 {
-        self.out
+    fn read(&self) -> Value {
+        Value::Float(self.out)
     }
 
     fn config(&self) -> Option<Arc<dyn NodeConfig>> {

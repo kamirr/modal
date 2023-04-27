@@ -9,7 +9,10 @@ use std::{
 use eframe::egui::DragValue;
 use serde::{Deserialize, Serialize};
 
-use crate::compute::node::{inputs::real::RealInput, Input, InputUi, Node, NodeConfig, NodeEvent};
+use crate::compute::{
+    node::{inputs::real::RealInput, Input, Node, NodeConfig, NodeEvent},
+    Value,
+};
 
 #[derive(Debug, Serialize, Deserialize)]
 struct AddConfig {
@@ -60,11 +63,11 @@ impl Add {
 
 #[typetag::serde]
 impl Node for Add {
-    fn feed(&mut self, data: &[Option<f32>]) -> Vec<NodeEvent> {
+    fn feed(&mut self, data: &[Value]) -> Vec<NodeEvent> {
         self.out = data
             .iter()
             .zip(self.defaults.iter())
-            .map(|(sample, default)| default.value(*sample))
+            .map(|(sample, default)| default.get_f32(sample))
             .sum();
 
         let new_ins = self.config.ins.load(Ordering::Relaxed);
@@ -83,8 +86,8 @@ impl Node for Add {
         }
     }
 
-    fn read(&self) -> f32 {
-        self.out
+    fn read(&self) -> Value {
+        Value::Float(self.out)
     }
 
     fn config(&self) -> Option<Arc<dyn NodeConfig>> {

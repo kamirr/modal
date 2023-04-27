@@ -3,7 +3,7 @@ use eframe::egui::DragValue;
 use serde::{Deserialize, Serialize};
 use std::sync::atomic::Ordering;
 
-use crate::compute::node::InputUi;
+use crate::compute::{node::InputUi, Value};
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct RealInput {
@@ -15,6 +15,10 @@ impl RealInput {
         RealInput {
             s: AtomicF32::new(f),
         }
+    }
+
+    pub fn get_f32(&self, recv: &Value) -> f32 {
+        recv.as_float().unwrap_or(self.s.load(Ordering::Relaxed))
     }
 }
 
@@ -43,9 +47,5 @@ impl InputUi for RealInput {
         );
 
         self.s.store(s, Ordering::Release);
-    }
-
-    fn value(&self, recv: Option<f32>) -> f32 {
-        recv.unwrap_or(self.s.load(Ordering::Relaxed))
     }
 }

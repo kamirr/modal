@@ -2,12 +2,15 @@ use std::sync::Arc;
 
 use serde::{Deserialize, Serialize};
 
-use crate::compute::node::{
-    inputs::{
-        time::TimeInput,
-        trigger::{TriggerInput, TriggerMode},
+use crate::compute::{
+    node::{
+        inputs::{
+            time::TimeInput,
+            trigger::{TriggerInput, TriggerMode},
+        },
+        Input, Node, NodeEvent,
     },
-    Input, InputUi, Node, NodeEvent,
+    Value,
 };
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -54,9 +57,9 @@ impl Pulse {
 
 #[typetag::serde]
 impl Node for Pulse {
-    fn feed(&mut self, data: &[Option<f32>]) -> Vec<NodeEvent> {
-        if self.trigger.value(data[0]) > 0.5 {
-            self.state = PulseState::Up(self.time.value(data[1]) as usize);
+    fn feed(&mut self, data: &[Value]) -> Vec<NodeEvent> {
+        if self.trigger.trigger(&data[0]) {
+            self.state = PulseState::Up(self.time.get_samples(&data[1]));
         }
 
         self.out = self.state.step();
@@ -64,8 +67,8 @@ impl Node for Pulse {
         Default::default()
     }
 
-    fn read(&self) -> f32 {
-        self.out
+    fn read(&self) -> Value {
+        Value::Float(self.out)
     }
 
     fn inputs(&self) -> Vec<Input> {

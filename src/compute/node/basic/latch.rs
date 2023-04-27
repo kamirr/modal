@@ -2,9 +2,12 @@ use std::sync::Arc;
 
 use serde::{Deserialize, Serialize};
 
-use crate::compute::node::{
-    inputs::trigger::{TriggerInput, TriggerMode},
-    Input, InputUi, Node, NodeEvent,
+use crate::compute::{
+    node::{
+        inputs::trigger::{TriggerInput, TriggerMode},
+        Input, Node, NodeEvent,
+    },
+    Value,
 };
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -24,19 +27,16 @@ impl Latch {
 
 #[typetag::serde]
 impl Node for Latch {
-    fn feed(&mut self, data: &[Option<f32>]) -> Vec<NodeEvent> {
-        let trigger: f32 = self.trigger.value(data[0]);
-        let sig = data[1].unwrap_or(0.0);
-
-        if trigger > 0.5 {
-            self.out = sig;
+    fn feed(&mut self, data: &[Value]) -> Vec<NodeEvent> {
+        if self.trigger.trigger(&data[0]) {
+            self.out = data[1].as_float().unwrap_or_default();
         }
 
         Default::default()
     }
 
-    fn read(&self) -> f32 {
-        self.out
+    fn read(&self) -> Value {
+        Value::Float(self.out)
     }
 
     fn inputs(&self) -> Vec<Input> {

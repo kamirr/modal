@@ -2,7 +2,10 @@ use std::sync::Arc;
 
 use serde::{Deserialize, Serialize};
 
-use crate::compute::node::{inputs::positive::PositiveInput, Input, InputUi, Node, NodeEvent};
+use crate::compute::{
+    node::{inputs::positive::PositiveInput, Input, Node, NodeEvent},
+    Value,
+};
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 struct Gain {
@@ -12,17 +15,17 @@ struct Gain {
 
 #[typetag::serde]
 impl Node for Gain {
-    fn feed(&mut self, data: &[Option<f32>]) -> Vec<NodeEvent> {
-        let s0 = data[0].unwrap_or(0.0);
-        let s1 = self.s1.value(data[1]);
+    fn feed(&mut self, data: &[Value]) -> Vec<NodeEvent> {
+        let s0 = data[0].as_float().unwrap_or(0.0);
+        let s1 = self.s1.get_f32(&data[1]);
 
         self.out = s0 * s1;
 
         Default::default()
     }
 
-    fn read(&self) -> f32 {
-        self.out
+    fn read(&self) -> Value {
+        Value::Float(self.out)
     }
 
     fn inputs(&self) -> Vec<Input> {

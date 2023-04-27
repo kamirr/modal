@@ -11,9 +11,12 @@ use atomic_enum::atomic_enum;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    compute::node::{
-        inputs::{freq::FreqInput, real::RealInput},
-        Input, InputUi, Node, NodeConfig, NodeEvent,
+    compute::{
+        node::{
+            inputs::{freq::FreqInput, real::RealInput},
+            Input, Node, NodeConfig, NodeEvent,
+        },
+        Value,
     },
     serde_atomic_enum,
     util::enum_combo_box,
@@ -69,10 +72,10 @@ impl Oscillator {
 
 #[typetag::serde]
 impl Node for Oscillator {
-    fn feed(&mut self, data: &[Option<f32>]) -> Vec<NodeEvent> {
-        let f = self.f.value(data[0]);
-        let min = self.min.value(*data.get(1).unwrap_or(&Some(-1.0)));
-        let max = self.max.value(*data.get(2).unwrap_or(&Some(1.0)));
+    fn feed(&mut self, data: &[Value]) -> Vec<NodeEvent> {
+        let f = self.f.get_f32(&data[0]);
+        let min = self.min.get_f32(data.get(1).unwrap_or(&Value::Float(-1.0)));
+        let max = self.max.get_f32(data.get(2).unwrap_or(&Value::Float(1.0)));
 
         let step = f * Self::hz_to_dt();
         self.t = (self.t + step) % 4.0;
@@ -104,8 +107,8 @@ impl Node for Oscillator {
         }
     }
 
-    fn read(&self) -> f32 {
-        self.out
+    fn read(&self) -> Value {
+        Value::Float(self.out)
     }
 
     fn config(&self) -> Option<Arc<dyn NodeConfig>> {

@@ -2,7 +2,10 @@ use std::sync::Arc;
 
 use serde::{Deserialize, Serialize};
 
-use crate::compute::node::{inputs::gate::GateInput, Input, InputUi, Node, NodeEvent};
+use crate::compute::{
+    node::{inputs::gate::GateInput, Input, Node, NodeEvent},
+    Value,
+};
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Gate {
@@ -21,14 +24,14 @@ impl Gate {
 
 #[typetag::serde]
 impl Node for Gate {
-    fn feed(&mut self, data: &[Option<f32>]) -> Vec<NodeEvent> {
-        self.out = self.gate.value(data[0]);
+    fn feed(&mut self, data: &[Value]) -> Vec<NodeEvent> {
+        self.out = if self.gate.gate(&data[0]) { 1.0 } else { 0.0 };
 
         Default::default()
     }
 
-    fn read(&self) -> f32 {
-        self.out
+    fn read(&self) -> Value {
+        Value::Float(self.out)
     }
 
     fn inputs(&self) -> Vec<Input> {

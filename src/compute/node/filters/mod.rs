@@ -1,11 +1,11 @@
 use atomic_enum::atomic_enum;
 use serde::{Deserialize, Serialize};
 
-use crate::{serde_atomic_enum, util::enum_combo_box};
+use crate::{compute::Value, serde_atomic_enum, util::enum_combo_box};
 
 use super::{
     inputs::{freq::FreqInput, positive::PositiveInput},
-    Input, InputUi, Node, NodeConfig, NodeEvent, NodeList,
+    Input, Node, NodeConfig, NodeEvent, NodeList,
 };
 use std::{
     any::Any,
@@ -87,7 +87,7 @@ impl Biquad {
         }
     }
 
-    fn next(&mut self, input: f32, f0: Option<f32>, param: Option<f32>) {
+    fn next(&mut self, input: f32, f0: &Value, param: &Value) {
         let (a, b) = self.coeffs(f0, param);
 
         self.in_hist = [self.in_hist[1], self.in_hist[2], input];
@@ -100,14 +100,14 @@ impl Biquad {
         self.out_hist = [self.out_hist[1], out];
     }
 
-    fn coeffs(&self, f0: Option<f32>, param: Option<f32>) -> ([f32; 3], [f32; 3]) {
+    fn coeffs(&self, f0: &Value, param: &Value) -> ([f32; 3], [f32; 3]) {
         let ty = self.config.filt_ty.load(Ordering::Relaxed);
         let param_ty = self.config.param_ty.load(Ordering::Relaxed);
 
-        let f0 = self.f0.value(f0);
+        let f0 = self.f0.get_f32(f0);
         let param = match param_ty {
-            ParamTy::Q => self.q.value(param),
-            ParamTy::Bw => self.bw.value(param),
+            ParamTy::Q => self.q.get_f32(param),
+            ParamTy::Bw => self.bw.get_f32(param),
         };
 
         let w0 = 2.0 * PI * f0 / 44100.0;
@@ -146,8 +146,8 @@ impl Biquad {
 
 #[typetag::serde]
 impl Node for Biquad {
-    fn feed(&mut self, data: &[Option<f32>]) -> Vec<NodeEvent> {
-        self.next(data[0].unwrap_or(0.0), data[1], data[2]);
+    fn feed(&mut self, data: &[Value]) -> Vec<NodeEvent> {
+        self.next(data[0].as_float().unwrap_or_default(), &data[1], &data[2]);
 
         let new_param_ty = self.config.param_ty.load(Ordering::Relaxed);
         if self.param_ty != new_param_ty {
@@ -159,8 +159,8 @@ impl Node for Biquad {
         }
     }
 
-    fn read(&self) -> f32 {
-        self.out_hist[1]
+    fn read(&self) -> Value {
+        Value::Float(self.out_hist[1])
     }
 
     fn config(&self) -> Option<Arc<dyn NodeConfig>> {
