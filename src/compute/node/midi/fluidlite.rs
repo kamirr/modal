@@ -88,6 +88,12 @@ impl Node for Fluidlite {
                         .note_off(channel as u32, key.as_int() as _)
                         .ok();
                 }
+                MidiMessage::Controller { controller, value } => {
+                    self.synth
+                        .0
+                        .cc(channel as _, controller.as_int() as _, value.as_int() as _)
+                        .ok();
+                }
                 _ => {}
             },
             _ => {}
