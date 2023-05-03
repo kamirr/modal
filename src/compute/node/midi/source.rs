@@ -14,7 +14,7 @@ use serde::{Deserialize, Serialize};
 use crate::{
     compute::{
         node::{Node, NodeConfig, NodeEvent},
-        Value,
+        Value, ValueDiscriminants,
     },
     graph::SynthCtx,
     util,
@@ -54,7 +54,6 @@ impl RecoverableMidiSource {
 
     fn source(&mut self) -> &mut dyn MidiSource {
         if self.source.is_none() {
-            dbg!("create :3");
             self.source = Some(self.new.new_src().unwrap());
         }
 
@@ -188,6 +187,10 @@ impl Node for MidiIn {
 
     fn config(&self) -> Option<Arc<dyn NodeConfig>> {
         Some(Arc::clone(&self.conf) as Arc<_>)
+    }
+
+    fn output(&self) -> ValueDiscriminants {
+        ValueDiscriminants::Midi
     }
 }
 

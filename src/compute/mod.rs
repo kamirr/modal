@@ -29,9 +29,11 @@ impl Entry {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, strum::EnumDiscriminants)]
+#[strum_discriminants(vis(pub))]
 pub enum Value {
     None,
+    Disconnected,
     #[serde(skip)]
     Midi {
         channel: u8,
@@ -68,6 +70,10 @@ impl Value {
             Value::FloatArray(s) => Some(s.clone()),
             _ => None,
         }
+    }
+
+    pub fn disconnected(&self) -> bool {
+        self == &Value::Disconnected
     }
 }
 
@@ -127,7 +133,7 @@ impl Runtime {
             for &mut input in &mut entry.inputs {
                 buf.push(match input {
                     Some(in_index) => self.values[in_index.slot() as usize].clone(),
-                    None => Value::None,
+                    None => Value::Disconnected,
                 });
             }
 

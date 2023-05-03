@@ -11,7 +11,7 @@ use crate::compute::{
         inputs::trigger::{TriggerInput, TriggerMode},
         Input, Node, NodeConfig, NodeEvent,
     },
-    Value,
+    Value, ValueDiscriminants,
 };
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -100,7 +100,13 @@ impl Node for Any {
 
     fn inputs(&self) -> Vec<Input> {
         (0..self.ins)
-            .map(|i| Input::with_default(format!("sig {i}"), &self.defaults[i as usize]))
+            .map(|i| {
+                Input::with_default(
+                    format!("sig {i}"),
+                    ValueDiscriminants::Float,
+                    &self.defaults[i as usize],
+                )
+            })
             .collect()
     }
 }

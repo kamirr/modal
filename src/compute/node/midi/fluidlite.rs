@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::compute::{
     node::{Input, Node, NodeEvent},
-    Value,
+    Value, ValueDiscriminants,
 };
 
 struct MyFluidlite(fl::Synth);
@@ -40,6 +40,7 @@ pub struct Fluidlite {
     synth: MyFluidlite,
     out: f32,
     buf: VecDeque<f32>,
+    disconnect_done: bool,
 }
 
 impl Fluidlite {
@@ -48,6 +49,7 @@ impl Fluidlite {
             synth: MyFluidlite::default(),
             out: 0.0,
             buf: VecDeque::new(),
+            disconnect_done: false,
         }
     }
 }
@@ -55,6 +57,20 @@ impl Fluidlite {
 #[typetag::serde]
 impl Node for Fluidlite {
     fn feed(&mut self, data: &[Value]) -> Vec<NodeEvent> {
+        if data[0].disconnected() {
+            if !self.disconnect_done {
+                for key in 0..midly::num::u7::max_value().as_int() {
+                    for chan in 0..self.synth.0.count_midi_channels() {
+                        self.synth.0.note_off(chan, key as u32).ok();
+                    }
+                }
+
+                self.disconnect_done = true;
+            }
+        } else {
+            self.disconnect_done = false;
+        }
+
         match data[0].as_midi() {
             Some((channel, msg)) => match msg {
                 MidiMessage::NoteOn { key, vel } => {
@@ -94,7 +110,7 @@ impl Node for Fluidlite {
     }
 
     fn inputs(&self) -> Vec<Input> {
-        vec![Input::new("midi")]
+        vec![Input::new("midi", ValueDiscriminants::Midi)]
     }
 }
 

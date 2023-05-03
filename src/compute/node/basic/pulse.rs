@@ -10,7 +10,7 @@ use crate::compute::{
         },
         Input, Node, NodeEvent,
     },
-    Value,
+    Value, ValueDiscriminants,
 };
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -73,8 +73,8 @@ impl Node for Pulse {
 
     fn inputs(&self) -> Vec<Input> {
         vec![
-            Input::with_default("trigger", &self.trigger),
-            Input::with_default("length", &self.time),
+            Input::with_default("trigger", ValueDiscriminants::Float, &self.trigger),
+            Input::with_default("length", ValueDiscriminants::Float, &self.time),
         ]
     }
 }

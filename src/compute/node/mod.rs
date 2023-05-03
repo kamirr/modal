@@ -3,7 +3,7 @@ use std::{any::Any, fmt::Debug, sync::Arc};
 
 use dyn_clone::DynClone;
 
-use super::Value;
+use super::{Value, ValueDiscriminants};
 
 pub mod basic;
 pub mod effects;
@@ -23,13 +23,15 @@ pub trait InputUi: Send + Sync {
 }
 
 pub struct Input {
+    pub kind: ValueDiscriminants,
     pub name: String,
     pub default_value: Option<Arc<dyn InputUi>>,
 }
 
 impl Input {
-    pub fn new<S: Into<String>>(name: S) -> Self {
+    pub fn new<S: Into<String>>(name: S, kind: ValueDiscriminants) -> Self {
         Input {
+            kind,
             name: name.into(),
             default_value: None,
         }
@@ -37,10 +39,12 @@ impl Input {
 
     pub fn with_default<S: Into<String>, I: InputUi + 'static>(
         name: S,
+        kind: ValueDiscriminants,
         default_value: &Arc<I>,
     ) -> Self {
         Input {
             name: name.into(),
+            kind,
             default_value: Some(Arc::clone(default_value) as Arc<dyn InputUi>),
         }
     }
@@ -78,6 +82,10 @@ pub trait Node: DynClone + Debug + Send {
 
     fn inputs(&self) -> Vec<Input> {
         Vec::default()
+    }
+
+    fn output(&self) -> ValueDiscriminants {
+        ValueDiscriminants::Float
     }
 }
 

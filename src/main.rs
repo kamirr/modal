@@ -129,11 +129,17 @@ impl SynthApp {
         let ui_inputs = self.user_state.node_ui_inputs.get_mut(&node_id).unwrap();
         for input in inputs {
             if !curr_inputs.iter().any(|(name, _)| name == &input.name) {
+                let data_type = match input.kind {
+                    compute::ValueDiscriminants::Float => graph::SynthDataType::Float,
+                    compute::ValueDiscriminants::Midi => graph::SynthDataType::Midi,
+                    _ => unimplemented!(),
+                };
+
                 self.state.graph.add_input_param(
                     node_id,
                     input.name.clone(),
-                    graph::SynthDataType,
-                    graph::SynthValueType(0.0),
+                    data_type,
+                    graph::SynthValueType::default_with_type(data_type),
                     InputParamKind::ConnectionOrConstant,
                     true,
                 );
@@ -298,7 +304,7 @@ impl eframe::App for SynthApp {
                 continue;
             };
 
-            scope.feed(samples.into_iter());
+            scope.feed(samples);
         }
 
         self.user_state.ctx.update_jack();

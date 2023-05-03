@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::compute::{
     node::{inputs::positive::PositiveInput, Input, Node, NodeEvent},
-    Value,
+    Value, ValueDiscriminants,
 };
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -29,7 +29,10 @@ impl Node for Gain {
     }
 
     fn inputs(&self) -> Vec<Input> {
-        vec![Input::new("sig 0"), Input::with_default("sig 1", &self.s1)]
+        vec![
+            Input::new("sig 0", ValueDiscriminants::Float),
+            Input::with_default("sig 1", ValueDiscriminants::Float, &self.s1),
+        ]
     }
 }
 

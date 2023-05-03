@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::compute::{
     node::{inputs::real::RealInput, Input, Node, NodeEvent},
-    Value,
+    Value, ValueDiscriminants,
 };
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -26,10 +26,11 @@ impl Node for Constant {
     }
 
     fn inputs(&self) -> Vec<Input> {
-        vec![Input {
-            name: "value".into(),
-            default_value: Some(Arc::clone(&self.value) as Arc<_>),
-        }]
+        vec![Input::with_default(
+            "value",
+            ValueDiscriminants::Float,
+            &self.value,
+        )]
     }
 }
 

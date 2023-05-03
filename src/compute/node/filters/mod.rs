@@ -1,7 +1,11 @@
 use atomic_enum::atomic_enum;
 use serde::{Deserialize, Serialize};
 
-use crate::{compute::Value, serde_atomic_enum, util::enum_combo_box};
+use crate::{
+    compute::{Value, ValueDiscriminants},
+    serde_atomic_enum,
+    util::enum_combo_box,
+};
 
 use super::{
     inputs::{freq::FreqInput, positive::PositiveInput},
@@ -169,11 +173,11 @@ impl Node for Biquad {
 
     fn inputs(&self) -> Vec<Input> {
         vec![
-            Input::new("sig"),
-            Input::with_default("f0", &self.f0),
+            Input::new("sig", ValueDiscriminants::Float),
+            Input::with_default("f0", ValueDiscriminants::Float, &self.f0),
             match &self.param_ty {
-                ParamTy::Q => Input::with_default("Q", &self.q),
-                ParamTy::Bw => Input::with_default("BW", &self.bw),
+                ParamTy::Q => Input::with_default("Q", ValueDiscriminants::Float, &self.q),
+                ParamTy::Bw => Input::with_default("BW", ValueDiscriminants::Float, &self.bw),
             },
         ]
     }

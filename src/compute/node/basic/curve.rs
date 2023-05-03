@@ -13,7 +13,7 @@ use crate::compute::{
         },
         Input, Node, NodeConfig, NodeEvent,
     },
-    Value,
+    Value, ValueDiscriminants,
 };
 use eframe::{
     egui,
@@ -201,12 +201,12 @@ impl Node for Curve {
 
     fn inputs(&self) -> Vec<Input> {
         vec![
-            Input::with_default("trigger", &self.trigger),
-            Input::with_default("length", &self.length),
-            Input::with_default("min", &self.min),
-            Input::with_default("max", &self.max),
-            Input::with_default("repeat", &self.repeat),
-            Input::with_default("resettable", &self.resettable),
+            Input::with_default("trigger", ValueDiscriminants::Float, &self.trigger),
+            Input::with_default("length", ValueDiscriminants::Float, &self.length),
+            Input::with_default("min", ValueDiscriminants::Float, &self.min),
+            Input::with_default("max", ValueDiscriminants::Float, &self.max),
+            Input::with_default("repeat", ValueDiscriminants::Float, &self.repeat),
+            Input::with_default("resettable", ValueDiscriminants::Float, &self.resettable),
         ]
     }
 }

@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::compute::{
     node::{inputs::gate::GateInput, Input, Node, NodeEvent},
-    Value,
+    Value, ValueDiscriminants,
 };
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -35,7 +35,11 @@ impl Node for Gate {
     }
 
     fn inputs(&self) -> Vec<Input> {
-        vec![Input::with_default("gate", &self.gate)]
+        vec![Input::with_default(
+            "gate",
+            ValueDiscriminants::Float,
+            &self.gate,
+        )]
     }
 }
 

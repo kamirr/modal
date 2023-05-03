@@ -16,7 +16,7 @@ use crate::{
             inputs::{freq::FreqInput, real::RealInput},
             Input, Node, NodeConfig, NodeEvent,
         },
-        Value,
+        Value, ValueDiscriminants,
     },
     serde_atomic_enum,
     util::enum_combo_box,
@@ -116,11 +116,11 @@ impl Node for Oscillator {
     }
 
     fn inputs(&self) -> Vec<Input> {
-        let mut inputs = vec![Input::with_default("f", &self.f)];
+        let mut inputs = vec![Input::with_default("f", ValueDiscriminants::Float, &self.f)];
         if self.manual_range {
             inputs.extend([
-                Input::with_default("min", &self.min),
-                Input::with_default("max", &self.max),
+                Input::with_default("min", ValueDiscriminants::Float, &self.min),
+                Input::with_default("max", ValueDiscriminants::Float, &self.max),
             ])
         }
 

@@ -7,7 +7,7 @@ use rand::Rng;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    compute::Value,
+    compute::{Value, ValueDiscriminants},
     serde_atomic_enum,
     util::{enum_combo_box, perlin::Perlin1D},
 };
@@ -105,12 +105,16 @@ impl Node for NoiseGen {
 
     fn inputs(&self) -> Vec<Input> {
         let mut ins = vec![
-            Input::with_default("min", &self.min),
-            Input::with_default("max", &self.max),
+            Input::with_default("min", ValueDiscriminants::Float, &self.min),
+            Input::with_default("max", ValueDiscriminants::Float, &self.max),
         ];
 
         match self.ty {
-            NoiseType::Perlin => ins.push(Input::with_default("f", &self.frequency_input)),
+            NoiseType::Perlin => ins.push(Input::with_default(
+                "f",
+                ValueDiscriminants::Float,
+                &self.frequency_input,
+            )),
             _ => {}
         }
 

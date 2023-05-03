@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::compute::{
     node::{inputs::slider::SliderInput, Input, Node, NodeEvent},
-    Value,
+    Value, ValueDiscriminants,
 };
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -40,9 +40,9 @@ impl Node for Mix {
 
     fn inputs(&self) -> Vec<Input> {
         vec![
-            Input::new("sig 0"),
-            Input::new("sig 1"),
-            Input::with_default("mix", &self.ratio),
+            Input::new("sig 0", ValueDiscriminants::Float),
+            Input::new("sig 1", ValueDiscriminants::Float),
+            Input::with_default("mix", ValueDiscriminants::Float, &self.ratio),
         ]
     }
 }

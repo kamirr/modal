@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 use crate::{
     compute::{
         node::{Input, Node, NodeConfig, NodeEvent},
-        Value,
+        Value, ValueDiscriminants,
     },
     serde_atomic_enum,
     util::enum_combo_box,
@@ -81,7 +81,7 @@ impl Node for Convert {
     }
 
     fn inputs(&self) -> Vec<Input> {
-        vec![Input::new("in")]
+        vec![Input::new("in", ValueDiscriminants::Float)]
     }
 }
 

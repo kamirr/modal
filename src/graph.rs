@@ -15,9 +15,12 @@ use eframe::egui;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    compute::node::{
-        all::source::{jack::JackSourceNew, smf::SmfSourceNew},
-        InputUi, Node, NodeConfig, NodeList,
+    compute::{
+        self,
+        node::{
+            all::source::{jack::JackSourceNew, smf::SmfSourceNew},
+            InputUi, Node, NodeConfig, NodeList,
+        },
     },
     scope::Scope,
     util::toggle_button,
@@ -148,27 +151,53 @@ impl NodeDataTrait for SynthNodeData {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct SynthDataType;
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub enum SynthDataType {
+    Float,
+    Midi,
+}
 
 impl DataTypeTrait<SynthGraphState> for SynthDataType {
     fn data_type_color(&self, _user_state: &mut SynthGraphState) -> egui::Color32 {
-        egui::Color32::LIGHT_BLUE
+        match self {
+            SynthDataType::Float => egui::Color32::LIGHT_BLUE,
+            SynthDataType::Midi => egui::Color32::LIGHT_GREEN,
+        }
     }
 
     fn name(&self) -> Cow<str> {
-        Cow::Borrowed("signal")
+        match self {
+            SynthDataType::Float => Cow::Borrowed("signal"),
+            SynthDataType::Midi => Cow::Borrowed("MIDI"),
+        }
     }
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-pub struct SynthValueType(pub f32);
+pub struct SynthValueType(pub compute::Value);
+
+impl SynthValueType {
+    pub fn data_type(&self) -> SynthDataType {
+        match &self.0 {
+            compute::Value::Float(_) => SynthDataType::Float,
+            compute::Value::Midi { .. } => SynthDataType::Midi,
+            _ => unimplemented!(),
+        }
+    }
+
+    pub fn default_with_type(ty: SynthDataType) -> Self {
+        SynthValueType(match ty {
+            SynthDataType::Float => compute::Value::Float(0.0),
+            SynthDataType::Midi => compute::Value::None,
+        })
+    }
+}
 
 impl Eq for SynthValueType {}
 
 impl Default for SynthValueType {
     fn default() -> Self {
-        SynthValueType(0.0)
+        SynthValueType(compute::Value::Float(0.0))
     }
 }
 
@@ -258,22 +287,33 @@ impl NodeTemplateTrait for SynthNodeTemplate {
     ) {
         let node: Box<dyn Node> = dyn_clone::clone_box(&*self.template);
 
-        let input_signal = |graph: &mut SynthGraph, name: String| {
+        let input_signal = |graph: &mut SynthGraph, name: String, data_type: SynthDataType| {
             graph.add_input_param(
                 node_id,
                 name,
-                SynthDataType,
-                SynthValueType(0.0),
+                data_type,
+                SynthValueType::default_with_type(data_type),
                 InputParamKind::ConnectionOrConstant,
                 true,
             );
         };
 
-        graph.add_output_param(node_id, "".to_string(), SynthDataType);
+        let out_data_ty = match node.output() {
+            compute::ValueDiscriminants::Float => SynthDataType::Float,
+            compute::ValueDiscriminants::Midi => SynthDataType::Midi,
+            _ => unimplemented!(),
+        };
+        graph.add_output_param(node_id, out_data_ty.name().to_string(), out_data_ty);
 
         let mut ui_inputs = HashMap::new();
         for input in node.inputs() {
-            input_signal(graph, input.name.clone());
+            let data_type = match input.kind {
+                compute::ValueDiscriminants::Float => SynthDataType::Float,
+                compute::ValueDiscriminants::Midi => SynthDataType::Midi,
+                _ => unimplemented!(),
+            };
+
+            input_signal(graph, input.name.clone(), data_type);
             if let Some(default) = input.default_value {
                 ui_inputs.insert(input.name, default);
             }

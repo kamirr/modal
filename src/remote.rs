@@ -41,7 +41,7 @@ pub enum RtResponse {
     Inserted(NodeId, Index),
     NodeEvents(Vec<(Index, Vec<NodeEvent>)>),
     RuntimeCloned(Runtime),
-    Samples(Index, Vec<f32>),
+    Samples(Index, Vec<Value>),
     Step,
 }
 
@@ -50,7 +50,7 @@ pub struct RuntimeRemote {
     rx: Receiver<RtResponse>,
     must_wait: bool,
     mapping: BiHashMap<NodeId, Index>,
-    recordings: HashMap<NodeId, Vec<f32>>,
+    recordings: HashMap<NodeId, Vec<Value>>,
     node_events: Vec<(Index, Vec<NodeEvent>)>,
     runtime: Option<Runtime>,
 }
@@ -74,7 +74,7 @@ impl RuntimeRemote {
         }
         sink.play();
 
-        let mut recording = HashMap::<Index, Vec<f32>>::new();
+        let mut recording = HashMap::<Index, Vec<Value>>::new();
 
         std::thread::spawn(move || {
             loop {
@@ -96,7 +96,7 @@ impl RuntimeRemote {
                             .unwrap_or_default();
 
                         for (idx, buffer) in &mut recording {
-                            buffer.push(rt.peek(*idx).as_float().unwrap_or_default());
+                            buffer.push(rt.peek(*idx));
                         }
                     }
 
@@ -312,7 +312,7 @@ impl RuntimeRemote {
         }
     }
 
-    pub fn recordings(&mut self) -> Vec<(NodeId, Vec<f32>)> {
+    pub fn recordings(&mut self) -> Vec<(NodeId, Vec<Value>)> {
         self.recordings
             .iter_mut()
             .filter(|(_, buf)| !buf.is_empty())
