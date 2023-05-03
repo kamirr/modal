@@ -1,15 +1,13 @@
-use std::{collections::VecDeque, fmt::Debug, sync::Arc};
+use std::{collections::VecDeque, fmt::Debug};
 
 use fluidlite as fl;
 use midly::MidiMessage;
 use serde::{Deserialize, Serialize};
 
 use crate::compute::{
-    node::{Node, NodeConfig, NodeEvent},
+    node::{Input, Node, NodeEvent},
     Value,
 };
-
-use super::MidiInConf;
 
 struct MyFluidlite(fl::Synth);
 
@@ -38,7 +36,6 @@ impl Debug for MyFluidlite {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Fluidlite {
-    config: Arc<MidiInConf>,
     #[serde(skip)]
     synth: MyFluidlite,
     out: f32,
@@ -48,7 +45,6 @@ pub struct Fluidlite {
 impl Fluidlite {
     pub fn new() -> Self {
         Fluidlite {
-            config: Arc::new(MidiInConf::new(true)),
             synth: MyFluidlite::default(),
             out: 0.0,
             buf: VecDeque::new(),
@@ -58,20 +54,27 @@ impl Fluidlite {
 
 #[typetag::serde]
 impl Node for Fluidlite {
-    fn feed(&mut self, _data: &[Value]) -> Vec<NodeEvent> {
-        for (channel, msg) in self.config.messages() {
-            match msg {
+    fn feed(&mut self, data: &[Value]) -> Vec<NodeEvent> {
+        match data[0].as_midi() {
+            Some((channel, msg)) => match msg {
                 MidiMessage::NoteOn { key, vel } => {
-                    self.synth
-                        .0
-                        .note_on(channel, key.as_int() as _, vel.as_int() as _)
-                        .ok();
+                    let vel = vel.as_int() as u32;
+                    let key = key.as_int() as u32;
+                    if vel > 0 {
+                        self.synth.0.note_on(channel as u32, key, vel).ok();
+                    } else {
+                        self.synth.0.note_off(channel as u32, key).ok();
+                    }
                 }
                 MidiMessage::NoteOff { key, .. } => {
-                    self.synth.0.note_off(channel, key.as_int() as _).ok();
+                    self.synth
+                        .0
+                        .note_off(channel as u32, key.as_int() as _)
+                        .ok();
                 }
                 _ => {}
-            }
+            },
+            _ => {}
         }
 
         if self.buf.len() == 0 {
@@ -90,8 +93,8 @@ impl Node for Fluidlite {
         Value::Float(self.out)
     }
 
-    fn config(&self) -> Option<Arc<dyn NodeConfig>> {
-        Some(Arc::clone(&self.config) as Arc<_>)
+    fn inputs(&self) -> Vec<Input> {
+        vec![Input::new("midi")]
     }
 }
 

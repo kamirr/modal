@@ -1,6 +1,5 @@
 mod compute;
 mod graph;
-mod jack;
 mod midi;
 mod remote;
 mod scope;
@@ -12,13 +11,15 @@ use std::{collections::HashMap, sync::Arc, time::Instant};
 use eframe::egui;
 use egui_node_graph::{InputParamKind, NodeId, NodeResponse};
 
-use compute::node::{self, Input, NodeEvent};
-use midi::SmfMidiPlayback;
+use compute::node::{
+    self,
+    all::source::{smf::SmfSourceNew, MidiSourceNew},
+    Input, NodeEvent,
+};
 
 use crate::{
-    compute::{node::output::Output, Runtime},
+    compute::Runtime,
     graph::{SynthEditorState, SynthGraphState},
-    midi::JackMidiPlayback,
 };
 
 fn main() {
@@ -82,13 +83,6 @@ impl SynthApp {
 
             remote.play(user_state.active_node);
 
-            let jack_playback = JackMidiPlayback::new();
-            user_state.ctx.audio_out = graph::AudioOut::new(jack_playback.audio_out());
-            user_state
-                .ctx
-                .midi
-                .insert("jack".into(), Box::new(jack_playback));
-
             SynthApp {
                 state: editor,
                 user_state,
@@ -98,7 +92,6 @@ impl SynthApp {
                     Box::new(Filters),
                     Box::new(Midi),
                     Box::new(Noise),
-                    Box::new(Output),
                 ]),
                 remote,
                 prev_frame: Instant::now(),
@@ -113,7 +106,6 @@ impl SynthApp {
                     Box::new(Filters),
                     Box::new(Midi),
                     Box::new(Noise),
-                    Box::new(Output),
                 ]),
                 remote: Default::default(),
                 prev_frame: Instant::now(),
@@ -169,24 +161,16 @@ impl SynthApp {
 
     fn load_midi(&mut self) {
         if let Some(path) = rfd::FileDialog::new().pick_file() {
-            let Ok(bytes) = std::fs::read(&path) else {
-                println!("can't read {path:?}");
-                return;
-            };
-            let Ok(smf) = midly::Smf::parse(&bytes) else {
-                println!("midi parse error");
-                return;
+            let new = match SmfSourceNew::new(&path) {
+                Ok(new) => new,
+                Err(e) => {
+                    println!("{}", e.to_string());
+                    return;
+                }
             };
 
-            let mut name = path.file_name().unwrap().to_string_lossy().to_string();
-            while self.user_state.ctx.midi.contains_key(&name) {
-                name.push('_');
-            }
-
-            self.user_state
-                .ctx
-                .midi
-                .insert(name, Box::new(SmfMidiPlayback::new(smf.to_static())));
+            self.user_state.ctx.midi_smf.push(new);
+            self.user_state.ctx.midi_smf.sort_by_key(|smf| smf.name());
         }
     }
 }
@@ -211,11 +195,6 @@ impl eframe::App for SynthApp {
                 egui::widgets::global_dark_light_mode_switch(ui);
                 if ui.button("Open Midi").clicked() {
                     self.load_midi();
-                }
-                if ui.button("Start Midi").clicked() {
-                    for playback in self.user_state.ctx.midi.values_mut() {
-                        playback.start();
-                    }
                 }
 
                 let fps = 1.0 / self.prev_frame.elapsed().as_secs_f32();
@@ -322,9 +301,7 @@ impl eframe::App for SynthApp {
             scope.feed(samples.into_iter());
         }
 
-        for playback in self.user_state.ctx.midi.values_mut() {
-            playback.step();
-        }
+        self.user_state.ctx.update_jack();
 
         self.remote.wait();
         ctx.request_repaint();

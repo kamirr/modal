@@ -23,6 +23,29 @@ pub mod serde_rwlock {
     }
 }
 
+pub mod serde_mutex {
+    use serde::de::Deserializer;
+    use serde::ser::Serializer;
+    use serde::{Deserialize, Serialize};
+    use std::sync::Mutex;
+
+    pub fn serialize<S, T>(val: &Mutex<T>, s: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+        T: Serialize,
+    {
+        T::serialize(&*val.lock().unwrap(), s)
+    }
+
+    pub fn deserialize<'de, D, T>(d: D) -> Result<Mutex<T>, D::Error>
+    where
+        D: Deserializer<'de>,
+        T: Deserialize<'de>,
+    {
+        Ok(Mutex::new(T::deserialize(d)?))
+    }
+}
+
 pub mod serde_arena {
     use serde::{Deserialize, Deserializer, Serialize, Serializer};
     use thunderdome::{Arena, Index};

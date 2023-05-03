@@ -29,18 +29,28 @@ impl Entry {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum Value {
     None,
-    Midi(MidiMessage),
+    #[serde(skip)]
+    Midi {
+        channel: u8,
+        message: MidiMessage,
+    },
     Float(f32),
     FloatArray(Vec<f32>),
 }
 
+impl Default for Value {
+    fn default() -> Self {
+        Value::None
+    }
+}
+
 impl Value {
-    pub fn as_midi(&self) -> Option<&MidiMessage> {
+    pub fn as_midi(&self) -> Option<(u8, &MidiMessage)> {
         match self {
-            Value::Midi(msg) => Some(msg),
+            Value::Midi { channel, message } => Some((*channel, message)),
             _ => None,
         }
     }

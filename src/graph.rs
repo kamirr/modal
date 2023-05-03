@@ -2,7 +2,8 @@ use std::{
     borrow::Cow,
     cell::RefCell,
     collections::HashMap,
-    sync::{mpsc::Sender, Arc, Mutex, Weak},
+    sync::{Arc, Weak},
+    time::Instant,
 };
 
 use egui_node_graph::{
@@ -14,8 +15,10 @@ use eframe::egui;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    compute::node::{InputUi, Node, NodeConfig, NodeList},
-    midi::MidiPlayback,
+    compute::node::{
+        all::source::{jack::JackSourceNew, smf::SmfSourceNew},
+        InputUi, Node, NodeConfig, NodeList,
+    },
     scope::Scope,
     util::toggle_button,
 };
@@ -324,32 +327,34 @@ pub enum SynthNodeResponse {
 
 impl UserResponseTrait for SynthNodeResponse {}
 
-#[derive(Clone, Debug)]
-pub struct AudioOut {
-    pub stream: Arc<Mutex<Option<Sender<f32>>>>,
-}
-
-impl AudioOut {
-    pub fn new(stream: Sender<f32>) -> Self {
-        AudioOut {
-            stream: Arc::new(Mutex::new(Some(stream))),
-        }
-    }
-}
-
-impl Default for AudioOut {
-    fn default() -> Self {
-        AudioOut {
-            stream: Arc::new(Mutex::new(None)),
-        }
-    }
-}
-
-#[derive(Default, Serialize, Deserialize)]
+#[derive(Serialize, Deserialize)]
 pub struct SynthCtx {
-    pub midi: HashMap<String, Box<dyn MidiPlayback>>,
+    pub midi_smf: Vec<SmfSourceNew>,
+    pub midi_jack: Vec<JackSourceNew>,
     #[serde(skip)]
-    pub audio_out: AudioOut,
+    #[serde(default = "Instant::now")]
+    last_updated_jack: Instant,
+}
+
+impl Default for SynthCtx {
+    fn default() -> Self {
+        SynthCtx {
+            midi_smf: Default::default(),
+            midi_jack: Default::default(),
+            last_updated_jack: Instant::now(),
+        }
+    }
+}
+
+impl SynthCtx {
+    pub fn update_jack(&mut self) {
+        if self.last_updated_jack.elapsed().as_secs_f32() < 2.0 {
+            return;
+        }
+
+        self.last_updated_jack = Instant::now();
+        self.midi_jack = JackSourceNew::all();
+    }
 }
 
 #[derive(Default, Serialize, Deserialize)]
