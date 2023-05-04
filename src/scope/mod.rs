@@ -3,7 +3,7 @@ use float::FloatScope;
 use midi::MidiScope;
 use serde::{Deserialize, Serialize};
 
-use crate::compute::{Value, ValueDiscriminants};
+use crate::compute::{Value, ValueKind};
 
 mod float;
 mod midi;
@@ -35,7 +35,7 @@ impl Scope {
             return;
         }
 
-        let last_ty: ValueDiscriminants = data.last().unwrap().into();
+        let last_ty: ValueKind = data.last().unwrap().into();
 
         let mut start_at = data.len() - 1;
         loop {
@@ -43,7 +43,7 @@ impl Scope {
                 break;
             }
 
-            if ValueDiscriminants::from(&data[start_at - 1]) != last_ty {
+            if ValueKind::from(&data[start_at - 1]) != last_ty {
                 break;
             }
 
@@ -51,11 +51,11 @@ impl Scope {
         }
 
         match (&self, last_ty) {
-            (Scope::Midi(_), ValueDiscriminants::Midi) => {}
-            (_, ValueDiscriminants::Midi) => *self = Scope::Midi(MidiScope::new()),
+            (Scope::Midi(_), ValueKind::Midi) => {}
+            (_, ValueKind::Midi) => *self = Scope::Midi(MidiScope::new()),
 
-            (Scope::Float(_), ValueDiscriminants::Float) => {}
-            (_, ValueDiscriminants::Float) => *self = Scope::Float(FloatScope::new()),
+            (Scope::Float(_), ValueKind::Float) => {}
+            (_, ValueKind::Float) => *self = Scope::Float(FloatScope::new()),
 
             _ => {}
         }

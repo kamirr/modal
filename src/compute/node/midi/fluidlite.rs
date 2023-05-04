@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::compute::{
     node::{inputs::midi::MidiInput, Input, Node, NodeEvent},
-    Value, ValueDiscriminants,
+    Value, ValueKind,
 };
 
 struct MyFluidlite(fl::Synth);
@@ -102,11 +102,7 @@ impl Node for Fluidlite {
     }
 
     fn inputs(&self) -> Vec<Input> {
-        vec![Input::with_default(
-            "midi",
-            ValueDiscriminants::Midi,
-            &self.midi_in,
-        )]
+        vec![Input::with_default("midi", ValueKind::Midi, &self.midi_in)]
     }
 }
 

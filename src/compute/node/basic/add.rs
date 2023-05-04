@@ -11,7 +11,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::compute::{
     node::{inputs::real::RealInput, Input, Node, NodeConfig, NodeEvent},
-    Value, ValueDiscriminants,
+    Value, ValueKind,
 };
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -99,7 +99,7 @@ impl Node for Add {
             .map(|i| {
                 Input::with_default(
                     format!("sig {i}"),
-                    ValueDiscriminants::Float,
+                    ValueKind::Float,
                     &self.defaults[i as usize],
                 )
             })

@@ -14,7 +14,7 @@ use serde::{Deserialize, Serialize};
 use crate::{
     compute::{
         node::{Node, NodeConfig, NodeEvent},
-        Value, ValueDiscriminants,
+        Value, ValueKind,
     },
     graph::SynthCtx,
     util,
@@ -189,8 +189,8 @@ impl Node for MidiIn {
         Some(Arc::clone(&self.conf) as Arc<_>)
     }
 
-    fn output(&self) -> ValueDiscriminants {
-        ValueDiscriminants::Midi
+    fn output(&self) -> ValueKind {
+        ValueKind::Midi
     }
 }
 

@@ -130,8 +130,8 @@ impl SynthApp {
         for input in inputs {
             if !curr_inputs.iter().any(|(name, _)| name == &input.name) {
                 let data_type = match input.kind {
-                    compute::ValueDiscriminants::Float => graph::SynthDataType::Float,
-                    compute::ValueDiscriminants::Midi => graph::SynthDataType::Midi,
+                    compute::ValueKind::Float => graph::SynthDataType::Float,
+                    compute::ValueKind::Midi => graph::SynthDataType::Midi,
                     _ => unimplemented!(),
                 };
 

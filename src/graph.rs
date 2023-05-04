@@ -299,8 +299,8 @@ impl NodeTemplateTrait for SynthNodeTemplate {
         };
 
         let out_data_ty = match node.output() {
-            compute::ValueDiscriminants::Float => SynthDataType::Float,
-            compute::ValueDiscriminants::Midi => SynthDataType::Midi,
+            compute::ValueKind::Float => SynthDataType::Float,
+            compute::ValueKind::Midi => SynthDataType::Midi,
             _ => unimplemented!(),
         };
         graph.add_output_param(node_id, out_data_ty.name().to_string(), out_data_ty);
@@ -308,8 +308,8 @@ impl NodeTemplateTrait for SynthNodeTemplate {
         let mut ui_inputs = HashMap::new();
         for input in node.inputs() {
             let data_type = match input.kind {
-                compute::ValueDiscriminants::Float => SynthDataType::Float,
-                compute::ValueDiscriminants::Midi => SynthDataType::Midi,
+                compute::ValueKind::Float => SynthDataType::Float,
+                compute::ValueKind::Midi => SynthDataType::Midi,
                 _ => unimplemented!(),
             };
 

@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::compute::{
     node::{inputs::time::TimeInput, Input, Node, NodeEvent},
-    Value, ValueDiscriminants,
+    Value, ValueKind,
 };
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -47,8 +47,8 @@ impl Node for Delay {
 
     fn inputs(&self) -> Vec<Input> {
         vec![
-            Input::new("sig", ValueDiscriminants::Float),
-            Input::with_default("time", ValueDiscriminants::Float, &self.time_in),
+            Input::new("sig", ValueKind::Float),
+            Input::with_default("time", ValueKind::Float, &self.time_in),
         ]
     }
 }

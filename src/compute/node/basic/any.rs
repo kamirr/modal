@@ -11,7 +11,7 @@ use crate::compute::{
         inputs::trigger::{TriggerInput, TriggerMode},
         Input, Node, NodeConfig, NodeEvent,
     },
-    Value, ValueDiscriminants,
+    Value, ValueKind,
 };
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -103,7 +103,7 @@ impl Node for Any {
             .map(|i| {
                 Input::with_default(
                     format!("sig {i}"),
-                    ValueDiscriminants::Float,
+                    ValueKind::Float,
                     &self.defaults[i as usize],
                 )
             })

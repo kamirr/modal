@@ -9,7 +9,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::compute::{
     node::{inputs::gate::GateInput, Input, Node, NodeConfig, NodeEvent},
-    Value, ValueDiscriminants,
+    Value, ValueKind,
 };
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -165,8 +165,8 @@ impl Node for Adsr {
 
     fn inputs(&self) -> Vec<Input> {
         vec![
-            Input::with_default("gate", ValueDiscriminants::Float, &self.gate),
-            Input::new("signal", ValueDiscriminants::Float),
+            Input::with_default("gate", ValueKind::Float, &self.gate),
+            Input::new("signal", ValueKind::Float),
         ]
     }
 }

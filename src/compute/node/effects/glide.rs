@@ -9,7 +9,7 @@ use crate::{
             inputs::{positive::PositiveInput, real::RealInput},
             Input, Node, NodeConfig, NodeEvent,
         },
-        Value, ValueDiscriminants,
+        Value, ValueKind,
     },
     serde_atomic_enum,
     util::enum_combo_box,
@@ -128,34 +128,22 @@ impl Node for Glide {
     }
 
     fn inputs(&self) -> Vec<Input> {
-        let mut ins = vec![Input::new("sig", ValueDiscriminants::Float)];
+        let mut ins = vec![Input::new("sig", ValueKind::Float)];
         match self.ty {
             GlideType::Lerp => ins.push(Input::with_default(
                 "lerp-r",
-                ValueDiscriminants::Float,
+                ValueKind::Float,
                 &self.lerp_coeff,
             )),
             GlideType::Exponential => ins.push(Input::with_default(
                 "rate",
-                ValueDiscriminants::Float,
+                ValueKind::Float,
                 &self.rate_limit,
             )),
             GlideType::Pid => {
-                ins.push(Input::with_default(
-                    "p",
-                    ValueDiscriminants::Float,
-                    &self.pid[0],
-                ));
-                ins.push(Input::with_default(
-                    "i",
-                    ValueDiscriminants::Float,
-                    &self.pid[1],
-                ));
-                ins.push(Input::with_default(
-                    "d",
-                    ValueDiscriminants::Float,
-                    &self.pid[2],
-                ));
+                ins.push(Input::with_default("p", ValueKind::Float, &self.pid[0]));
+                ins.push(Input::with_default("i", ValueKind::Float, &self.pid[1]));
+                ins.push(Input::with_default("d", ValueKind::Float, &self.pid[2]));
             }
         }
 

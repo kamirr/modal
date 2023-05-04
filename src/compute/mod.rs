@@ -30,6 +30,7 @@ impl Entry {
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, strum::EnumDiscriminants)]
+#[strum_discriminants(name(ValueKind))]
 #[strum_discriminants(vis(pub))]
 pub enum Value {
     None,

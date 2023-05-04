@@ -7,7 +7,7 @@ use crate::compute::{
         inputs::trigger::{TriggerInput, TriggerMode},
         Input, Node, NodeEvent,
     },
-    Value, ValueDiscriminants,
+    Value, ValueKind,
 };
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -41,8 +41,8 @@ impl Node for Latch {
 
     fn inputs(&self) -> Vec<Input> {
         vec![
-            Input::with_default("trigger", ValueDiscriminants::Float, &self.trigger),
-            Input::new("signal", ValueDiscriminants::Float),
+            Input::with_default("trigger", ValueKind::Float, &self.trigger),
+            Input::new("signal", ValueKind::Float),
         ]
     }
 }
