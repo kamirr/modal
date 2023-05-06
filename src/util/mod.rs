@@ -194,29 +194,24 @@ pub mod serde_perlin {
     }
 }
 
-pub mod serde_vec_opt_idx {
+pub mod serde_thunderdome_index {
     use serde::{Deserialize, Deserializer, Serialize, Serializer};
     use thunderdome::Index;
 
-    pub fn serialize<S>(val: &Vec<Option<Index>>, s: S) -> Result<S::Ok, S::Error>
+    pub fn serialize<S>(val: &Index, s: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
     {
-        let serializable: Vec<_> = val.iter().map(|opt| opt.map(|idx| idx.to_bits())).collect();
-
-        Vec::<Option<u64>>::serialize(&serializable, s)
+        u64::serialize(&val.to_bits(), s)
     }
 
-    pub fn deserialize<'de, D>(d: D) -> Result<Vec<Option<Index>>, D::Error>
+    pub fn deserialize<'de, D>(d: D) -> Result<Index, D::Error>
     where
         D: Deserializer<'de>,
     {
-        let deserializable = Vec::<Option<u64>>::deserialize(d)?;
+        let deserializable = u64::deserialize(d)?;
 
-        Ok(deserializable
-            .iter()
-            .map(|opt| opt.map(|bits| Index::from_bits(bits).unwrap()))
-            .collect())
+        Ok(Index::from_bits(deserializable).unwrap())
     }
 }
 

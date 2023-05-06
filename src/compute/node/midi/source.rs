@@ -14,7 +14,7 @@ use serde::{Deserialize, Serialize};
 use crate::{
     compute::{
         node::{Node, NodeConfig, NodeEvent},
-        Value, ValueKind,
+        Output, Value, ValueKind,
     },
     graph::SynthCtx,
     util,
@@ -181,16 +181,16 @@ impl Node for MidiIn {
         Default::default()
     }
 
-    fn read(&self) -> Value {
-        self.out.clone()
+    fn read(&self, out: &mut [Value]) {
+        out[0] = self.out.clone()
     }
 
     fn config(&self) -> Option<Arc<dyn NodeConfig>> {
         Some(Arc::clone(&self.conf) as Arc<_>)
     }
 
-    fn output(&self) -> ValueKind {
-        ValueKind::Midi
+    fn output(&self) -> Vec<Output> {
+        vec![Output::new("", ValueKind::Midi)]
     }
 }
 

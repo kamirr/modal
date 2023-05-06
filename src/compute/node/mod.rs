@@ -3,7 +3,7 @@ use std::{any::Any, fmt::Debug, sync::Arc};
 
 use dyn_clone::DynClone;
 
-use super::{Value, ValueKind};
+use super::{Output, Value, ValueKind};
 
 pub mod basic;
 pub mod effects;
@@ -72,9 +72,8 @@ pub trait Node: DynClone + Debug + Send {
     fn feed(&mut self, _data: &[Value]) -> Vec<NodeEvent> {
         Default::default()
     }
-    fn read(&self) -> Value {
-        Value::None
-    }
+
+    fn read(&self, _out: &mut [Value]) {}
 
     fn config(&self) -> Option<Arc<dyn NodeConfig>> {
         None
@@ -84,8 +83,8 @@ pub trait Node: DynClone + Debug + Send {
         Vec::default()
     }
 
-    fn output(&self) -> ValueKind {
-        ValueKind::Float
+    fn output(&self) -> Vec<Output> {
+        vec![Output::new("", ValueKind::Float)]
     }
 }
 

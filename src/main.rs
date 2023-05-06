@@ -11,10 +11,13 @@ use std::{collections::HashMap, sync::Arc, time::Instant};
 use eframe::egui;
 use egui_node_graph::{InputParamKind, NodeId, NodeResponse};
 
-use compute::node::{
-    self,
-    all::source::{smf::SmfSourceNew, MidiSourceNew},
-    Input, NodeEvent,
+use compute::{
+    node::{
+        self,
+        all::source::{smf::SmfSourceNew, MidiSourceNew},
+        Input, NodeEvent,
+    },
+    NodeInput,
 };
 
 use crate::{
@@ -77,11 +80,11 @@ impl SynthApp {
 
             for (node_id, node) in &editor.graph.nodes {
                 if node.user_data.scope.borrow().is_some() {
-                    remote.record(node_id);
+                    remote.record(node_id, 0);
                 }
             }
 
-            remote.play(user_state.active_node);
+            remote.play(user_state.active_node.map(|idx| (idx, 0)));
 
             SynthApp {
                 state: editor,
@@ -157,9 +160,31 @@ impl SynthApp {
                 .state
                 .graph
                 .connection(in_id)
-                .map(|out| self.state.graph.get_output(out))
-                .map(|out_params| out_params.node)
-                .and_then(|node_id| self.remote.id_to_index(node_id));
+                .map(|out| (self.state.graph.get_output(out), out))
+                .map(|(out_params, out)| (out_params.node, out))
+                .and_then(|(node_id, out)| {
+                    self.remote
+                        .id_to_index(node_id)
+                        .map(|idx| (idx, node_id, out))
+                });
+
+            let src = src.map(|(idx, node_id, out_id)| {
+                let port = self
+                    .state
+                    .graph
+                    .nodes
+                    .get(node_id)
+                    .unwrap()
+                    .outputs
+                    .iter()
+                    .enumerate()
+                    .find(|(_i, (_name, id))| out_id == *id)
+                    .unwrap()
+                    .0;
+
+                NodeInput::new(idx, port)
+            });
+
             rt_inputs.push(src);
         }
         self.remote.set_inputs(node_id, rt_inputs);
@@ -244,6 +269,7 @@ impl eframe::App for SynthApp {
                 }
                 NodeResponse::ConnectEventEnded { output, input } => {
                     let out_node_id = self.state.graph.get_output(output).node;
+
                     let in_param = self.state.graph.get_input(input);
                     let in_node_id = in_param.node;
                     let in_node = self.state.graph.nodes.get(in_node_id).unwrap();
@@ -254,13 +280,22 @@ impl eframe::App for SynthApp {
                         .unwrap()
                         .0;
 
-                    println!("connect {out_node_id:?} to {in_node_id:?}:{in_idx:?}");
-                    self.remote.connect(out_node_id, in_node_id, in_idx);
+                    let out_node = self.state.graph.nodes.get(out_node_id).unwrap();
+                    let out_port = out_node
+                        .output_ids()
+                        .enumerate()
+                        .find(|(_i, id)| output == *id)
+                        .unwrap()
+                        .0;
+
+                    println!("connect {out_node_id:?}:{out_port} to {in_node_id:?}:{in_idx}");
+                    self.remote
+                        .connect(out_node_id, out_port, in_node_id, in_idx);
                 }
                 NodeResponse::User(graph::SynthNodeResponse::SetActiveNode(id)) => {
                     println!("set active {id:?}");
                     self.user_state.active_node = Some(id);
-                    self.remote.play(Some(id));
+                    self.remote.play(Some((id, 0)));
                 }
                 NodeResponse::User(graph::SynthNodeResponse::ClearActiveNode) => {
                     println!("unset active");
@@ -269,11 +304,11 @@ impl eframe::App for SynthApp {
                 }
                 NodeResponse::User(graph::SynthNodeResponse::StartRecording(node)) => {
                     println!("record {node:?}");
-                    self.remote.record(node);
+                    self.remote.record(node, 0);
                 }
                 NodeResponse::User(graph::SynthNodeResponse::StopRecording(node)) => {
                     println!("record {node:?}");
-                    self.remote.stop_recording(node);
+                    self.remote.stop_recording(node, 0);
                 }
                 _ => {}
             }
@@ -304,7 +339,7 @@ impl eframe::App for SynthApp {
                 continue;
             };
 
-            scope.feed(samples);
+            scope.feed(samples[0].clone());
         }
 
         self.user_state.ctx.update_jack();

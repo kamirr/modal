@@ -95,10 +95,9 @@ impl Node for NoiseGen {
         }
     }
 
-    fn read(&self) -> Value {
-        Value::Float(self.out)
+    fn read(&self, out: &mut [Value]) {
+        out[0] = Value::Float(self.out);
     }
-
     fn config(&self) -> Option<Arc<dyn NodeConfig>> {
         Some(Arc::clone(&self.config) as Arc<_>)
     }

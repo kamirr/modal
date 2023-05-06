@@ -41,8 +41,8 @@ impl Node for Delay {
         Default::default()
     }
 
-    fn read(&self) -> Value {
-        Value::Float(self.out)
+    fn read(&self, out: &mut [Value]) {
+        out[0] = Value::Float(self.out)
     }
 
     fn inputs(&self) -> Vec<Input> {

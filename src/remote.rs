@@ -10,29 +10,29 @@ use thunderdome::Index;
 
 use crate::compute::{
     node::{Node, NodeEvent},
-    Runtime, Value,
+    NodeInput, Runtime, Value,
 };
 
 #[derive(Debug)]
 pub enum RtRequest {
     Insert {
         id: NodeId,
-        inputs: Vec<Option<Index>>,
+        inputs: Vec<Option<NodeInput>>,
         node: Box<dyn Node>,
     },
     Remove(Index),
     SetInput {
-        src: Option<Index>,
+        src: Option<NodeInput>,
         dst: Index,
         port: usize,
     },
     SetAllInputs {
         dst: Index,
-        inputs: Vec<Option<Index>>,
+        inputs: Vec<Option<NodeInput>>,
     },
-    Play(Option<Index>),
-    Record(Index),
-    StopRecording(Index),
+    Play(Option<NodeInput>),
+    Record(Index, usize),
+    StopRecording(Index, usize),
     CloneRuntime,
     Shutdown,
 }
@@ -41,7 +41,7 @@ pub enum RtResponse {
     Inserted(NodeId, Index),
     NodeEvents(Vec<(Index, Vec<NodeEvent>)>),
     RuntimeCloned(Runtime),
-    Samples(Index, Vec<Value>),
+    Samples(NodeInput, Vec<Vec<Value>>),
     Step,
 }
 
@@ -50,7 +50,7 @@ pub struct RuntimeRemote {
     rx: Receiver<RtResponse>,
     must_wait: bool,
     mapping: BiHashMap<NodeId, Index>,
-    recordings: HashMap<NodeId, Vec<Value>>,
+    recordings: HashMap<NodeId, Vec<Vec<Value>>>,
     node_events: Vec<(Index, Vec<NodeEvent>)>,
     runtime: Option<Runtime>,
 }
@@ -74,7 +74,7 @@ impl RuntimeRemote {
         }
         sink.play();
 
-        let mut recording = HashMap::<Index, Vec<Value>>::new();
+        let mut recording = HashMap::<NodeInput, Vec<Vec<Value>>>::new();
 
         std::thread::spawn(move || {
             loop {
@@ -95,8 +95,11 @@ impl RuntimeRemote {
                             .and_then(Value::as_float)
                             .unwrap_or_default();
 
-                        for (idx, buffer) in &mut recording {
-                            buffer.push(rt.peek(*idx));
+                        for (input, buffers) in &mut recording {
+                            for k in 0..buffers.len() {
+                                let value = rt.peek(*input);
+                                buffers[k].push(value);
+                            }
                         }
                     }
 
@@ -104,10 +107,10 @@ impl RuntimeRemote {
                     sink.append(source);
                 }
 
-                for (idx, buffer) in &mut recording {
+                for (input, buffer) in &mut recording {
                     if !buffer.is_empty() {
                         resp_tx
-                            .send(RtResponse::Samples(*idx, std::mem::take(buffer)))
+                            .send(RtResponse::Samples(*input, std::mem::take(buffer)))
                             .ok();
                     }
                 }
@@ -125,9 +128,12 @@ impl RuntimeRemote {
                     }
                     RtRequest::Remove(index) => {
                         rt.remove(index);
-                        recording.remove(&index);
-                        if record == Some(index) {
-                            record = None;
+                        recording.retain(|rec, _| rec.node != index);
+
+                        if let Some(NodeInput { node, .. }) = record {
+                            if node == index {
+                                record = None;
+                            }
                         }
                     }
                     RtRequest::SetInput { src, dst, port } => {
@@ -139,11 +145,11 @@ impl RuntimeRemote {
                     RtRequest::Play(node) => {
                         record = node;
                     }
-                    RtRequest::Record(index) => {
-                        recording.insert(index, Vec::new());
+                    RtRequest::Record(index, port) => {
+                        recording.insert(NodeInput::new(index, port), Vec::new());
                     }
-                    RtRequest::StopRecording(index) => {
-                        recording.remove(&index);
+                    RtRequest::StopRecording(index, port) => {
+                        recording.remove(&NodeInput::new(index, port));
                     }
                     RtRequest::CloneRuntime => {
                         resp_tx.send(RtResponse::RuntimeCloned(rt.clone())).ok();
@@ -190,7 +196,7 @@ impl RuntimeRemote {
         self.must_wait = true;
     }
 
-    pub fn set_inputs(&mut self, dst: NodeId, inputs: Vec<Option<Index>>) {
+    pub fn set_inputs(&mut self, dst: NodeId, inputs: Vec<Option<NodeInput>>) {
         self.tx
             .send(RtRequest::SetAllInputs {
                 dst: *self.mapping.get_by_left(&dst).unwrap(),
@@ -199,14 +205,14 @@ impl RuntimeRemote {
             .ok();
     }
 
-    pub fn connect(&mut self, src: NodeId, dst: NodeId, port: usize) {
+    pub fn connect(&mut self, src: NodeId, src_port: usize, dst: NodeId, dst_port: usize) {
         let src = self.mapping.get_by_left(&src).cloned().unwrap();
         let dst = self.mapping.get_by_left(&dst).cloned().unwrap();
         self.tx
             .send(RtRequest::SetInput {
-                src: Some(src),
+                src: Some(NodeInput::new(src, src_port)),
                 dst,
-                port,
+                port: dst_port,
             })
             .ok();
     }
@@ -222,19 +228,24 @@ impl RuntimeRemote {
             .ok();
     }
 
-    pub fn play(&mut self, id: Option<NodeId>) {
-        let idx = id.and_then(|id| self.mapping.get_by_left(&id).cloned());
-        self.tx.send(RtRequest::Play(idx)).ok();
+    pub fn play(&mut self, id: Option<(NodeId, usize)>) {
+        let input = id.and_then(|(id, port)| {
+            self.mapping
+                .get_by_left(&id)
+                .cloned()
+                .map(|idx| NodeInput::new(idx, port))
+        });
+        self.tx.send(RtRequest::Play(input)).ok();
     }
 
-    pub fn record(&mut self, id: NodeId) {
+    pub fn record(&mut self, id: NodeId, port: usize) {
         let idx = *self.mapping.get_by_left(&id).unwrap();
-        self.tx.send(RtRequest::Record(idx)).ok();
+        self.tx.send(RtRequest::Record(idx, port)).ok();
     }
 
-    pub fn stop_recording(&mut self, id: NodeId) {
+    pub fn stop_recording(&mut self, id: NodeId, port: usize) {
         let idx = *self.mapping.get_by_left(&id).unwrap();
-        self.tx.send(RtRequest::StopRecording(idx)).ok();
+        self.tx.send(RtRequest::StopRecording(idx, port)).ok();
     }
 
     pub fn shutdown(&mut self) {
@@ -253,7 +264,7 @@ impl RuntimeRemote {
                 self.runtime = Some(runtime);
             }
             RtResponse::Samples(index, samples) => {
-                let Some(&node_id) = self.mapping.get_by_right(&index) else {
+                let Some(&node_id) = self.mapping.get_by_right(&index.node) else {
                     return;
                 };
                 self.recordings
@@ -312,7 +323,7 @@ impl RuntimeRemote {
         }
     }
 
-    pub fn recordings(&mut self) -> Vec<(NodeId, Vec<Value>)> {
+    pub fn recordings(&mut self) -> Vec<(NodeId, Vec<Vec<Value>>)> {
         self.recordings
             .iter_mut()
             .filter(|(_, buf)| !buf.is_empty())

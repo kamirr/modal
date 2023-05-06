@@ -298,12 +298,14 @@ impl NodeTemplateTrait for SynthNodeTemplate {
             );
         };
 
-        let out_data_ty = match node.output() {
-            compute::ValueKind::Float => SynthDataType::Float,
-            compute::ValueKind::Midi => SynthDataType::Midi,
-            _ => unimplemented!(),
-        };
-        graph.add_output_param(node_id, out_data_ty.name().to_string(), out_data_ty);
+        for out in node.output() {
+            let out_data_ty = match out.kind {
+                compute::ValueKind::Float => SynthDataType::Float,
+                compute::ValueKind::Midi => SynthDataType::Midi,
+                _ => unimplemented!(),
+            };
+            graph.add_output_param(node_id, out.name, out_data_ty);
+        }
 
         let mut ui_inputs = HashMap::new();
         for input in node.inputs() {
