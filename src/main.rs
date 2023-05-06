@@ -327,7 +327,11 @@ impl eframe::App for SynthApp {
             }
         }
 
-        for (node_id, samples) in self.remote.recordings() {
+        for (node_in, samples) in self.remote.recordings() {
+            let Some(node_id) = self.remote.index_to_id(node_in.node) else {
+                continue; 
+            };
+
             let Some(node) = self.state.graph.nodes.get(node_id) else {
                 continue;
             };
@@ -338,7 +342,7 @@ impl eframe::App for SynthApp {
                 continue;
             };
 
-            scope.feed(samples[0].clone());
+            scope.feed(samples.clone());
         }
 
         self.user_state.ctx.update_jack();

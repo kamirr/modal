@@ -41,7 +41,7 @@ pub enum RtResponse {
     Inserted(NodeId, Index),
     NodeEvents(Vec<(Index, Vec<NodeEvent>)>),
     RuntimeCloned(Runtime),
-    Samples(NodeInput, Vec<Vec<Value>>),
+    Samples(NodeInput, Vec<Value>),
     Step,
 }
 
@@ -50,7 +50,7 @@ pub struct RuntimeRemote {
     rx: Receiver<RtResponse>,
     must_wait: bool,
     mapping: BiHashMap<NodeId, Index>,
-    recordings: HashMap<NodeId, Vec<Vec<Value>>>,
+    recordings: HashMap<NodeInput, Vec<Value>>,
     node_events: Vec<(Index, Vec<NodeEvent>)>,
     runtime: Option<Runtime>,
 }
@@ -74,7 +74,7 @@ impl RuntimeRemote {
         }
         sink.play();
 
-        let mut recording = HashMap::<NodeInput, Vec<Vec<Value>>>::new();
+        let mut recording = HashMap::<NodeInput, Vec<Value>>::new();
 
         std::thread::spawn(move || {
             loop {
@@ -95,11 +95,9 @@ impl RuntimeRemote {
                             .and_then(Value::as_float)
                             .unwrap_or_default();
 
-                        for (input, buffers) in &mut recording {
-                            for k in 0..buffers.len() {
-                                let value = rt.peek(*input);
-                                buffers[k].push(value);
-                            }
+                        for (input, buffer) in &mut recording {
+                            let value = rt.peek(*input);
+                            buffer.push(value);
                         }
                     }
 
@@ -264,11 +262,8 @@ impl RuntimeRemote {
                 self.runtime = Some(runtime);
             }
             RtResponse::Samples(index, samples) => {
-                let Some(&node_id) = self.mapping.get_by_right(&index.node) else {
-                    return;
-                };
                 self.recordings
-                    .entry(node_id)
+                    .entry(index)
                     .or_default()
                     .extend(samples.into_iter());
             }
@@ -323,7 +318,7 @@ impl RuntimeRemote {
         }
     }
 
-    pub fn recordings(&mut self) -> Vec<(NodeId, Vec<Vec<Value>>)> {
+    pub fn recordings(&mut self) -> Vec<(NodeInput, Vec<Value>)> {
         self.recordings
             .iter_mut()
             .filter(|(_, buf)| !buf.is_empty())
