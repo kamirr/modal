@@ -1,6 +1,5 @@
 mod compute;
 mod graph;
-mod midi;
 mod remote;
 mod scope;
 
