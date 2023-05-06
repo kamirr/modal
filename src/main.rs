@@ -16,7 +16,7 @@ use compute::{
         all::source::{smf::SmfSourceNew, MidiSourceNew},
         Input, NodeEvent,
     },
-    NodeInput,
+    OutputPort,
 };
 
 use crate::{
@@ -181,7 +181,7 @@ impl SynthApp {
                     .unwrap()
                     .0;
 
-                NodeInput::new(idx, port)
+                OutputPort::new(idx, port)
             });
 
             rt_inputs.push(src);

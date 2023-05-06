@@ -9,7 +9,7 @@ use self::node::NodeEvent;
 
 #[derive(Debug, Serialize, Deserialize)]
 struct Entry {
-    inputs: Vec<Option<NodeInput>>,
+    inputs: Vec<Option<OutputPort>>,
     node: Box<dyn Node>,
 }
 
@@ -23,7 +23,7 @@ impl Clone for Entry {
 }
 
 impl Entry {
-    fn new(inputs: Vec<Option<NodeInput>>, node: Box<dyn Node>) -> Self {
+    fn new(inputs: Vec<Option<OutputPort>>, node: Box<dyn Node>) -> Self {
         Entry { inputs, node }
     }
 }
@@ -44,15 +44,15 @@ pub enum Value {
 }
 
 #[derive(Clone, Copy, Debug, Hash, PartialEq, Eq, Serialize, Deserialize)]
-pub struct NodeInput {
+pub struct OutputPort {
     #[serde(with = "crate::util::serde_thunderdome_index")]
     pub node: Index,
     pub port: usize,
 }
 
-impl NodeInput {
+impl OutputPort {
     pub fn new(node: Index, port: usize) -> Self {
-        NodeInput { node, port }
+        OutputPort { node, port }
     }
 }
 
@@ -122,7 +122,7 @@ impl Runtime {
 
     pub fn insert(
         &mut self,
-        inputs: impl Into<Vec<Option<NodeInput>>>,
+        inputs: impl Into<Vec<Option<OutputPort>>>,
         node: Box<dyn Node + 'static>,
     ) -> Index {
         let inputs = inputs.into();
@@ -134,11 +134,11 @@ impl Runtime {
         self.nodes.remove(index);
     }
 
-    pub fn set_input(&mut self, index: Index, port: usize, new_input: Option<NodeInput>) {
+    pub fn set_input(&mut self, index: Index, port: usize, new_input: Option<OutputPort>) {
         self.nodes[index].inputs[port] = new_input;
     }
 
-    pub fn set_all_inputs(&mut self, index: Index, new_inputs: Vec<Option<NodeInput>>) {
+    pub fn set_all_inputs(&mut self, index: Index, new_inputs: Vec<Option<OutputPort>>) {
         self.nodes[index].inputs = new_inputs;
     }
 
@@ -179,7 +179,7 @@ impl Runtime {
         evs
     }
 
-    pub fn peek(&self, input: NodeInput) -> Value {
+    pub fn peek(&self, input: OutputPort) -> Value {
         self.values
             .get(input.node.slot() as usize)
             .map(|vec| vec[input.port].clone())

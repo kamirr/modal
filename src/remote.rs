@@ -10,27 +10,27 @@ use thunderdome::Index;
 
 use crate::compute::{
     node::{Node, NodeEvent},
-    NodeInput, Runtime, Value,
+    OutputPort, Runtime, Value,
 };
 
 #[derive(Debug)]
 pub enum RtRequest {
     Insert {
         id: NodeId,
-        inputs: Vec<Option<NodeInput>>,
+        inputs: Vec<Option<OutputPort>>,
         node: Box<dyn Node>,
     },
     Remove(Index),
     SetInput {
-        src: Option<NodeInput>,
+        src: Option<OutputPort>,
         dst: Index,
         port: usize,
     },
     SetAllInputs {
         dst: Index,
-        inputs: Vec<Option<NodeInput>>,
+        inputs: Vec<Option<OutputPort>>,
     },
-    Play(Option<NodeInput>),
+    Play(Option<OutputPort>),
     Record(Index, usize),
     StopRecording(Index, usize),
     CloneRuntime,
@@ -41,7 +41,7 @@ pub enum RtResponse {
     Inserted(NodeId, Index),
     NodeEvents(Vec<(Index, Vec<NodeEvent>)>),
     RuntimeCloned(Runtime),
-    Samples(NodeInput, Vec<Value>),
+    Samples(OutputPort, Vec<Value>),
     Step,
 }
 
@@ -50,7 +50,7 @@ pub struct RuntimeRemote {
     rx: Receiver<RtResponse>,
     must_wait: bool,
     mapping: BiHashMap<NodeId, Index>,
-    recordings: HashMap<NodeInput, Vec<Value>>,
+    recordings: HashMap<OutputPort, Vec<Value>>,
     node_events: Vec<(Index, Vec<NodeEvent>)>,
     runtime: Option<Runtime>,
 }
@@ -74,7 +74,7 @@ impl RuntimeRemote {
         }
         sink.play();
 
-        let mut recording = HashMap::<NodeInput, Vec<Value>>::new();
+        let mut recording = HashMap::<OutputPort, Vec<Value>>::new();
 
         std::thread::spawn(move || {
             loop {
@@ -128,7 +128,7 @@ impl RuntimeRemote {
                         rt.remove(index);
                         recording.retain(|rec, _| rec.node != index);
 
-                        if let Some(NodeInput { node, .. }) = record {
+                        if let Some(OutputPort { node, .. }) = record {
                             if node == index {
                                 record = None;
                             }
@@ -144,10 +144,10 @@ impl RuntimeRemote {
                         record = node;
                     }
                     RtRequest::Record(index, port) => {
-                        recording.insert(NodeInput::new(index, port), Vec::new());
+                        recording.insert(OutputPort::new(index, port), Vec::new());
                     }
                     RtRequest::StopRecording(index, port) => {
-                        recording.remove(&NodeInput::new(index, port));
+                        recording.remove(&OutputPort::new(index, port));
                     }
                     RtRequest::CloneRuntime => {
                         resp_tx.send(RtResponse::RuntimeCloned(rt.clone())).ok();
@@ -194,7 +194,7 @@ impl RuntimeRemote {
         self.must_wait = true;
     }
 
-    pub fn set_inputs(&mut self, dst: NodeId, inputs: Vec<Option<NodeInput>>) {
+    pub fn set_inputs(&mut self, dst: NodeId, inputs: Vec<Option<OutputPort>>) {
         self.tx
             .send(RtRequest::SetAllInputs {
                 dst: *self.mapping.get_by_left(&dst).unwrap(),
@@ -208,7 +208,7 @@ impl RuntimeRemote {
         let dst = self.mapping.get_by_left(&dst).cloned().unwrap();
         self.tx
             .send(RtRequest::SetInput {
-                src: Some(NodeInput::new(src, src_port)),
+                src: Some(OutputPort::new(src, src_port)),
                 dst,
                 port: dst_port,
             })
@@ -231,7 +231,7 @@ impl RuntimeRemote {
             self.mapping
                 .get_by_left(&id)
                 .cloned()
-                .map(|idx| NodeInput::new(idx, port))
+                .map(|idx| OutputPort::new(idx, port))
         });
         self.tx.send(RtRequest::Play(input)).ok();
     }
@@ -318,7 +318,7 @@ impl RuntimeRemote {
         }
     }
 
-    pub fn recordings(&mut self) -> Vec<(NodeInput, Vec<Value>)> {
+    pub fn recordings(&mut self) -> Vec<(OutputPort, Vec<Value>)> {
         self.recordings
             .iter_mut()
             .filter(|(_, buf)| !buf.is_empty())
