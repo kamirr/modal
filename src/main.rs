@@ -18,10 +18,11 @@ use compute::{
     },
     OutputPort,
 };
+use graph::OutputState;
 
 use crate::{
     compute::Runtime,
-    graph::{SynthEditorState, SynthGraphState},
+    graph::{SynthEditorState, SynthGraphState, SynthGraphExt},
 };
 
 fn main() {
@@ -78,8 +79,8 @@ impl SynthApp {
             let mut remote = remote::RuntimeRemote::with_rt_and_mapping(rt, mapping);
 
             for (node_id, node) in &editor.graph.nodes {
-                if node.user_data.scope.borrow().is_some() {
-                    remote.record(node_id, 0);
+                for (param_name, _out_state) in node.user_data.out_states.borrow().iter() {
+                    remote.record(node_id, editor.graph.get_port(node_id, param_name).unwrap());
                 }
             }
 
@@ -301,13 +302,13 @@ impl eframe::App for SynthApp {
                     self.user_state.active_node = None;
                     self.remote.play(None);
                 }
-                NodeResponse::User(graph::SynthNodeResponse::StartRecording(node)) => {
-                    println!("record {node:?}");
-                    self.remote.record(node, 0);
+                NodeResponse::User(graph::SynthNodeResponse::StartRecording(node, port)) => {
+                    println!("record {node:?}:{port}");
+                    self.remote.record(node, port);
                 }
-                NodeResponse::User(graph::SynthNodeResponse::StopRecording(node)) => {
-                    println!("record {node:?}");
-                    self.remote.stop_recording(node, 0);
+                NodeResponse::User(graph::SynthNodeResponse::StopRecording(node, port)) => {
+                    println!("record {node:?}:{port}");
+                    self.remote.stop_recording(node, port);
                 }
                 _ => {}
             }
@@ -327,8 +328,8 @@ impl eframe::App for SynthApp {
             }
         }
 
-        for (node_in, samples) in self.remote.recordings() {
-            let Some(node_id) = self.remote.index_to_id(node_in.node) else {
+        for (out_port, samples) in self.remote.recordings() {
+            let Some(node_id) = self.remote.index_to_id(out_port.node) else {
                 continue; 
             };
 
@@ -336,13 +337,13 @@ impl eframe::App for SynthApp {
                 continue;
             };
 
-            let mut scope_guard = node.user_data.scope.borrow_mut();
-
-            let Some(scope) = &mut *scope_guard else {
+            let Some((name, _out_id)) = node.outputs.get(out_port.port) else {
                 continue;
             };
 
-            scope.feed(samples.clone());
+            if let Some(OutputState {scope: Some(scope), ..}) = node.user_data.out_states.borrow_mut().get_mut(name) {
+                scope.feed(samples.clone());
+            }
         }
 
         self.user_state.ctx.update_jack();

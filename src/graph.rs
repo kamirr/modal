@@ -23,12 +23,27 @@ use crate::{
         },
     },
     scope::Scope,
-    util::toggle_button,
+    util::{self, toggle_button},
 };
 
 #[derive(Debug, Serialize, Deserialize)]
+pub struct OutputState {
+    show_scope: bool,
+    pub scope: Option<Scope>,
+}
+
+impl Default for OutputState {
+    fn default() -> Self {
+        OutputState {
+            show_scope: false,
+            scope: None,
+        }
+    }
+}
+
+#[derive(Debug, Serialize, Deserialize)]
 pub struct SynthNodeData {
-    pub scope: RefCell<Option<Scope>>,
+    pub out_states: RefCell<HashMap<String, OutputState>>,
     verbose: RefCell<bool>,
 }
 
@@ -95,56 +110,70 @@ impl NodeDataTrait for SynthNodeData {
             config.show(ui, &mut user_state.ctx);
         }
 
-        let show_scope = ui
-            .horizontal(|ui| {
-                if !is_active {
-                    if ui.button("👂Play").clicked() {
-                        responses.push(NodeResponse::User(SynthNodeResponse::SetActiveNode(
-                            node_id,
-                        )));
-                    }
-                } else {
-                    let button = egui::Button::new(
-                        egui::RichText::new("👂Play").color(egui::Color32::BLACK),
-                    )
-                    .fill(egui::Color32::GOLD);
-                    if ui.add(button).clicked() {
-                        responses.push(NodeResponse::User(SynthNodeResponse::ClearActiveNode));
-                    }
+        ui.horizontal(|ui| {
+            if !is_active {
+                if ui.button("👂Play").clicked() {
+                    responses.push(NodeResponse::User(SynthNodeResponse::SetActiveNode(
+                        node_id,
+                    )));
                 }
-
-                if self.scope.borrow().is_none() {
-                    if ui.button("👁Scope").clicked() {
-                        *self.scope.borrow_mut() = Some(Scope::new());
-                        responses.push(NodeResponse::User(SynthNodeResponse::StartRecording(
-                            node_id,
-                        )));
-
-                        true
-                    } else {
-                        false
-                    }
-                } else {
-                    let button = egui::Button::new(
-                        egui::RichText::new("👁Scope").color(egui::Color32::BLACK),
-                    )
-                    .fill(egui::Color32::GOLD);
-                    if ui.add(button).clicked() {
-                        *self.scope.borrow_mut() = None;
-                        responses.push(NodeResponse::User(SynthNodeResponse::StopRecording(
-                            node_id,
-                        )));
-
-                        false
-                    } else {
-                        true
-                    }
+            } else {
+                let button =
+                    egui::Button::new(egui::RichText::new("👂Play").color(egui::Color32::BLACK))
+                        .fill(egui::Color32::GOLD);
+                if ui.add(button).clicked() {
+                    responses.push(NodeResponse::User(SynthNodeResponse::ClearActiveNode));
                 }
-            })
-            .inner;
+            }
+        });
 
-        if show_scope {
-            self.scope.borrow_mut().as_mut().unwrap().show(ui);
+        responses
+    }
+
+    fn output_ui(
+        &self,
+        ui: &mut egui::Ui,
+        node_id: NodeId,
+        graph: &Graph<Self, Self::DataType, Self::ValueType>,
+        _user_state: &mut Self::UserState,
+        param_name: &str,
+    ) -> Vec<egui_node_graph::NodeResponse<Self::Response, Self>>
+    where
+        Self::Response: UserResponseTrait,
+    {
+        let mut responses = vec![];
+
+        let mut states_guard = self.out_states.borrow_mut();
+
+        let state = states_guard.entry(param_name.to_string()).or_default();
+
+        let scope_btn = util::toggle_button("👁Scope", state.show_scope);
+        let mut port = 0;
+
+        let resp = ui.horizontal(|ui| {
+            ui.label(param_name);
+            ui.add(scope_btn)
+        });
+
+        if resp.inner.clicked() {
+            state.show_scope = !state.show_scope;
+            port = graph.get_port(node_id, param_name).unwrap();
+        }
+
+        if state.show_scope && state.scope.is_none() {
+            state.scope = Some(Scope::new());
+            responses.push(NodeResponse::User(SynthNodeResponse::StartRecording(
+                node_id, port,
+            )));
+        } else if !state.show_scope && state.scope.is_some() {
+            state.scope = None;
+            responses.push(NodeResponse::User(SynthNodeResponse::StopRecording(
+                node_id, port,
+            )));
+        }
+
+        if let Some(scope) = &mut state.scope {
+            scope.show(ui);
         }
 
         responses
@@ -274,7 +303,7 @@ impl NodeTemplateTrait for SynthNodeTemplate {
 
     fn user_data(&self, _user_state: &mut Self::UserState) -> Self::NodeData {
         SynthNodeData {
-            scope: RefCell::new(None),
+            out_states: RefCell::new(Default::default()),
             verbose: RefCell::new(true),
         }
     }
@@ -363,8 +392,8 @@ impl NodeTemplateIter for &AllSynthNodeTemplates {
 pub enum SynthNodeResponse {
     SetActiveNode(NodeId),
     ClearActiveNode,
-    StartRecording(NodeId),
-    StopRecording(NodeId),
+    StartRecording(NodeId, usize),
+    StopRecording(NodeId, usize),
 }
 
 impl UserResponseTrait for SynthNodeResponse {}
@@ -423,3 +452,21 @@ pub type SynthEditorState = GraphEditorState<
     SynthNodeTemplate,
     SynthGraphState,
 >;
+
+pub trait SynthGraphExt {
+    fn get_port(&self, node_id: NodeId, param_name: &str) -> Option<usize>;
+}
+
+impl SynthGraphExt for SynthGraph {
+    fn get_port(&self, node_id: NodeId, param_name: &str) -> Option<usize> {
+        self.nodes
+            .get(node_id)
+            .unwrap()
+            .outputs
+            .iter()
+            .enumerate()
+            .map(|(i, (name, _))| (i, name))
+            .find(|(_i, name)| *name == param_name)
+            .map(|(i, _name)| i)
+    }
+}
