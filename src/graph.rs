@@ -11,7 +11,7 @@ use egui_node_graph::{
     NodeTemplateIter, NodeTemplateTrait, UserResponseTrait, WidgetValueTrait,
 };
 
-use eframe::egui;
+use eframe::{egui, emath::Align};
 use serde::{Deserialize, Serialize};
 
 use crate::{
@@ -151,11 +151,13 @@ impl NodeDataTrait for SynthNodeData {
         let mut port = 0;
 
         let resp = ui.horizontal(|ui| {
-            ui.label(param_name);
-            ui.add(scope_btn)
+            ui.with_layout(egui::Layout::right_to_left(Align::RIGHT), |ui| {
+                ui.label(param_name);
+                ui.add(scope_btn)
+            })
         });
 
-        if resp.inner.clicked() {
+        if resp.inner.inner.clicked() {
             state.show_scope = !state.show_scope;
             port = graph.get_port(node_id, param_name).unwrap();
         }
@@ -245,13 +247,16 @@ impl WidgetValueTrait for SynthValueType {
     ) -> Vec<Self::Response> {
         let ui_inputs = user_state.node_ui_inputs.get(&node_id).unwrap();
         if let Some(input) = ui_inputs.get(param_name) {
-            input.show_disconnected(ui, *node_data.verbose.borrow());
+            ui.horizontal(|ui| {
+                input.show_always(ui, *node_data.verbose.borrow());
+                input.show_disconnected(ui, *node_data.verbose.borrow());
+            });
         }
 
         Default::default()
     }
 
-    fn value_widget_always(
+    fn value_widget_connected(
         &mut self,
         param_name: &str,
         node_id: NodeId,
