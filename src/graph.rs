@@ -180,6 +180,16 @@ impl NodeDataTrait for SynthNodeData {
 
         responses
     }
+
+    fn separator(
+        &self,
+        ui: &mut egui::Ui,
+        _node_id: NodeId,
+        _graph: &Graph<Self, Self::DataType, Self::ValueType>,
+        _user_state: &mut Self::UserState,
+    ) {
+        ui.separator();
+    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -264,11 +274,10 @@ impl WidgetValueTrait for SynthValueType {
         user_state: &mut Self::UserState,
         node_data: &Self::NodeData,
     ) -> Vec<Self::Response> {
-        ui.label(param_name);
-
         let ui_inputs = user_state.node_ui_inputs.get(&node_id).unwrap();
         if let Some(input) = ui_inputs.get(param_name) {
-            ui.push_id(param_name, |ui| {
+            ui.horizontal(|ui| {
+                ui.label(param_name);
                 input.show_always(ui, *node_data.verbose.borrow());
             });
         }

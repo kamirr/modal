@@ -34,6 +34,6 @@ serde_json = "1.0.96"
 typetag = "0.2.7"
 
 [patch.crates-io]
-egui_node_graph = { git = "https://github.com/kamirr/egui_node_graph", branch = "kek/output_ui" }
+egui_node_graph = { git = "https://github.com/kamirr/egui_node_graph", branch = "kek/separator" }
 eframe = { path = "../egui/crates/eframe" }
 egui = { path = "../egui/crates/egui" }

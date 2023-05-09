@@ -1070,7 +1070,7 @@ dependencies = [
 [[package]]
 name = "egui_node_graph"
 version = "0.4.0"
-source = "git+https://github.com/kamirr/egui_node_graph?branch=kek/output_ui#e92b9342681e9baaa97feb131692c2523d7325cd"
+source = "git+https://github.com/kamirr/egui_node_graph?branch=kek/separator#c4ec57141f56897fda45a373f048fc70ec2f1a5a"
 dependencies = [
  "egui",
  "serde",
