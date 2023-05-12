@@ -96,12 +96,6 @@ impl NodeDataTrait for SynthNodeData {
             return Default::default();
         }
 
-        let mut responses = vec![];
-        let is_active = user_state
-            .active_node
-            .map(|id| id == node_id)
-            .unwrap_or(false);
-
         if let Some(config) = user_state
             .node_configs
             .get(&node_id)
@@ -110,24 +104,7 @@ impl NodeDataTrait for SynthNodeData {
             config.show(ui, &mut user_state.ctx);
         }
 
-        ui.horizontal(|ui| {
-            if !is_active {
-                if ui.button("👂Play").clicked() {
-                    responses.push(NodeResponse::User(SynthNodeResponse::SetActiveNode(
-                        node_id,
-                    )));
-                }
-            } else {
-                let button =
-                    egui::Button::new(egui::RichText::new("👂Play").color(egui::Color32::BLACK))
-                        .fill(egui::Color32::GOLD);
-                if ui.add(button).clicked() {
-                    responses.push(NodeResponse::User(SynthNodeResponse::ClearActiveNode));
-                }
-            }
-        });
-
-        responses
+        Default::default()
     }
 
     fn output_ui(
@@ -135,7 +112,7 @@ impl NodeDataTrait for SynthNodeData {
         ui: &mut egui::Ui,
         node_id: NodeId,
         graph: &Graph<Self, Self::DataType, Self::ValueType>,
-        _user_state: &mut Self::UserState,
+        user_state: &mut Self::UserState,
         param_name: &str,
     ) -> Vec<egui_node_graph::NodeResponse<Self::Response, Self>>
     where
@@ -147,19 +124,31 @@ impl NodeDataTrait for SynthNodeData {
 
         let state = states_guard.entry(param_name.to_string()).or_default();
 
+        let port = graph.get_port(node_id, param_name).unwrap();
+        let is_playing = user_state.rt_playback == Some((node_id, port));
+
         let scope_btn = util::toggle_button("👁Scope", state.show_scope);
-        let mut port = 0;
+        let play_btn = util::toggle_button("👂Play", is_playing);
 
         let resp = ui.horizontal(|ui| {
             ui.with_layout(egui::Layout::right_to_left(Align::RIGHT), |ui| {
                 ui.label(param_name);
-                ui.add(scope_btn)
+                (ui.add(scope_btn), ui.add(play_btn))
             })
         });
 
-        if resp.inner.inner.clicked() {
+        if resp.inner.inner.0.clicked() {
             state.show_scope = !state.show_scope;
-            port = graph.get_port(node_id, param_name).unwrap();
+        }
+
+        if resp.inner.inner.1.clicked() {
+            if !is_playing {
+                responses.push(NodeResponse::User(SynthNodeResponse::SetRtPlayback(
+                    node_id, port,
+                )));
+            } else {
+                responses.push(NodeResponse::User(SynthNodeResponse::ClearRtPlayback));
+            }
         }
 
         if state.show_scope && state.scope.is_none() {
@@ -405,8 +394,8 @@ impl NodeTemplateIter for &AllSynthNodeTemplates {
 
 #[derive(Clone, Debug)]
 pub enum SynthNodeResponse {
-    SetActiveNode(NodeId),
-    ClearActiveNode,
+    SetRtPlayback(NodeId, usize),
+    ClearRtPlayback,
     StartRecording(NodeId, usize),
     StopRecording(NodeId, usize),
 }
@@ -445,7 +434,7 @@ impl SynthCtx {
 
 #[derive(Default, Serialize, Deserialize)]
 pub struct SynthGraphState {
-    pub active_node: Option<NodeId>,
+    pub rt_playback: Option<(NodeId, usize)>,
     pub ctx: SynthCtx,
 
     // node_ui_inputs and node_configs need to be initialized separately

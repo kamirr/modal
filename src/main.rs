@@ -84,7 +84,7 @@ impl SynthApp {
                 }
             }
 
-            remote.play(user_state.active_node.map(|idx| (idx, 0)));
+            remote.play(user_state.rt_playback);
 
             SynthApp {
                 state: editor,
@@ -292,14 +292,14 @@ impl eframe::App for SynthApp {
                     self.remote
                         .connect(out_node_id, out_port, in_node_id, in_idx);
                 }
-                NodeResponse::User(graph::SynthNodeResponse::SetActiveNode(id)) => {
-                    println!("set active {id:?}");
-                    self.user_state.active_node = Some(id);
-                    self.remote.play(Some((id, 0)));
+                NodeResponse::User(graph::SynthNodeResponse::SetRtPlayback(id, port)) => {
+                    println!("set real-time playback {id:?}:{port}");
+                    self.user_state.rt_playback = Some((id, port));
+                    self.remote.play(Some((id, port)));
                 }
-                NodeResponse::User(graph::SynthNodeResponse::ClearActiveNode) => {
-                    println!("unset active");
-                    self.user_state.active_node = None;
+                NodeResponse::User(graph::SynthNodeResponse::ClearRtPlayback) => {
+                    println!("disable real-time playback");
+                    self.user_state.rt_playback = None;
                     self.remote.play(None);
                 }
                 NodeResponse::User(graph::SynthNodeResponse::StartRecording(node, port)) => {
