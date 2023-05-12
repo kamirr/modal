@@ -258,6 +258,7 @@ impl WidgetValueTrait for SynthValueType {
         let ui_inputs = user_state.node_ui_inputs.get(&node_id).unwrap();
         if let Some(input) = ui_inputs.get(param_name) {
             ui.horizontal(|ui| {
+                ui.label(param_name);
                 input.show_always(ui, *node_data.verbose.borrow());
                 input.show_disconnected(ui, *node_data.verbose.borrow());
             });
