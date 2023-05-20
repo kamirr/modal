@@ -39,6 +39,10 @@ impl TimeInput {
             .map(|f| f.round() as usize)
             .unwrap_or(self.samples.load(Ordering::Relaxed))
     }
+
+    pub fn get_ms(&self, recv: &Value) -> f32 {
+        self.get_samples(recv) as f32 / 44100.0 * 1000.0
+    }
 }
 
 impl InputUi for TimeInput {
