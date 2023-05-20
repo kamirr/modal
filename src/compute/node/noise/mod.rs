@@ -139,7 +139,11 @@ fn noise_gen() -> Box<dyn Node> {
 pub struct Noise;
 
 impl NodeList for Noise {
-    fn all(&self) -> Vec<(Box<dyn Node>, String)> {
-        vec![(noise_gen(), "Noise Generator".into())]
+    fn all(&self) -> Vec<(Box<dyn Node>, String, Vec<String>)> {
+        vec![(
+            noise_gen(),
+            "Noise".into(),
+            vec!["Noise".into(), "Source".into()],
+        )]
     }
 }

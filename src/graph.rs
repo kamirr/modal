@@ -287,6 +287,7 @@ impl WidgetValueTrait for SynthValueType {
 pub struct SynthNodeTemplate {
     template: Box<dyn Node>,
     name: String,
+    categories: Vec<String>,
 }
 
 impl Clone for SynthNodeTemplate {
@@ -294,6 +295,7 @@ impl Clone for SynthNodeTemplate {
         SynthNodeTemplate {
             template: dyn_clone::clone_box(&*self.template),
             name: self.name.clone(),
+            categories: self.categories.clone(),
         }
     }
 }
@@ -371,6 +373,10 @@ impl NodeTemplateTrait for SynthNodeTemplate {
         user_state.node_ui_inputs.insert(node_id, ui_inputs);
         user_state.nodes.insert(node_id, node);
     }
+
+    fn node_finder_categories(&self, _user_state: &mut Self::UserState) -> Vec<Self::CategoryType> {
+        self.categories.clone()
+    }
 }
 
 pub struct AllSynthNodeTemplates {
@@ -389,11 +395,13 @@ impl NodeTemplateIter for &AllSynthNodeTemplates {
     fn all_kinds(&self) -> Vec<Self::Item> {
         let mut all = Vec::new();
         for list in &self.lists {
-            all.extend(
-                list.all()
-                    .into_iter()
-                    .map(|(template, name)| SynthNodeTemplate { template, name }),
-            )
+            all.extend(list.all().into_iter().map(|(template, name, categories)| {
+                SynthNodeTemplate {
+                    template,
+                    name,
+                    categories,
+                }
+            }))
         }
 
         all

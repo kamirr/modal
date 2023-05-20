@@ -17,21 +17,29 @@ use super::{Node, NodeList};
 pub struct Basic;
 
 impl NodeList for Basic {
-    fn all(&self) -> Vec<(Box<dyn Node>, String)> {
+    fn all(&self) -> Vec<(Box<dyn Node>, String, Vec<String>)> {
         vec![
-            (add::add(), "Add".into()),
-            (adsr::adsr(), "Adsr".into()),
-            (any::any(), "Any".into()),
-            (constant::constant(), "Constant".into()),
-            (convert::convert(), "Convert".into()),
-            (curve::curve(), "Curve".into()),
-            (delay::delay(), "Delay".into()),
-            (gain::gain(), "Gain".into()),
-            (gate::gate(), "Gate".into()),
-            (latch::latch(), "Latch".into()),
-            (mix::mix(), "Mix".into()),
-            (oscillator::oscillator(), "Oscillator".into()),
-            (pulse::pulse(), "Pulse".into()),
+            (add::add(), "Add".into(), vec!["Math".into()]),
+            (adsr::adsr(), "Adsr".into(), vec!["Envelope".into()]),
+            (any::any(), "Any".into(), vec!["Control".into()]),
+            (
+                constant::constant(),
+                "Constant".into(),
+                vec!["Source".into()],
+            ),
+            (convert::convert(), "Convert".into(), vec!["Math".into()]),
+            (curve::curve(), "Curve".into(), vec!["Source".into()]),
+            (delay::delay(), "Delay".into(), vec!["Effect".into()]),
+            (gain::gain(), "Gain".into(), vec!["Effect".into()]),
+            (gate::gate(), "Gate".into(), vec!["Control".into()]),
+            (latch::latch(), "Latch".into(), vec!["Effect".into()]),
+            (mix::mix(), "Mix".into(), vec!["Math".into()]),
+            (
+                oscillator::oscillator(),
+                "Oscillator".into(),
+                vec!["Source".into()],
+            ),
+            (pulse::pulse(), "Pulse".into(), vec!["Control".into()]),
         ]
     }
 }

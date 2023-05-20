@@ -189,7 +189,11 @@ fn biquad() -> Box<dyn Node> {
 pub struct Filters;
 
 impl NodeList for Filters {
-    fn all(&self) -> Vec<(Box<dyn Node>, String)> {
-        vec![(biquad(), "BiQuad Filter".into())]
+    fn all(&self) -> Vec<(Box<dyn Node>, String, Vec<String>)> {
+        vec![(
+            biquad(),
+            "BiQuad Filter".into(),
+            vec!["Effect".into(), "Filter".into()],
+        )]
     }
 }

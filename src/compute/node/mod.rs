@@ -89,7 +89,7 @@ pub trait Node: DynClone + Debug + Send {
 }
 
 pub trait NodeList {
-    fn all(&self) -> Vec<(Box<dyn Node>, String)>;
+    fn all(&self) -> Vec<(Box<dyn Node>, String, Vec<String>)>;
 }
 
 pub mod all {
