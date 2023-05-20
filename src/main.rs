@@ -234,10 +234,16 @@ impl eframe::App for SynthApp {
             });
         });
 
+        let mut prepend_responses = Vec::new();
+
+        if ctx.input(|state| state.key_pressed(egui::Key::Delete)) {
+            prepend_responses.extend(self.state.selected_nodes.iter().copied().map(NodeResponse::DeleteNodeUi));
+        }
+
         let graph_response = egui::CentralPanel::default()
             .show(ctx, |ui| {
                 self.state
-                    .draw_graph_editor(ui, &self.all_nodes, &mut self.user_state)
+                    .draw_graph_editor(ui, &self.all_nodes, &mut self.user_state, prepend_responses)
             })
             .inner;
         for node_response in graph_response.node_responses {

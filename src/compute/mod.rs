@@ -132,6 +132,15 @@ impl Runtime {
 
     pub fn remove(&mut self, index: Index) {
         self.nodes.remove(index);
+        for (_, entry) in &mut self.nodes {
+            for input in &mut entry.inputs {
+                if let Some(port) = *input {
+                    if port.node == index {
+                        *input = None;
+                    }
+                }
+            }
+        }
     }
 
     pub fn set_input(&mut self, index: Index, port: usize, new_input: Option<OutputPort>) {

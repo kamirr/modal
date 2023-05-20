@@ -7,8 +7,8 @@ use std::{
 };
 
 use egui_node_graph::{
-    DataTypeTrait, Graph, GraphEditorState, InputParamKind, NodeDataTrait, NodeId, NodeResponse,
-    NodeTemplateIter, NodeTemplateTrait, UserResponseTrait, WidgetValueTrait,
+    AnyParameterId, DataTypeTrait, Graph, GraphEditorState, InputParamKind, NodeDataTrait, NodeId,
+    NodeResponse, NodeTemplateIter, NodeTemplateTrait, UserResponseTrait, WidgetValueTrait,
 };
 
 use eframe::{egui, emath::Align};
@@ -174,6 +174,7 @@ impl NodeDataTrait for SynthNodeData {
         &self,
         ui: &mut egui::Ui,
         _node_id: NodeId,
+        _param_id: AnyParameterId,
         _graph: &Graph<Self, Self::DataType, Self::ValueType>,
         _user_state: &mut Self::UserState,
     ) {
@@ -302,6 +303,7 @@ impl NodeTemplateTrait for SynthNodeTemplate {
     type DataType = SynthDataType;
     type ValueType = SynthValueType;
     type UserState = SynthGraphState;
+    type CategoryType = String;
 
     fn node_finder_label(&self, _user_state: &mut Self::UserState) -> Cow<str> {
         Cow::Borrowed(&self.name)
