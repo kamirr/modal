@@ -16,6 +16,7 @@ use super::positive::PositiveInput;
 enum TimeUnit {
     Samples,
     Seconds,
+    Miliseconds,
 }
 
 serde_atomic_enum!(AtomicTimeUnit);
@@ -30,7 +31,14 @@ impl TimeInput {
     pub fn new(samples: usize) -> Self {
         TimeInput {
             samples: AtomicUsize::new(samples),
-            in_ty: AtomicTimeUnit::new(TimeUnit::Samples),
+            in_ty: AtomicTimeUnit::new(TimeUnit::Miliseconds),
+        }
+    }
+
+    pub fn from_ms(ms: f32) -> Self {
+        TimeInput {
+            samples: AtomicUsize::new((ms * 44100.0 / 1000.0) as _),
+            in_ty: AtomicTimeUnit::new(TimeUnit::Miliseconds),
         }
     }
 
@@ -71,6 +79,14 @@ impl InputUi for TimeInput {
 
                 secs = input.get_f32(&Value::None);
                 samples = (secs * 44100.0).round() as _;
+            }
+            TimeUnit::Miliseconds => {
+                let mut msecs = samples as f32 / 44100.0 * 1000.0;
+                let input = PositiveInput::new(msecs);
+                input.show_disconnected(ui, verbose);
+
+                msecs = input.get_f32(&Value::None);
+                samples = (msecs * 44100.0 / 1000.0).round() as _;
             }
         }
 
