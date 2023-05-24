@@ -1,54 +1,35 @@
 use std::{
     any::Any,
-    f32::consts::PI,
     sync::{
         atomic::{AtomicBool, Ordering},
         Arc,
     },
 };
 
-use atomic_enum::atomic_enum;
 use serde::{Deserialize, Serialize};
 
 use crate::{
     compute::{
         node::{
-            inputs::{freq::FreqInput, real::RealInput},
+            inputs::{freq::FreqInput, real::RealInput, wave::WaveInput},
             Input, Node, NodeConfig, NodeEvent,
         },
         Value, ValueKind,
     },
-    serde_atomic_enum,
-    util::enum_combo_box,
+    wave::WaveScale,
 };
-
-#[atomic_enum]
-#[derive(PartialEq, Eq, Serialize, derive_more::Display, strum::EnumIter)]
-enum OscType {
-    Sine = 0,
-    Triangle,
-    Square,
-    Saw,
-}
-
-serde_atomic_enum!(AtomicOscType);
 
 #[derive(Debug, Serialize, Deserialize)]
 struct OscillatorConfig {
-    ty: AtomicOscType,
     manual_range: AtomicBool,
 }
 
 impl NodeConfig for OscillatorConfig {
     fn show(&self, ui: &mut eframe::egui::Ui, _data: &dyn Any) {
-        let mut ty = self.ty.load(Ordering::Acquire);
         let mut manual_range = self.manual_range.load(Ordering::Acquire);
-
-        enum_combo_box(ui, &mut ty);
 
         ui.checkbox(&mut manual_range, "Manual range");
 
-        self.ty.store(ty, Ordering::Release);
         self.manual_range.store(manual_range, Ordering::Release);
     }
 }
@@ -56,6 +37,7 @@ impl NodeConfig for OscillatorConfig {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 struct Oscillator {
     config: Arc<OscillatorConfig>,
+    wave: Arc<WaveInput>,
     f: Arc<FreqInput>,
     min: Arc<RealInput>,
     max: Arc<RealInput>,
@@ -74,27 +56,15 @@ impl Oscillator {
 impl Node for Oscillator {
     fn feed(&mut self, data: &[Value]) -> Vec<NodeEvent> {
         let f = self.f.get_f32(&data[0]);
-        let min = self.min.get_f32(data.get(1).unwrap_or(&Value::Float(-1.0)));
-        let max = self.max.get_f32(data.get(2).unwrap_or(&Value::Float(1.0)));
+        let wave = self.wave.as_f32(&data[1]);
+        let min = self.min.get_f32(data.get(2).unwrap_or(&Value::Float(-1.0)));
+        let max = self.max.get_f32(data.get(3).unwrap_or(&Value::Float(1.0)));
 
         let step = f * Self::hz_to_dt();
-        self.t = (self.t + step) % 4.0;
+        self.t = (self.t + step) % 2.0;
 
-        let m1_to_p1 = match self.config.ty.load(Ordering::Relaxed) {
-            OscType::Sine => (self.t * 2.0 * PI).sin(),
-            OscType::Triangle => 4.0 * (self.t - (self.t + 0.5).floor()).abs() - 1.0,
-            OscType::Square => {
-                if (self.t * 2.0 * PI).sin() > 0.0 {
-                    1.0
-                } else {
-                    -1.0
-                }
-            }
-            OscType::Saw => (self.t - self.t.floor()) * 2.0 - 1.0,
-        };
-
-        let zero_to_one = (m1_to_p1 + 1.0) / 2.0;
-        self.out = zero_to_one * (max - min) + min;
+        self.out =
+            (WaveScale::new(wave.clamp(0.0, 0.99)).sample(self.t) / 2.0 + 0.5) * (max - min) + min;
 
         let manual_range = self.config.manual_range.load(Ordering::Relaxed);
         let emit_change = manual_range != self.manual_range;
@@ -116,7 +86,10 @@ impl Node for Oscillator {
     }
 
     fn inputs(&self) -> Vec<Input> {
-        let mut inputs = vec![Input::with_default("f", ValueKind::Float, &self.f)];
+        let mut inputs = vec![
+            Input::with_default("f", ValueKind::Float, &self.f),
+            Input::with_default("shape", ValueKind::Float, &self.wave),
+        ];
         if self.manual_range {
             inputs.extend([
                 Input::with_default("min", ValueKind::Float, &self.min),
@@ -131,9 +104,9 @@ impl Node for Oscillator {
 pub fn oscillator() -> Box<dyn Node> {
     Box::new(Oscillator {
         config: Arc::new(OscillatorConfig {
-            ty: AtomicOscType::new(OscType::Sine),
             manual_range: AtomicBool::new(false),
         }),
+        wave: Arc::new(WaveInput::new(0.0)),
         f: Arc::new(FreqInput::new(440.0)),
         min: Arc::new(RealInput::new(-1.0)),
         max: Arc::new(RealInput::new(1.0)),

@@ -7,3 +7,4 @@ pub mod real;
 pub mod slider;
 pub mod time;
 pub mod trigger;
+pub mod wave;

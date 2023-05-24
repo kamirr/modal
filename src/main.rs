@@ -4,6 +4,7 @@ mod remote;
 mod scope;
 
 mod util;
+mod wave;
 
 use std::{collections::HashMap, sync::Arc, time::Instant};
 
