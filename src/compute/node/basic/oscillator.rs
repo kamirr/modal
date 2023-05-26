@@ -60,7 +60,7 @@ impl Node for Oscillator {
         let min = self.min.get_f32(data.get(2).unwrap_or(&Value::Float(-1.0)));
         let max = self.max.get_f32(data.get(3).unwrap_or(&Value::Float(1.0)));
 
-        let step = f * Self::hz_to_dt();
+        let step = f * Self::hz_to_dt() * 2.0;
         self.t = (self.t + step) % 2.0;
 
         self.out =
