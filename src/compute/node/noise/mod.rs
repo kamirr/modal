@@ -72,7 +72,7 @@ impl Node for NoiseGen {
         self.ty = ty;
 
         let m1_to_p1 = match ty {
-            NoiseType::Uniform => rand::thread_rng().gen_range(0.0..=1.0),
+            NoiseType::Uniform => rand::thread_rng().gen_range(-1.0..=1.0),
             NoiseType::Perlin => {
                 let frequency = self
                     .frequency_input
