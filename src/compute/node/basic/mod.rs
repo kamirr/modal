@@ -11,6 +11,7 @@ pub mod latch;
 pub mod mix;
 pub mod oscillator;
 pub mod pulse;
+pub mod transform;
 
 use super::{Node, NodeList};
 
@@ -40,6 +41,11 @@ impl NodeList for Basic {
                 vec!["Source".into()],
             ),
             (pulse::pulse(), "Pulse".into(), vec!["Control".into()]),
+            (
+                transform::transform(),
+                "Transform".into(),
+                vec!["Effect".into(), "Math".into()],
+            ),
         ]
     }
 }

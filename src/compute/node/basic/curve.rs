@@ -1,6 +1,6 @@
 use std::sync::{
     atomic::{AtomicBool, Ordering},
-    Arc, RwLock,
+    Arc, RwLock, RwLockReadGuard, RwLockWriteGuard,
 };
 
 use crate::compute::{
@@ -23,19 +23,27 @@ use egui_curve_edit as egui_curve;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Serialize, Deserialize)]
-struct CurveConfig {
+pub struct CurveConfig {
     curve: RwLock<egui_curve::Curve>,
-    values: RwLock<Vec<f32>>,
+    sampled: RwLock<Vec<f32>>,
     edit: AtomicBool,
 }
 
 impl CurveConfig {
-    fn new() -> Self {
+    pub fn new() -> Self {
         CurveConfig {
             curve: RwLock::new(egui_curve::Curve::new([0.0, 50.0], [100.0, 50.0])),
-            values: RwLock::new(vec![0.0, 0.0, 0.0]),
+            sampled: RwLock::new(vec![0.0, 0.0, 0.0]),
             edit: AtomicBool::new(false),
         }
+    }
+
+    pub fn values(&self) -> RwLockReadGuard<'_, Vec<f32>> {
+        self.sampled.read().unwrap()
+    }
+
+    pub fn values_mut(&self) -> RwLockWriteGuard<'_, Vec<f32>> {
+        self.sampled.write().unwrap()
     }
 }
 
@@ -57,8 +65,9 @@ impl NodeConfig for CurveConfig {
                     edit = !edit;
                 }
 
-                let values = self.values.read().unwrap();
-                let xys: Vec<_> = values
+                let values = self.values();
+                let xys: Vec<_> = self
+                    .values()
                     .iter()
                     .enumerate()
                     .map(|(i, y)| [i as f64 / (values.len() - 1) as f64, *y as f64])
@@ -92,7 +101,7 @@ impl NodeConfig for CurveConfig {
                 ui.add(egui_curve::CurveEdit::new(&mut curve, 0.0..=100.0));
             });
 
-            *self.values.write().unwrap() = curve.sample_along_x(256, 0.0..=100.0);
+            *self.values_mut() = curve.sample_along_x(256, 0.0..=100.0);
         }
 
         self.edit.store(edit, Ordering::Release);
@@ -168,9 +177,9 @@ impl Node for Curve {
         }
 
         let raw_out = match self.status {
-            CurveStatus::Done => self.config.values.read().unwrap()[0],
+            CurveStatus::Done => self.config.values()[0],
             CurveStatus::Playing => {
-                let values = self.config.values.read().unwrap();
+                let values = self.config.values();
                 let t = self.t as f32 / length as f32;
 
                 let idx_f32 = t * values.len() as f32;
