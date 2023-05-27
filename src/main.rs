@@ -23,7 +23,7 @@ use graph::OutputState;
 
 use crate::{
     compute::Runtime,
-    graph::{SynthEditorState, SynthGraphState, SynthGraphExt},
+    graph::{SynthEditorState, SynthGraphExt, SynthGraphState},
 };
 
 fn main() {
@@ -157,7 +157,20 @@ impl SynthApp {
             }
         }
 
-        self.state.graph.nodes.get_mut(node_id).unwrap().inputs.sort_by_key(|(name, _id)| input_names.iter().enumerate().find(|(_, source_name)| *source_name == name).unwrap().0);
+        self.state
+            .graph
+            .nodes
+            .get_mut(node_id)
+            .unwrap()
+            .inputs
+            .sort_by_key(|(name, _id)| {
+                input_names
+                    .iter()
+                    .enumerate()
+                    .find(|(_, source_name)| *source_name == name)
+                    .unwrap()
+                    .0
+            });
 
         // recalculate runtime inputs
         let mut rt_inputs = Vec::new();
@@ -243,13 +256,23 @@ impl eframe::App for SynthApp {
         let mut prepend_responses = Vec::new();
 
         if ctx.input(|state| state.key_pressed(egui::Key::Delete)) {
-            prepend_responses.extend(self.state.selected_nodes.iter().copied().map(NodeResponse::DeleteNodeUi));
+            prepend_responses.extend(
+                self.state
+                    .selected_nodes
+                    .iter()
+                    .copied()
+                    .map(NodeResponse::DeleteNodeUi),
+            );
         }
 
         let graph_response = egui::CentralPanel::default()
             .show(ctx, |ui| {
-                self.state
-                    .draw_graph_editor(ui, &self.all_nodes, &mut self.user_state, prepend_responses)
+                self.state.draw_graph_editor(
+                    ui,
+                    &self.all_nodes,
+                    &mut self.user_state,
+                    prepend_responses,
+                )
             })
             .inner;
         for node_response in graph_response.node_responses {
@@ -342,7 +365,7 @@ impl eframe::App for SynthApp {
 
         for (out_port, samples) in self.remote.recordings() {
             let Some(node_id) = self.remote.index_to_id(out_port.node) else {
-                continue; 
+                continue;
             };
 
             let Some(node) = self.state.graph.nodes.get(node_id) else {
@@ -353,7 +376,10 @@ impl eframe::App for SynthApp {
                 continue;
             };
 
-            if let Some(OutputState {scope: Some(scope), ..}) = node.user_data.out_states.borrow_mut().get_mut(name) {
+            if let Some(OutputState {
+                scope: Some(scope), ..
+            }) = node.user_data.out_states.borrow_mut().get_mut(name)
+            {
                 scope.feed(samples.clone());
             }
         }
