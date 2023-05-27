@@ -1,3 +1,4 @@
+pub mod beat;
 pub mod freq;
 pub mod gate;
 pub mod midi;

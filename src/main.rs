@@ -129,6 +129,8 @@ impl SynthApp {
             }
         }
 
+        let input_names: Vec<_> = inputs.iter().map(|input| input.name.clone()).collect();
+
         // create inputs that don't exist but are in `inputs` arg
         let ui_inputs = self.user_state.node_ui_inputs.get_mut(&node_id).unwrap();
         for input in inputs {
@@ -136,6 +138,7 @@ impl SynthApp {
                 let data_type = match input.kind {
                     compute::ValueKind::Float => graph::SynthDataType::Float,
                     compute::ValueKind::Midi => graph::SynthDataType::Midi,
+                    compute::ValueKind::Beat => graph::SynthDataType::Beat,
                     _ => unimplemented!(),
                 };
 
@@ -153,6 +156,8 @@ impl SynthApp {
                 ui_inputs.insert(input.name, default_value);
             }
         }
+
+        self.state.graph.nodes.get_mut(node_id).unwrap().inputs.sort_by_key(|(name, _id)| input_names.iter().enumerate().find(|(_, source_name)| *source_name == name).unwrap().0);
 
         // recalculate runtime inputs
         let mut rt_inputs = Vec::new();

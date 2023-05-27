@@ -1,5 +1,7 @@
 pub mod node;
 
+use std::time::Duration;
+
 use midly::MidiMessage;
 use node::Node;
 use serde::{Deserialize, Serialize};
@@ -41,6 +43,7 @@ pub enum Value {
     },
     Float(f32),
     FloatArray(Vec<f32>),
+    Beat(Duration),
 }
 
 #[derive(Clone, Copy, Debug, Hash, PartialEq, Eq, Serialize, Deserialize)]
@@ -95,6 +98,13 @@ impl Value {
         match self {
             Value::Float(s) => Some(vec![*s]),
             Value::FloatArray(s) => Some(s.clone()),
+            _ => None,
+        }
+    }
+
+    pub fn as_beat(&self) -> Option<Duration> {
+        match self {
+            Value::Beat(dur) => Some(dur.clone()),
             _ => None,
         }
     }

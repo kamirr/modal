@@ -1,6 +1,7 @@
 pub mod add;
 pub mod adsr;
 pub mod any;
+pub mod bpm;
 pub mod constant;
 pub mod convert;
 pub mod curve;
@@ -10,6 +11,7 @@ pub mod gate;
 pub mod latch;
 pub mod mix;
 pub mod mix2;
+pub mod on_beat;
 pub mod oscillator;
 pub mod pulse;
 pub mod transform;
@@ -24,6 +26,7 @@ impl NodeList for Basic {
             (add::add(), "Add".into(), vec!["Math".into()]),
             (adsr::adsr(), "Adsr".into(), vec!["Envelope".into()]),
             (any::any(), "Any".into(), vec!["Control".into()]),
+            (bpm::bpm(), "BPM".into(), vec!["Control".into()]),
             (
                 constant::constant(),
                 "Constant".into(),
@@ -37,6 +40,11 @@ impl NodeList for Basic {
             (latch::latch(), "Latch".into(), vec!["Effect".into()]),
             (mix::mix(), "Mix".into(), vec!["Math".into()]),
             (mix2::mix2(), "Mix 2".into(), vec!["Math".into()]),
+            (
+                on_beat::on_beat(),
+                "On Beat".into(),
+                vec!["Control".into(), "Source".into()],
+            ),
             (
                 oscillator::oscillator(),
                 "Oscillator".into(),

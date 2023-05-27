@@ -186,6 +186,7 @@ impl NodeDataTrait for SynthNodeData {
 pub enum SynthDataType {
     Float,
     Midi,
+    Beat,
 }
 
 impl DataTypeTrait<SynthGraphState> for SynthDataType {
@@ -193,6 +194,7 @@ impl DataTypeTrait<SynthGraphState> for SynthDataType {
         match self {
             SynthDataType::Float => egui::Color32::LIGHT_BLUE,
             SynthDataType::Midi => egui::Color32::LIGHT_GREEN,
+            SynthDataType::Beat => egui::Color32::LIGHT_RED,
         }
     }
 
@@ -200,6 +202,7 @@ impl DataTypeTrait<SynthGraphState> for SynthDataType {
         match self {
             SynthDataType::Float => Cow::Borrowed("signal"),
             SynthDataType::Midi => Cow::Borrowed("MIDI"),
+            SynthDataType::Beat => Cow::Borrowed("Beat"),
         }
     }
 }
@@ -212,6 +215,7 @@ impl SynthValueType {
         match &self.0 {
             compute::Value::Float(_) => SynthDataType::Float,
             compute::Value::Midi { .. } => SynthDataType::Midi,
+            compute::Value::Beat(_) => SynthDataType::Beat,
             _ => unimplemented!(),
         }
     }
@@ -220,6 +224,7 @@ impl SynthValueType {
         SynthValueType(match ty {
             SynthDataType::Float => compute::Value::Float(0.0),
             SynthDataType::Midi => compute::Value::None,
+            SynthDataType::Beat => compute::Value::None,
         })
     }
 }
@@ -345,6 +350,7 @@ impl NodeTemplateTrait for SynthNodeTemplate {
             let out_data_ty = match out.kind {
                 compute::ValueKind::Float => SynthDataType::Float,
                 compute::ValueKind::Midi => SynthDataType::Midi,
+                compute::ValueKind::Beat => SynthDataType::Beat,
                 _ => unimplemented!(),
             };
             graph.add_output_param(node_id, out.name, out_data_ty);
@@ -355,6 +361,7 @@ impl NodeTemplateTrait for SynthNodeTemplate {
             let data_type = match input.kind {
                 compute::ValueKind::Float => SynthDataType::Float,
                 compute::ValueKind::Midi => SynthDataType::Midi,
+                compute::ValueKind::Beat => SynthDataType::Beat,
                 _ => unimplemented!(),
             };
 
