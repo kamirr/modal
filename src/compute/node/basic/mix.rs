@@ -1,22 +1,63 @@
-use std::sync::Arc;
+use std::{
+    any::Any,
+    sync::{
+        atomic::{AtomicU32, Ordering},
+        Arc,
+    },
+};
 
+use eframe::egui::DragValue;
 use serde::{Deserialize, Serialize};
 
 use crate::compute::{
-    node::{inputs::slider::SliderInput, Input, Node, NodeEvent},
+    node::{inputs::slider::SliderInput, Input, Node, NodeConfig, NodeEvent},
     Value, ValueKind,
 };
 
+#[derive(Debug, Serialize, Deserialize)]
+struct MixConfig {
+    new_ins: AtomicU32,
+    ins: AtomicU32,
+}
+
+impl NodeConfig for MixConfig {
+    fn show(&self, ui: &mut eframe::egui::Ui, _data: &dyn Any) {
+        let mut ins = self.ins.load(Ordering::Acquire);
+
+        ui.horizontal(|ui| {
+            ui.label("inputs");
+
+            if ui
+                .add(DragValue::new(&mut ins).clamp_range(0..=std::u32::MAX))
+                .lost_focus()
+            {
+                self.ins.store(ins, Ordering::Release);
+            }
+        });
+
+        self.new_ins.store(ins, Ordering::Release);
+    }
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Mix {
-    ratio: Arc<SliderInput>,
+    config: Arc<MixConfig>,
+    weights: Vec<Arc<SliderInput>>,
+    ins: u32,
     out: f32,
 }
 
 impl Mix {
-    pub fn new() -> Self {
+    pub fn new(ins: u32) -> Self {
         Mix {
-            ratio: Arc::new(SliderInput::new(0.5, 0.0, 1.0)),
+            config: Arc::new(MixConfig {
+                new_ins: AtomicU32::new(ins),
+                ins: AtomicU32::new(ins),
+            }),
+            weights: (0..ins)
+                .map(|_| Arc::new(SliderInput::new(1.0, 0.0, 1.0).show_connected(true)))
+                .collect(),
+            ins,
             out: 0.0,
         }
     }
@@ -25,28 +66,53 @@ impl Mix {
 #[typetag::serde]
 impl Node for Mix {
     fn feed(&mut self, data: &[Value]) -> Vec<NodeEvent> {
-        let sig0 = data[0].as_float().unwrap_or_default();
-        let sig1 = data[1].as_float().unwrap_or_default();
-        let ratio = self.ratio.as_f32(&data[2]);
+        self.out = data
+            .iter()
+            .zip(self.weights.iter())
+            .map(|(sample, weight)| {
+                sample.as_float().unwrap_or(0.0) * weight.as_f32(&Value::Disconnected)
+            })
+            .sum::<f32>()
+            / self.weights.len() as f32;
 
-        self.out = sig0 * ratio + sig1 * (1.0 - ratio);
+        let new_ins = self.config.ins.load(Ordering::Relaxed);
+        let emit_ev = new_ins != self.ins;
+        self.ins = new_ins;
 
-        Default::default()
+        if self.ins as usize != self.weights.len() {
+            self.weights.resize_with(self.ins as usize, || {
+                Arc::new(SliderInput::new(1.0, 0.0, 1.0).show_connected(true))
+            });
+        }
+
+        if emit_ev {
+            vec![NodeEvent::RecalcInputs(self.inputs())]
+        } else {
+            Default::default()
+        }
     }
 
     fn read(&self, out: &mut [Value]) {
         out[0] = Value::Float(self.out)
     }
 
+    fn config(&self) -> Option<Arc<dyn NodeConfig>> {
+        Some(Arc::clone(&self.config) as Arc<_>)
+    }
+
     fn inputs(&self) -> Vec<Input> {
-        vec![
-            Input::new("sig 0", ValueKind::Float),
-            Input::new("sig 1", ValueKind::Float),
-            Input::with_default("mix", ValueKind::Float, &self.ratio),
-        ]
+        (0..self.ins)
+            .map(|i| {
+                Input::with_default(
+                    format!("sig {i}"),
+                    ValueKind::Float,
+                    &self.weights[i as usize],
+                )
+            })
+            .collect()
     }
 }
 
 pub fn mix() -> Box<dyn Node> {
-    Box::new(Mix::new())
+    Box::new(Mix::new(2))
 }

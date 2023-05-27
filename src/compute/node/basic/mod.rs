@@ -9,6 +9,7 @@ pub mod gain;
 pub mod gate;
 pub mod latch;
 pub mod mix;
+pub mod mix2;
 pub mod oscillator;
 pub mod pulse;
 pub mod transform;
@@ -35,6 +36,7 @@ impl NodeList for Basic {
             (gate::gate(), "Gate".into(), vec!["Control".into()]),
             (latch::latch(), "Latch".into(), vec!["Effect".into()]),
             (mix::mix(), "Mix".into(), vec!["Math".into()]),
+            (mix2::mix2(), "Mix 2".into(), vec!["Math".into()]),
             (
                 oscillator::oscillator(),
                 "Oscillator".into(),
