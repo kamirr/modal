@@ -121,26 +121,20 @@ impl SynthApp {
 impl SynthApp {
     fn recalc_inputs(&mut self, node_id: NodeId, inputs: Vec<Input>) {
         let curr_inputs = self.state.graph.nodes.get(node_id).unwrap().inputs.clone();
+        let input_names: Vec<_> = inputs.iter().map(|input| input.name.clone()).collect();
 
         // remove inputs that exist but aren't in `inputs` arg
         for (name, in_id) in &curr_inputs {
-            if !inputs.iter().any(|input| &input.name == name) {
+            if !input_names.contains(name) {
                 self.state.graph.remove_input_param(*in_id);
             }
         }
-
-        let input_names: Vec<_> = inputs.iter().map(|input| input.name.clone()).collect();
 
         // create inputs that don't exist but are in `inputs` arg
         let ui_inputs = self.user_state.node_ui_inputs.get_mut(&node_id).unwrap();
         for input in inputs {
             if !curr_inputs.iter().any(|(name, _)| name == &input.name) {
-                let data_type = match input.kind {
-                    compute::ValueKind::Float => graph::SynthDataType::Float,
-                    compute::ValueKind::Midi => graph::SynthDataType::Midi,
-                    compute::ValueKind::Beat => graph::SynthDataType::Beat,
-                    _ => unimplemented!(),
-                };
+                let data_type = graph::SynthDataType::from_value_kind(input.kind);
 
                 self.state.graph.add_input_param(
                     node_id,

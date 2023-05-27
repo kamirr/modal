@@ -189,6 +189,17 @@ pub enum SynthDataType {
     Beat,
 }
 
+impl SynthDataType {
+    pub fn from_value_kind(ty: compute::ValueKind) -> Self {
+        match ty {
+            compute::ValueKind::Float => SynthDataType::Float,
+            compute::ValueKind::Midi => SynthDataType::Midi,
+            compute::ValueKind::Beat => SynthDataType::Beat,
+            _ => unimplemented!("compute kind {ty:?} isn't supported as a graph connection type"),
+        }
+    }
+}
+
 impl DataTypeTrait<SynthGraphState> for SynthDataType {
     fn data_type_color(&self, _user_state: &mut SynthGraphState) -> egui::Color32 {
         match self {
@@ -347,23 +358,13 @@ impl NodeTemplateTrait for SynthNodeTemplate {
         };
 
         for out in node.output() {
-            let out_data_ty = match out.kind {
-                compute::ValueKind::Float => SynthDataType::Float,
-                compute::ValueKind::Midi => SynthDataType::Midi,
-                compute::ValueKind::Beat => SynthDataType::Beat,
-                _ => unimplemented!(),
-            };
+            let out_data_ty = SynthDataType::from_value_kind(out.kind);
             graph.add_output_param(node_id, out.name, out_data_ty);
         }
 
         let mut ui_inputs = HashMap::new();
         for input in node.inputs() {
-            let data_type = match input.kind {
-                compute::ValueKind::Float => SynthDataType::Float,
-                compute::ValueKind::Midi => SynthDataType::Midi,
-                compute::ValueKind::Beat => SynthDataType::Beat,
-                _ => unimplemented!(),
-            };
+            let data_type = SynthDataType::from_value_kind(input.kind);
 
             input_signal(graph, input.name.clone(), data_type);
             if let Some(default) = input.default_value {
