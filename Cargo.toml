@@ -16,6 +16,7 @@ egui-knobs = { path = "../egui-knobs" }
 egui_node_graph = { version = "0.4.0", features = ["persistence"] }
 fluidlite = "0.2.1"
 image = "0.24.6"
+itertools = "0.10.5"
 jack = "0.11.4"
 midly = "0.5.3"
 noise = "0.8.2"

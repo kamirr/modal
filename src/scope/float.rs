@@ -4,6 +4,7 @@ use eframe::egui::{
     self,
     plot::{Line, Plot, PlotPoints},
 };
+use itertools::Itertools;
 use num_traits::Zero;
 use rustfft::{num_complex::Complex32, FftPlanner};
 use serde::{Deserialize, Serialize};
@@ -69,13 +70,16 @@ impl FloatScope {
 
     fn show_timeseries(&self, ui: &mut egui::Ui) {
         let len_t = self.memory.len() as f32 / 44100.0;
+        let chunk_sz = 44;
         let xys: PlotPoints = self
             .memory
             .iter()
+            .chunks(chunk_sz)
+            .into_iter()
+            .map(|chunk| chunk.max_by(|l, r| l.abs().total_cmp(&r.abs())).unwrap())
             .enumerate()
-            .step_by(44)
             .map(|(i, y)| {
-                let t = i as f32 / 44100.0 - len_t;
+                let t = (i * chunk_sz) as f32 / 44100.0 - len_t;
 
                 [t as f64, *y as f64]
             })
