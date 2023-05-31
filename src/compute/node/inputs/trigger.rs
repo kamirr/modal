@@ -1,4 +1,4 @@
-use std::sync::atomic::Ordering;
+use std::sync::atomic::{AtomicBool, Ordering};
 
 use atomic_float::AtomicF32;
 use serde::{Deserialize, Serialize};
@@ -9,13 +9,15 @@ use crate::{
     util::enum_combo_box,
 };
 
-use super::real::RealInput;
+use super::{beat::BeatInput, real::RealInput};
 
 #[atomic_enum::atomic_enum]
 #[derive(PartialEq, Eq, derive_more::Display, strum::EnumIter)]
 pub enum TriggerMode {
     Up,
+    Down,
     Change,
+    Beat,
 }
 
 serde_atomic_enum!(AtomicTriggerMode);
@@ -24,7 +26,9 @@ serde_atomic_enum!(AtomicTriggerMode);
 pub struct TriggerInput {
     mode: AtomicTriggerMode,
     level: RealInput,
+    beat: BeatInput,
     prev: AtomicF32,
+    need_update: AtomicBool,
 }
 
 impl TriggerInput {
@@ -32,7 +36,9 @@ impl TriggerInput {
         TriggerInput {
             mode: AtomicTriggerMode::new(mode),
             level: RealInput::new(level),
+            beat: BeatInput::new(true),
             prev: AtomicF32::new(0.0),
+            need_update: AtomicBool::new(false),
         }
     }
 
@@ -49,6 +55,11 @@ impl TriggerInput {
                 let level = self.level.get_f32(&Value::None);
                 curr >= level && prev < level
             }
+            TriggerMode::Down => {
+                let level = self.level.get_f32(&Value::None);
+                curr <= level && prev > level
+            }
+            TriggerMode::Beat => self.beat.process(recv).is_some(),
             TriggerMode::Change => curr != prev,
         }
     }
@@ -56,21 +67,45 @@ impl TriggerInput {
 
 impl InputUi for TriggerInput {
     fn value_kind(&self) -> ValueKind {
-        ValueKind::Float
+        use TriggerMode::*;
+        match self.mode.load(Ordering::Relaxed) {
+            Up | Down | Change => ValueKind::Float,
+            Beat => ValueKind::Beat,
+        }
     }
 
     fn show_always(&self, ui: &mut eframe::egui::Ui, verbose: bool) {
         let mut mode = self.mode.load(Ordering::Acquire);
-        enum_combo_box(ui, &mut mode);
-        self.mode.store(mode, Ordering::Release);
+        let old_mode = mode;
 
         if verbose {
             match mode {
-                TriggerMode::Up => {
-                    self.level.show_disconnected(ui, verbose);
+                TriggerMode::Up | TriggerMode::Down => {
+                    ui.horizontal(|ui| {
+                        enum_combo_box(ui, &mut mode);
+                        self.level.show_disconnected(ui, verbose);
+                    });
                 }
-                TriggerMode::Change => {}
+                TriggerMode::Beat => {
+                    ui.vertical(|ui| {
+                        enum_combo_box(ui, &mut mode);
+                        self.beat.show_always(ui, verbose);
+                    });
+                }
+                TriggerMode::Change => {
+                    enum_combo_box(ui, &mut mode);
+                }
             };
         }
+
+        if mode != old_mode {
+            self.need_update.store(true, Ordering::Relaxed);
+        }
+
+        self.mode.store(mode, Ordering::Release);
+    }
+
+    fn needs_deep_update(&self) -> bool {
+        self.need_update.swap(false, Ordering::Relaxed)
     }
 }

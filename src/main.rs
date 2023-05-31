@@ -19,7 +19,7 @@ use compute::{
     },
     OutputPort,
 };
-use graph::OutputState;
+use graph::{OutputState, SynthDataType};
 
 use crate::{
     compute::Runtime,
@@ -338,6 +338,32 @@ impl eframe::App for SynthApp {
                 NodeResponse::User(graph::SynthNodeResponse::StopRecording(node, port)) => {
                     println!("record {node:?}:{port}");
                     self.remote.stop_recording(node, port);
+                }
+                NodeResponse::User(graph::SynthNodeResponse::UpdateInputType(
+                    node,
+                    param_name,
+                    new_kind,
+                )) => {
+                    let input_id = self
+                        .state
+                        .graph
+                        .nodes
+                        .get_mut(node)
+                        .unwrap()
+                        .inputs
+                        .iter()
+                        .find(|(input_name, _input_id)| *input_name == param_name)
+                        .unwrap()
+                        .1;
+
+                    self.state.graph.update_input_param(
+                        input_id,
+                        None,
+                        Some(SynthDataType::from_value_kind(new_kind)),
+                        None,
+                        None,
+                        None,
+                    );
                 }
                 _ => {}
             }

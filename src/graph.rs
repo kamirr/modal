@@ -21,6 +21,7 @@ use crate::{
             all::source::{jack::JackSourceNew, smf::SmfSourceNew},
             InputUi, Node, NodeConfig, NodeList,
         },
+        ValueKind,
     },
     scope::Scope,
     util::{self, toggle_button},
@@ -252,6 +253,7 @@ impl WidgetValueTrait for SynthValueType {
         user_state: &mut Self::UserState,
         node_data: &Self::NodeData,
     ) -> Vec<Self::Response> {
+        let mut resp = Vec::new();
         let ui_inputs = user_state.node_ui_inputs.get(&node_id).unwrap();
 
         ui.push_id(param_name, |ui| {
@@ -260,11 +262,19 @@ impl WidgetValueTrait for SynthValueType {
                 if let Some(input) = ui_inputs.get(param_name) {
                     input.show_always(ui, *node_data.verbose.borrow());
                     input.show_disconnected(ui, *node_data.verbose.borrow());
+
+                    if input.needs_deep_update() {
+                        resp.push(SynthNodeResponse::UpdateInputType(
+                            node_id,
+                            param_name.to_owned(),
+                            input.value_kind(),
+                        ));
+                    }
                 }
             });
         });
 
-        Default::default()
+        resp
     }
 
     fn value_widget_connected(
@@ -275,6 +285,7 @@ impl WidgetValueTrait for SynthValueType {
         user_state: &mut Self::UserState,
         node_data: &Self::NodeData,
     ) -> Vec<Self::Response> {
+        let mut resp = Vec::new();
         let ui_inputs = user_state.node_ui_inputs.get(&node_id).unwrap();
 
         ui.push_id(param_name, |ui| {
@@ -282,11 +293,19 @@ impl WidgetValueTrait for SynthValueType {
                 ui.label(param_name);
                 if let Some(input) = ui_inputs.get(param_name) {
                     input.show_always(ui, *node_data.verbose.borrow());
+
+                    if input.needs_deep_update() {
+                        resp.push(SynthNodeResponse::UpdateInputType(
+                            node_id,
+                            param_name.to_owned(),
+                            input.value_kind(),
+                        ));
+                    }
                 }
             });
         });
 
-        Default::default()
+        resp
     }
 }
 
@@ -413,6 +432,7 @@ pub enum SynthNodeResponse {
     ClearRtPlayback,
     StartRecording(NodeId, usize),
     StopRecording(NodeId, usize),
+    UpdateInputType(NodeId, String, ValueKind),
 }
 
 impl UserResponseTrait for SynthNodeResponse {}

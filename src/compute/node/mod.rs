@@ -19,6 +19,9 @@ pub trait NodeConfig {
 
 pub trait InputUi: Send + Sync {
     fn value_kind(&self) -> ValueKind;
+    fn needs_deep_update(&self) -> bool {
+        false
+    }
     fn show_always(&self, _ui: &mut egui::Ui, _verbose: bool) {}
     fn show_disconnected(&self, _ui: &mut egui::Ui, _verbose: bool) {}
 }
