@@ -11,7 +11,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::compute::{
     node::{inputs::slider::SliderInput, Input, Node, NodeConfig, NodeEvent},
-    Value, ValueKind,
+    Value,
 };
 
 #[derive(Debug, Serialize, Deserialize)]

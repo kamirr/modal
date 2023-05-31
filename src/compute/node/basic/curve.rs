@@ -13,7 +13,7 @@ use crate::compute::{
         },
         Input, Node, NodeConfig, NodeEvent,
     },
-    Value, ValueKind,
+    Value,
 };
 use eframe::{
     egui,
@@ -167,7 +167,7 @@ impl Node for Curve {
             self.t = 0;
         }
 
-        if self.t > length as usize {
+        if self.t > length {
             self.status = CurveStatus::Done;
         }
 

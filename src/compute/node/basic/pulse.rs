@@ -10,7 +10,7 @@ use crate::compute::{
         },
         Input, Node, NodeEvent,
     },
-    Value, ValueKind,
+    Value,
 };
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

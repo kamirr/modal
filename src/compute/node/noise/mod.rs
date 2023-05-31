@@ -7,7 +7,7 @@ use rand::Rng;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    compute::{Value, ValueKind},
+    compute::Value,
     serde_atomic_enum,
     util::{enum_combo_box, perlin::Perlin1D},
 };

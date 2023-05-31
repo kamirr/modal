@@ -21,7 +21,7 @@ use crate::{
             },
             Input, Node, NodeConfig, NodeEvent,
         },
-        Value, ValueKind,
+        Value,
     },
     wave::WaveScale,
 };

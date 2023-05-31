@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::compute::{
     node::{inputs::midi::MidiInput, Input, Node, NodeEvent},
-    Value, ValueKind,
+    Value,
 };
 
 struct MyFluidlite(fl::Synth);
@@ -23,8 +23,7 @@ impl Default for MyFluidlite {
 // Fake, only creates a new instance
 impl Clone for MyFluidlite {
     fn clone(&self) -> Self {
-        let other = MyFluidlite::default();
-        other
+        MyFluidlite::default()
     }
 }
 
@@ -85,7 +84,7 @@ impl Node for Fluidlite {
             _ => {}
         }
 
-        if self.buf.len() == 0 {
+        if self.buf.is_empty() {
             let mut buf = [0.0; 441];
             self.synth.0.write(&mut buf[..]).unwrap();
             // las sample is always 0

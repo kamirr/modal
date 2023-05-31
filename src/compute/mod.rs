@@ -33,7 +33,9 @@ impl Entry {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, strum::EnumDiscriminants)]
 #[strum_discriminants(name(ValueKind))]
 #[strum_discriminants(vis(pub))]
+#[derive(Default)]
 pub enum Value {
+    #[default]
     None,
     Disconnected,
     #[serde(skip)]
@@ -73,12 +75,6 @@ impl Output {
     }
 }
 
-impl Default for Value {
-    fn default() -> Self {
-        Value::None
-    }
-}
-
 impl Value {
     pub fn as_midi(&self) -> Option<(u8, &MidiMessage)> {
         match self {
@@ -104,7 +100,7 @@ impl Value {
 
     pub fn as_beat(&self) -> Option<Duration> {
         match self {
-            Value::Beat(dur) => Some(dur.clone()),
+            Value::Beat(dur) => Some(*dur),
             _ => None,
         }
     }

@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::compute::{
     node::{inputs::gate::GateInput, Input, Node, NodeEvent},
-    Value, ValueKind,
+    Value,
 };
 
 #[derive(Clone, Debug, Serialize, Deserialize)]

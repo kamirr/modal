@@ -11,7 +11,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::compute::{
     node::{inputs::real::RealInput, Input, Node, NodeConfig, NodeEvent},
-    Value, ValueKind,
+    Value,
 };
 
 #[derive(Debug, Serialize, Deserialize)]

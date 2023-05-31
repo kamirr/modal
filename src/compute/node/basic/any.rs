@@ -11,7 +11,7 @@ use crate::compute::{
         inputs::trigger::{TriggerInput, TriggerMode},
         Input, Node, NodeConfig, NodeEvent,
     },
-    Value, ValueKind,
+    Value,
 };
 
 #[derive(Debug, Serialize, Deserialize)]

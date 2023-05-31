@@ -85,7 +85,7 @@ pub mod serde_smf {
     #[derive(Serialize, Deserialize)]
     struct Smf(Vec<u8>);
 
-    pub fn serialize<'smf, S>(val: &midly::Smf<'smf>, s: S) -> Result<S::Ok, S::Error>
+    pub fn serialize<S>(val: &midly::Smf<'_>, s: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
     {

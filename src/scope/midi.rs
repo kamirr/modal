@@ -47,7 +47,7 @@ impl MidiScope {
                 });
 
                 ui.with_layout(egui::Layout::right_to_left(Align::RIGHT), |ui| {
-                    ui.label(pretty_midi(&msg));
+                    ui.label(pretty_midi(msg));
                 });
             });
             ui.separator();

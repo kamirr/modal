@@ -26,19 +26,10 @@ use crate::{
     util::{self, toggle_button},
 };
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Default)]
 pub struct OutputState {
     show_scope: bool,
     pub scope: Option<Scope>,
-}
-
-impl Default for OutputState {
-    fn default() -> Self {
-        OutputState {
-            show_scope: false,
-            scope: None,
-        }
-    }
 }
 
 #[derive(Debug, Serialize, Deserialize)]

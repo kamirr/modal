@@ -63,14 +63,14 @@ impl Scope {
         match self {
             Scope::Float(fscope) => fscope.feed(
                 data[start_at..]
-                    .into_iter()
+                    .iter()
                     .map(|value| value.as_float().unwrap()),
             ),
             Scope::Midi(mscope) => mscope.feed(
                 data[start_at..]
-                    .into_iter()
+                    .iter()
                     .map(|value| value.as_midi().unwrap())
-                    .map(|(chan, msg)| (chan, msg.clone())),
+                    .map(|(chan, msg)| (chan, *msg)),
             ),
             _ => {}
         }

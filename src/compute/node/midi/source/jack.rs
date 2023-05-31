@@ -32,7 +32,7 @@ pub struct JackSourceNew {
 impl JackSourceNew {
     pub fn all() -> Vec<JackSourceNew> {
         let Ok((client, _status)) = jack::Client::new(
-            &format!("modal-synth-tmp"),
+            "modal-synth-tmp",
             ClientOptions::NO_START_SERVER,
         ) else {
             return Default::default()

@@ -71,15 +71,15 @@ impl MidiInput {
 
                         inner.on_keys.remove(&(chan, key.as_int()));
                     } else {
-                        inner.out.push_back((chan, msg.clone()));
+                        inner.out.push_back((chan, *msg));
                         inner.on_keys.insert((chan, key.as_int()));
                     }
                 }
                 midly::MidiMessage::NoteOff { key, .. } => {
-                    inner.out.push_back((chan, msg.clone()));
+                    inner.out.push_back((chan, *msg));
                     inner.on_keys.remove(&(chan, key.as_int()));
                 }
-                _ => inner.out.push_back((chan, msg.clone())),
+                _ => inner.out.push_back((chan, *msg)),
             }
         }
 

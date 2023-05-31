@@ -208,7 +208,7 @@ impl SynthApp {
             let new = match SmfSourceNew::new(&path) {
                 Ok(new) => new,
                 Err(e) => {
-                    println!("{}", e.to_string());
+                    println!("{}", e);
                     return;
                 }
             };
