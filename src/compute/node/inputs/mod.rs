@@ -1,3 +1,4 @@
+pub mod angle;
 pub mod beat;
 pub mod freq;
 pub mod gate;

@@ -1,5 +1,6 @@
 use std::{
     any::Any,
+    f32::consts::PI,
     sync::{
         atomic::{AtomicBool, Ordering},
         Arc,
@@ -12,6 +13,7 @@ use crate::{
     compute::{
         node::{
             inputs::{
+                angle::AngleInput,
                 beat::{BeatInput, BeatResponse},
                 freq::FreqInput,
                 real::RealInput,
@@ -48,6 +50,7 @@ struct Oscillator {
     config: Arc<OscillatorConfig>,
     freq: Arc<FreqInput>,
     beat: Arc<BeatInput>,
+    phase: Arc<AngleInput>,
     wave: Arc<WaveInput>,
     min: Arc<RealInput>,
     max: Arc<RealInput>,
@@ -79,14 +82,19 @@ impl Node for Oscillator {
 
         let wave = self.wave.as_f32(&data[1]);
 
-        let min = self.min.get_f32(data.get(2).unwrap_or(&Value::Float(-1.0)));
-        let max = self.max.get_f32(data.get(3).unwrap_or(&Value::Float(1.0)));
+        let phase_0_2 = self.phase.radians(&data[2]) / PI;
+
+        let min = self.min.get_f32(data.get(3).unwrap_or(&Value::Float(-1.0)));
+        let max = self.max.get_f32(data.get(4).unwrap_or(&Value::Float(1.0)));
 
         let step = self.hz * Self::hz_to_dt() * 2.0;
         self.t = (self.t + step) % 2.0;
 
-        self.out =
-            (WaveScale::new(wave.clamp(0.0, 0.99)).sample(self.t) / 2.0 + 0.5) * (max - min) + min;
+        let adjusted_t = (self.t + phase_0_2) % 2.0;
+
+        self.out = (WaveScale::new(wave.clamp(0.0, 0.99)).sample(adjusted_t) / 2.0 + 0.5)
+            * (max - min)
+            + min;
 
         let manual_range = self.config.manual_range.load(Ordering::Relaxed);
         let bpm_sync = self.config.bpm_sync.load(Ordering::Relaxed);
@@ -119,6 +127,7 @@ impl Node for Oscillator {
         }
 
         inputs.push(Input::with_default("shape", ValueKind::Float, &self.wave));
+        inputs.push(Input::with_default("phase", ValueKind::Float, &self.phase));
 
         if self.manual_range {
             inputs.extend([
@@ -140,6 +149,7 @@ pub fn oscillator() -> Box<dyn Node> {
         freq: Arc::new(FreqInput::new(440.0)),
         beat: Arc::new(BeatInput::new(false)),
         wave: Arc::new(WaveInput::new(0.0)),
+        phase: Arc::new(AngleInput::new(0.0)),
         min: Arc::new(RealInput::new(-1.0)),
         max: Arc::new(RealInput::new(1.0)),
         t: 0.0,
