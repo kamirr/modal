@@ -18,6 +18,7 @@ pub trait NodeConfig {
 }
 
 pub trait InputUi: Send + Sync {
+    fn value_kind(&self) -> ValueKind;
     fn show_always(&self, _ui: &mut egui::Ui, _verbose: bool) {}
     fn show_disconnected(&self, _ui: &mut egui::Ui, _verbose: bool) {}
 }
@@ -37,11 +38,11 @@ impl Input {
         }
     }
 
-    pub fn with_default<S: Into<String>, I: InputUi + 'static>(
+    pub fn stateful<S: Into<String>, I: InputUi + 'static>(
         name: S,
-        kind: ValueKind,
         default_value: &Arc<I>,
     ) -> Self {
+        let kind = default_value.value_kind();
         Input {
             name: name.into(),
             kind,

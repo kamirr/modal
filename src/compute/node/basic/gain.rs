@@ -31,7 +31,7 @@ impl Node for Gain {
     fn inputs(&self) -> Vec<Input> {
         vec![
             Input::new("sig 0", ValueKind::Float),
-            Input::with_default("sig 1", ValueKind::Float, &self.s1),
+            Input::stateful("sig 1", &self.s1),
         ]
     }
 }

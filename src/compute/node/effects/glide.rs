@@ -130,20 +130,12 @@ impl Node for Glide {
     fn inputs(&self) -> Vec<Input> {
         let mut ins = vec![Input::new("sig", ValueKind::Float)];
         match self.ty {
-            GlideType::Lerp => ins.push(Input::with_default(
-                "lerp-r",
-                ValueKind::Float,
-                &self.lerp_coeff,
-            )),
-            GlideType::Exponential => ins.push(Input::with_default(
-                "rate",
-                ValueKind::Float,
-                &self.rate_limit,
-            )),
+            GlideType::Lerp => ins.push(Input::stateful("lerp-r", &self.lerp_coeff)),
+            GlideType::Exponential => ins.push(Input::stateful("rate", &self.rate_limit)),
             GlideType::Pid => {
-                ins.push(Input::with_default("p", ValueKind::Float, &self.pid[0]));
-                ins.push(Input::with_default("i", ValueKind::Float, &self.pid[1]));
-                ins.push(Input::with_default("d", ValueKind::Float, &self.pid[2]));
+                ins.push(Input::stateful("p", &self.pid[0]));
+                ins.push(Input::stateful("i", &self.pid[1]));
+                ins.push(Input::stateful("d", &self.pid[2]));
             }
         }
 

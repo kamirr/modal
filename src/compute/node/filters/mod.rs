@@ -173,10 +173,10 @@ impl Node for Biquad {
     fn inputs(&self) -> Vec<Input> {
         vec![
             Input::new("sig", ValueKind::Float),
-            Input::with_default("f0", ValueKind::Float, &self.f0),
+            Input::stateful("f0", &self.f0),
             match &self.param_ty {
-                ParamTy::Q => Input::with_default("Q", ValueKind::Float, &self.q),
-                ParamTy::Bw => Input::with_default("BW", ValueKind::Float, &self.bw),
+                ParamTy::Q => Input::stateful("Q", &self.q),
+                ParamTy::Bw => Input::stateful("BW", &self.bw),
             },
         ]
     }

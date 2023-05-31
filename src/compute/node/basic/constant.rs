@@ -26,7 +26,7 @@ impl Node for Constant {
     }
 
     fn inputs(&self) -> Vec<Input> {
-        vec![Input::with_default("value", ValueKind::Float, &self.value)]
+        vec![Input::stateful("value", &self.value)]
     }
 }
 

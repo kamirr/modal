@@ -36,7 +36,7 @@ impl Node for Bpm {
     }
 
     fn inputs(&self) -> Vec<Input> {
-        vec![Input::with_default("BPM", ValueKind::Float, &self.bpm)]
+        vec![Input::stateful("BPM", &self.bpm)]
     }
 
     fn output(&self) -> Vec<Output> {

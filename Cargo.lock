@@ -1090,7 +1090,7 @@ dependencies = [
 [[package]]
 name = "egui_node_graph"
 version = "0.4.0"
-source = "git+https://github.com/kamirr/egui_node_graph?branch=kek/dont_crash_on_removed_node#7cf8181c36dacc409df66c9106c4da4e89b39ebb"
+source = "git+https://github.com/kamirr/egui_node_graph?branch=kek/change_type#6077f6046ebdf871ff52b9e639a145e29f4ea8f1"
 dependencies = [
  "egui",
  "serde",

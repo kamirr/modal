@@ -96,13 +96,7 @@ impl Node for Add {
 
     fn inputs(&self) -> Vec<Input> {
         (0..self.ins)
-            .map(|i| {
-                Input::with_default(
-                    format!("sig {i}"),
-                    ValueKind::Float,
-                    &self.defaults[i as usize],
-                )
-            })
+            .map(|i| Input::stateful(format!("sig {i}"), &self.defaults[i as usize]))
             .collect()
     }
 }

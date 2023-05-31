@@ -121,18 +121,18 @@ impl Node for Oscillator {
         let mut inputs = Vec::new();
 
         if !self.bpm_sync {
-            inputs.push(Input::with_default("f", ValueKind::Float, &self.freq))
+            inputs.push(Input::stateful("f", &self.freq))
         } else {
-            inputs.push(Input::with_default("beat", ValueKind::Beat, &self.beat))
+            inputs.push(Input::stateful("beat", &self.beat))
         }
 
-        inputs.push(Input::with_default("shape", ValueKind::Float, &self.wave));
-        inputs.push(Input::with_default("phase", ValueKind::Float, &self.phase));
+        inputs.push(Input::stateful("shape", &self.wave));
+        inputs.push(Input::stateful("phase", &self.phase));
 
         if self.manual_range {
             inputs.extend([
-                Input::with_default("min", ValueKind::Float, &self.min),
-                Input::with_default("max", ValueKind::Float, &self.max),
+                Input::stateful("min", &self.min),
+                Input::stateful("max", &self.max),
             ])
         }
 

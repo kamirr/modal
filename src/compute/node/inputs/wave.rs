@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 use std::sync::atomic::Ordering;
 
 use crate::{
-    compute::{node::InputUi, Value},
+    compute::{node::InputUi, Value, ValueKind},
     util::load_image_from_path,
 };
 
@@ -34,6 +34,10 @@ impl WaveInput {
 }
 
 impl InputUi for WaveInput {
+    fn value_kind(&self) -> ValueKind {
+        ValueKind::Float
+    }
+
     fn show_disconnected(&self, ui: &mut eframe::egui::Ui, _verbose: bool) {
         let mut s = self.s.load(Ordering::Acquire);
 

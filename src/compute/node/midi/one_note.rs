@@ -72,7 +72,7 @@ impl Node for OneNote {
     }
 
     fn inputs(&self) -> Vec<Input> {
-        vec![Input::with_default("midi", ValueKind::Midi, &self.midi_in)]
+        vec![Input::stateful("midi", &self.midi_in)]
     }
 
     fn output(&self) -> Vec<Output> {

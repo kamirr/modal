@@ -102,13 +102,7 @@ impl Node for Mix {
 
     fn inputs(&self) -> Vec<Input> {
         (0..self.ins)
-            .map(|i| {
-                Input::with_default(
-                    format!("sig {i}"),
-                    ValueKind::Float,
-                    &self.weights[i as usize],
-                )
-            })
+            .map(|i| Input::stateful(format!("sig {i}"), &self.weights[i as usize]))
             .collect()
     }
 }

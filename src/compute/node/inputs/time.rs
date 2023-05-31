@@ -4,7 +4,7 @@ use eframe::egui;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    compute::{node::InputUi, Value},
+    compute::{node::InputUi, Value, ValueKind},
     serde_atomic_enum,
     util::enum_combo_box,
 };
@@ -54,6 +54,10 @@ impl TimeInput {
 }
 
 impl InputUi for TimeInput {
+    fn value_kind(&self) -> ValueKind {
+        ValueKind::Float
+    }
+
     fn show_always(&self, ui: &mut egui::Ui, verbose: bool) {
         if verbose {
             let mut ty = self.in_ty.load(Ordering::Acquire);

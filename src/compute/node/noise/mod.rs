@@ -104,16 +104,12 @@ impl Node for NoiseGen {
 
     fn inputs(&self) -> Vec<Input> {
         let mut ins = vec![
-            Input::with_default("min", ValueKind::Float, &self.min),
-            Input::with_default("max", ValueKind::Float, &self.max),
+            Input::stateful("min", &self.min),
+            Input::stateful("max", &self.max),
         ];
 
         match self.ty {
-            NoiseType::Perlin => ins.push(Input::with_default(
-                "f",
-                ValueKind::Float,
-                &self.frequency_input,
-            )),
+            NoiseType::Perlin => ins.push(Input::stateful("f", &self.frequency_input)),
             _ => {}
         }
 

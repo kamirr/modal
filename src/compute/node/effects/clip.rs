@@ -95,8 +95,8 @@ impl Node for Clip {
     fn inputs(&self) -> Vec<Input> {
         vec![
             Input::new("value", ValueKind::Float),
-            Input::with_default("level", ValueKind::Float, &self.level),
-            Input::with_default("offset", ValueKind::Float, &self.offset),
+            Input::stateful("level", &self.level),
+            Input::stateful("offset", &self.offset),
         ]
     }
 }

@@ -73,8 +73,8 @@ impl Node for Pulse {
 
     fn inputs(&self) -> Vec<Input> {
         vec![
-            Input::with_default("trigger", ValueKind::Float, &self.trigger),
-            Input::with_default("length", ValueKind::Float, &self.time),
+            Input::stateful("trigger", &self.trigger),
+            Input::stateful("length", &self.time),
         ]
     }
 }

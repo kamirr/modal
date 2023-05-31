@@ -2,7 +2,7 @@ use eframe::egui::DragValue;
 use serde::{Deserialize, Serialize};
 use std::{sync::RwLock, time::Duration};
 
-use crate::compute::{node::InputUi, Value};
+use crate::compute::{node::InputUi, Value, ValueKind};
 
 #[derive(Clone, Copy, Debug)]
 pub struct BeatResponse {
@@ -91,6 +91,10 @@ impl BeatInput {
 }
 
 impl InputUi for BeatInput {
+    fn value_kind(&self) -> ValueKind {
+        ValueKind::Beat
+    }
+
     fn show_always(&self, ui: &mut eframe::egui::Ui, _verbose: bool) {
         let mut inner = self.inner.write().unwrap();
 

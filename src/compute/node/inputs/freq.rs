@@ -3,7 +3,7 @@ use eframe::egui::DragValue;
 use serde::{Deserialize, Serialize};
 use std::sync::atomic::Ordering;
 
-use crate::compute::{node::InputUi, Value};
+use crate::compute::{node::InputUi, Value, ValueKind};
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct FreqInput {
@@ -23,6 +23,10 @@ impl FreqInput {
 }
 
 impl InputUi for FreqInput {
+    fn value_kind(&self) -> ValueKind {
+        ValueKind::Float
+    }
+
     fn show_disconnected(&self, ui: &mut eframe::egui::Ui, _verbose: bool) {
         let mut f = self.f.load(Ordering::Acquire);
 

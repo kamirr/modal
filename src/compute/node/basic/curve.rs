@@ -210,12 +210,12 @@ impl Node for Curve {
 
     fn inputs(&self) -> Vec<Input> {
         vec![
-            Input::with_default("trigger", ValueKind::Float, &self.trigger),
-            Input::with_default("length", ValueKind::Float, &self.length),
-            Input::with_default("min", ValueKind::Float, &self.min),
-            Input::with_default("max", ValueKind::Float, &self.max),
-            Input::with_default("repeat", ValueKind::Float, &self.repeat),
-            Input::with_default("resettable", ValueKind::Float, &self.resettable),
+            Input::stateful("trigger", &self.trigger),
+            Input::stateful("length", &self.length),
+            Input::stateful("min", &self.min),
+            Input::stateful("max", &self.max),
+            Input::stateful("repeat", &self.repeat),
+            Input::stateful("resettable", &self.resettable),
         ]
     }
 }

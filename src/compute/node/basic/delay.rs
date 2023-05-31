@@ -48,7 +48,7 @@ impl Node for Delay {
     fn inputs(&self) -> Vec<Input> {
         vec![
             Input::new("sig", ValueKind::Float),
-            Input::with_default("time", ValueKind::Float, &self.time_in),
+            Input::stateful("time", &self.time_in),
         ]
     }
 }

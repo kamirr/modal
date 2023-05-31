@@ -41,7 +41,7 @@ impl Node for Latch {
 
     fn inputs(&self) -> Vec<Input> {
         vec![
-            Input::with_default("trigger", ValueKind::Float, &self.trigger),
+            Input::stateful("trigger", &self.trigger),
             Input::new("signal", ValueKind::Float),
         ]
     }

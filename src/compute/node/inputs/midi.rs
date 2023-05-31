@@ -6,7 +6,7 @@ use std::{
 use eframe::egui;
 use serde::{Deserialize, Serialize};
 
-use crate::compute::{node::InputUi, Value};
+use crate::compute::{node::InputUi, Value, ValueKind};
 
 #[derive(Debug, Serialize, Deserialize)]
 struct Inner {
@@ -88,6 +88,10 @@ impl MidiInput {
 }
 
 impl InputUi for MidiInput {
+    fn value_kind(&self) -> ValueKind {
+        ValueKind::Midi
+    }
+
     fn show_always(&self, ui: &mut egui::Ui, verbose: bool) {
         if verbose {
             let mut inner = self.inner.lock().unwrap();

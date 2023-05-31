@@ -4,7 +4,7 @@ use atomic_float::AtomicF32;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    compute::{node::InputUi, Value},
+    compute::{node::InputUi, Value, ValueKind},
     serde_atomic_enum,
 };
 
@@ -73,6 +73,10 @@ impl GateInput {
 }
 
 impl InputUi for GateInput {
+    fn value_kind(&self) -> ValueKind {
+        ValueKind::Float
+    }
+
     fn show_always(&self, ui: &mut eframe::egui::Ui, verbose: bool) {
         if verbose {
             self.threshold.show_disconnected(ui, verbose);

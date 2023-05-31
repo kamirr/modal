@@ -65,12 +65,12 @@ impl Node for Reverb {
     fn inputs(&self) -> Vec<Input> {
         vec![
             Input::new("sig", ValueKind::Float),
-            Input::with_default("dry/wet", ValueKind::Float, &self.drywet),
-            Input::with_default("feedback", ValueKind::Float, &self.feedback),
-            Input::with_default("t1", ValueKind::Float, &self.times[0]),
-            Input::with_default("t2", ValueKind::Float, &self.times[1]),
-            Input::with_default("t3", ValueKind::Float, &self.times[2]),
-            Input::with_default("t4", ValueKind::Float, &self.times[3]),
+            Input::stateful("dry/wet", &self.drywet),
+            Input::stateful("feedback", &self.feedback),
+            Input::stateful("t1", &self.times[0]),
+            Input::stateful("t2", &self.times[1]),
+            Input::stateful("t3", &self.times[2]),
+            Input::stateful("t4", &self.times[3]),
         ]
     }
 }

@@ -4,7 +4,7 @@ use atomic_float::AtomicF32;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    compute::{node::InputUi, Value},
+    compute::{node::InputUi, Value, ValueKind},
     serde_atomic_enum,
     util::enum_combo_box,
 };
@@ -55,6 +55,10 @@ impl TriggerInput {
 }
 
 impl InputUi for TriggerInput {
+    fn value_kind(&self) -> ValueKind {
+        ValueKind::Float
+    }
+
     fn show_always(&self, ui: &mut eframe::egui::Ui, verbose: bool) {
         let mut mode = self.mode.load(Ordering::Acquire);
         enum_combo_box(ui, &mut mode);

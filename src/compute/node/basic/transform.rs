@@ -74,10 +74,10 @@ impl Node for Transform {
     fn inputs(&self) -> Vec<Input> {
         vec![
             Input::new("sig", ValueKind::Float),
-            Input::with_default("in min", ValueKind::Float, &self.in_min),
-            Input::with_default("in max", ValueKind::Float, &self.in_max),
-            Input::with_default("out min", ValueKind::Float, &self.out_min),
-            Input::with_default("out max", ValueKind::Float, &self.out_max),
+            Input::stateful("in min", &self.in_min),
+            Input::stateful("in max", &self.in_max),
+            Input::stateful("out min", &self.out_min),
+            Input::stateful("out max", &self.out_max),
         ]
     }
 }

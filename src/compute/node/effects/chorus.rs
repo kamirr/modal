@@ -62,9 +62,9 @@ impl Node for Chorus {
         vec![
             Input::new("sig", ValueKind::Float),
             Input::new("osc", ValueKind::Float),
-            Input::with_default("delay", ValueKind::Float, &self.delay_in),
-            Input::with_default("width", ValueKind::Float, &self.width_in),
-            Input::with_default("mix", ValueKind::Float, &self.mix_in),
+            Input::stateful("delay", &self.delay_in),
+            Input::stateful("width", &self.width_in),
+            Input::stateful("mix", &self.mix_in),
         ]
     }
 }

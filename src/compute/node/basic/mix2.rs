@@ -42,7 +42,7 @@ impl Node for Mix2 {
         vec![
             Input::new("sig 0", ValueKind::Float),
             Input::new("sig 1", ValueKind::Float),
-            Input::with_default("mix2", ValueKind::Float, &self.ratio),
+            Input::stateful("mix2", &self.ratio),
         ]
     }
 }

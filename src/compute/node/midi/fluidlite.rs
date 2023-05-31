@@ -102,7 +102,7 @@ impl Node for Fluidlite {
     }
 
     fn inputs(&self) -> Vec<Input> {
-        vec![Input::with_default("midi", ValueKind::Midi, &self.midi_in)]
+        vec![Input::stateful("midi", &self.midi_in)]
     }
 }
 

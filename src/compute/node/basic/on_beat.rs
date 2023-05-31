@@ -26,7 +26,7 @@ impl Node for OnBeat {
     }
 
     fn inputs(&self) -> Vec<Input> {
-        vec![Input::with_default("beat", ValueKind::Beat, &self.beat)]
+        vec![Input::stateful("beat", &self.beat)]
     }
 }
 

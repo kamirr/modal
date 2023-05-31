@@ -3,7 +3,7 @@ use eframe::egui::DragValue;
 use serde::{Deserialize, Serialize};
 use std::{f32::consts::PI, sync::atomic::Ordering};
 
-use crate::compute::{node::InputUi, Value};
+use crate::compute::{node::InputUi, Value, ValueKind};
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct AngleInput {
@@ -27,6 +27,10 @@ impl AngleInput {
 }
 
 impl InputUi for AngleInput {
+    fn value_kind(&self) -> ValueKind {
+        ValueKind::Float
+    }
+
     fn show_disconnected(&self, ui: &mut eframe::egui::Ui, _verbose: bool) {
         let mut s = self.s.load(Ordering::Acquire);
 

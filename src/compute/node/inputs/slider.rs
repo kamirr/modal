@@ -3,7 +3,7 @@ use eframe::egui;
 use serde::{Deserialize, Serialize};
 use std::sync::atomic::Ordering;
 
-use crate::compute::{node::InputUi, Value};
+use crate::compute::{node::InputUi, Value, ValueKind};
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct SliderInput {
@@ -54,6 +54,10 @@ impl SliderInput {
 }
 
 impl InputUi for SliderInput {
+    fn value_kind(&self) -> ValueKind {
+        ValueKind::Float
+    }
+
     fn show_disconnected(&self, ui: &mut eframe::egui::Ui, _verbose: bool) {
         if !self.show_connected {
             self.show(ui);

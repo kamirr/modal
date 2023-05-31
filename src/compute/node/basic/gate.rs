@@ -35,7 +35,7 @@ impl Node for Gate {
     }
 
     fn inputs(&self) -> Vec<Input> {
-        vec![Input::with_default("gate", ValueKind::Float, &self.gate)]
+        vec![Input::stateful("gate", &self.gate)]
     }
 }
 

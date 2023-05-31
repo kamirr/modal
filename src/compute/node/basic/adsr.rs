@@ -165,7 +165,7 @@ impl Node for Adsr {
 
     fn inputs(&self) -> Vec<Input> {
         vec![
-            Input::with_default("gate", ValueKind::Float, &self.gate),
+            Input::stateful("gate", &self.gate),
             Input::new("signal", ValueKind::Float),
         ]
     }

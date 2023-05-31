@@ -3,7 +3,7 @@ use eframe::egui::DragValue;
 use serde::{Deserialize, Serialize};
 use std::sync::atomic::Ordering;
 
-use crate::compute::{node::InputUi, Value};
+use crate::compute::{node::InputUi, Value, ValueKind};
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct RealInput {
@@ -23,6 +23,10 @@ impl RealInput {
 }
 
 impl InputUi for RealInput {
+    fn value_kind(&self) -> ValueKind {
+        ValueKind::Float
+    }
+
     fn show_disconnected(&self, ui: &mut eframe::egui::Ui, _verbose: bool) {
         let mut s = self.s.load(Ordering::Acquire);
         let s_old = s;
