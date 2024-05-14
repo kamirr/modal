@@ -13,7 +13,11 @@ use crate::{
 };
 
 use super::{
-    inputs::{freq::FreqInput, real::RealInput},
+    inputs::{
+        freq::FreqInput,
+        real::RealInput,
+        trigger::{TriggerInput, TriggerMode},
+    },
     Input, Node, NodeConfig, NodeEvent, NodeList,
 };
 
@@ -52,6 +56,7 @@ impl NodeConfig for NoiseGenConfig {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct NoiseGen {
     config: Arc<NoiseGenConfig>,
+    latch: Arc<TriggerInput>,
     min: Arc<RealInput>,
     max: Arc<RealInput>,
     frequency_input: Arc<FreqInput>,
@@ -64,8 +69,15 @@ pub struct NoiseGen {
 #[typetag::serde]
 impl Node for NoiseGen {
     fn feed(&mut self, data: &[Value]) -> Vec<NodeEvent> {
-        let min = self.min.get_f32(&data[0]);
-        let max = self.max.get_f32(&data[1]);
+        // Latch continuously if disconnected
+        let latch = if data[0].disconnected() {
+            true
+        } else {
+            self.latch.trigger(&data[0])
+        };
+
+        let min = self.min.get_f32(&data[1]);
+        let max = self.max.get_f32(&data[2]);
         let ty = self.config.noise_type();
 
         let emit = ty != self.ty;
@@ -86,7 +98,9 @@ impl Node for NoiseGen {
 
         let z_to_p1 = (m1_to_p1 + 1.0) / 2.0;
 
-        self.out = z_to_p1 * (max - min) + min;
+        if latch {
+            self.out = z_to_p1 * (max - min) + min;
+        }
 
         if emit {
             vec![NodeEvent::RecalcInputs(self.inputs())]
@@ -104,6 +118,7 @@ impl Node for NoiseGen {
 
     fn inputs(&self) -> Vec<Input> {
         let mut ins = vec![
+            Input::stateful("latch", &self.latch),
             Input::stateful("min", &self.min),
             Input::stateful("max", &self.max),
         ];
@@ -122,6 +137,7 @@ fn noise_gen() -> Box<dyn Node> {
         config: Arc::new(NoiseGenConfig {
             ty: AtomicNoiseType::new(NoiseType::Uniform),
         }),
+        latch: Arc::new(TriggerInput::new(TriggerMode::Up, 0.5)),
         min: Arc::new(RealInput::new(-1.0)),
         max: Arc::new(RealInput::new(1.0)),
         frequency_input: Arc::new(FreqInput::new(440.0)),
