@@ -5,7 +5,9 @@ edition = "2021"
 
 [dependencies]
 atomic_enum = "0.2.0"
-atomic_float = { git = "https://github.com/kamirr/atomic_float", branch = "main", default-features = false, features = ["serde"] }
+atomic_float = { version = "1.0.0", default-features = false, features = [
+    "serde",
+] }
 anyhow = "1.0.70"
 bimap = "0.6.3"
 derive_more = "0.99.17"
@@ -38,5 +40,5 @@ typetag = "0.2.7"
 
 [patch.crates-io]
 egui_node_graph = { git = "https://github.com/kamirr/egui_node_graph", branch = "kek/change_type" }
-eframe = { path = "../egui/crates/eframe" }
-egui = { path = "../egui/crates/egui" }
+eframe = { git = "https://github.com/kamirr/egui", rev = "c7139c7f5e9ef1f60fb7c3e8a3552157e616f8de" }
+egui = { git = "https://github.com/kamirr/egui", rev = "c7139c7f5e9ef1f60fb7c3e8a3552157e616f8de" }

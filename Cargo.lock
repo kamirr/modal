@@ -344,8 +344,9 @@ dependencies = [
 
 [[package]]
 name = "atomic_float"
-version = "0.1.0"
-source = "git+https://github.com/kamirr/atomic_float?branch=main#7c856b1e6d75ff75c25e66f5ff2ffaf489201466"
+version = "1.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3c4b08ed8a30ff7320117c190eb4d73d47f0ac0c930ab853b8224cef7cd9a5e7"
 dependencies = [
  "serde",
 ]
@@ -994,6 +995,7 @@ checksum = "68b0cf012f1230e43cd00ebb729c6bb58707ecfa8ad08b52ef3a4ccd2697fc30"
 [[package]]
 name = "ecolor"
 version = "0.21.0"
+source = "git+https://github.com/kamirr/egui?rev=c7139c7f5e9ef1f60fb7c3e8a3552157e616f8de#c7139c7f5e9ef1f60fb7c3e8a3552157e616f8de"
 dependencies = [
  "bytemuck",
  "serde",
@@ -1002,6 +1004,7 @@ dependencies = [
 [[package]]
 name = "eframe"
 version = "0.21.3"
+source = "git+https://github.com/kamirr/egui?rev=c7139c7f5e9ef1f60fb7c3e8a3552157e616f8de#c7139c7f5e9ef1f60fb7c3e8a3552157e616f8de"
 dependencies = [
  "bytemuck",
  "cocoa",
@@ -1031,6 +1034,7 @@ dependencies = [
 [[package]]
 name = "egui"
 version = "0.21.0"
+source = "git+https://github.com/kamirr/egui?rev=c7139c7f5e9ef1f60fb7c3e8a3552157e616f8de#c7139c7f5e9ef1f60fb7c3e8a3552157e616f8de"
 dependencies = [
  "accesskit",
  "ahash",
@@ -1061,6 +1065,7 @@ dependencies = [
 [[package]]
 name = "egui-winit"
 version = "0.21.1"
+source = "git+https://github.com/kamirr/egui?rev=c7139c7f5e9ef1f60fb7c3e8a3552157e616f8de#c7139c7f5e9ef1f60fb7c3e8a3552157e616f8de"
 dependencies = [
  "accesskit_winit",
  "arboard",
@@ -1077,6 +1082,7 @@ dependencies = [
 [[package]]
 name = "egui_glow"
 version = "0.21.0"
+source = "git+https://github.com/kamirr/egui?rev=c7139c7f5e9ef1f60fb7c3e8a3552157e616f8de#c7139c7f5e9ef1f60fb7c3e8a3552157e616f8de"
 dependencies = [
  "bytemuck",
  "egui",
@@ -1108,6 +1114,7 @@ checksum = "7fcaabb2fef8c910e7f4c7ce9f67a1283a1715879a7c230ca9d6d1ae31f16d91"
 [[package]]
 name = "emath"
 version = "0.21.0"
+source = "git+https://github.com/kamirr/egui?rev=c7139c7f5e9ef1f60fb7c3e8a3552157e616f8de#c7139c7f5e9ef1f60fb7c3e8a3552157e616f8de"
 dependencies = [
  "bytemuck",
  "serde",
@@ -1157,6 +1164,7 @@ dependencies = [
 [[package]]
 name = "epaint"
 version = "0.21.0"
+source = "git+https://github.com/kamirr/egui?rev=c7139c7f5e9ef1f60fb7c3e8a3552157e616f8de#c7139c7f5e9ef1f60fb7c3e8a3552157e616f8de"
 dependencies = [
  "ab_glyph",
  "ahash",
