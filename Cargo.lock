@@ -1048,6 +1048,7 @@ dependencies = [
 [[package]]
 name = "egui-curve-edit"
 version = "0.1.0"
+source = "git+https://github.com/kamirr/egui-curve-edit#ea888f0816bae4a9ce2955e9be2d68e89c8817b8"
 dependencies = [
  "cgmath",
  "egui",
@@ -1057,6 +1058,7 @@ dependencies = [
 [[package]]
 name = "egui-knobs"
 version = "0.1.0"
+source = "git+https://github.com/kamirr/egui-knobs#00f159f4a90fe4d30eef4255bc444208d32b8e56"
 dependencies = [
  "egui",
  "image",

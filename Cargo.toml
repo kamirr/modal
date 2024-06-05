@@ -13,8 +13,10 @@ bimap = "0.6.3"
 derive_more = "0.99.17"
 dyn-clone = "1.0.11"
 eframe = { version = "=0.21.3", features = ["persistence"] }
-egui-curve-edit = { path = "../egui-curve-edit", features = ["serde"] }
-egui-knobs = { path = "../egui-knobs" }
+egui-curve-edit = { git = "https://github.com/kamirr/egui-curve-edit", features = [
+    "serde",
+] }
+egui-knobs = { git = "https://github.com/kamirr/egui-knobs" }
 egui_node_graph = { version = "0.4.0", features = ["persistence"] }
 fluidlite = "0.2.1"
 image = "0.24.6"
