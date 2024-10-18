@@ -15,7 +15,8 @@ use crate::{
 #[derive(PartialEq, Eq, derive_more::Display, strum::EnumIter)]
 pub enum ClipType {
     Hard,
-    Soft,
+    Poly,
+    Tanh,
 }
 
 serde_atomic_enum!(AtomicClipType);
@@ -70,7 +71,7 @@ impl Node for Clip {
 
         self.out = match clip_ty {
             ClipType::Hard => (value + offset).clamp(-level, level),
-            ClipType::Soft => {
+            ClipType::Poly => {
                 let mut scaled = (value + offset) / level;
 
                 scaled = if scaled <= -1.0 {
@@ -80,6 +81,13 @@ impl Node for Clip {
                 } else {
                     1.0
                 };
+
+                scaled * level - offset
+            }
+            ClipType::Tanh => {
+                let mut scaled = (value + offset) / level;
+
+                scaled = scaled.tanh();
 
                 scaled * level - offset
             }
