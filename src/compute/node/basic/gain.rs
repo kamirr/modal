@@ -3,13 +3,13 @@ use std::sync::Arc;
 use serde::{Deserialize, Serialize};
 
 use crate::compute::{
-    node::{inputs::positive::PositiveInput, Input, Node, NodeEvent},
+    node::{inputs::real::RealInput, Input, Node, NodeEvent},
     Value, ValueKind,
 };
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 struct Gain {
-    s1: Arc<PositiveInput>,
+    s1: Arc<RealInput>,
     out: f32,
 }
 
@@ -38,7 +38,7 @@ impl Node for Gain {
 
 pub fn gain() -> Box<dyn Node> {
     Box::new(Gain {
-        s1: Arc::new(PositiveInput::new(1.0)),
+        s1: Arc::new(RealInput::new(1.0)),
         out: 0.0,
     })
 }
