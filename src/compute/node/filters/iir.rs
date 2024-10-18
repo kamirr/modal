@@ -47,7 +47,7 @@ impl NodeConfig for IirConfig {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-struct Iir {
+pub struct Iir {
     config: Arc<IirConfig>,
     decay: Arc<PercentageInput>,
     prev_y: f32,

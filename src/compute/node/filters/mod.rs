@@ -1,7 +1,7 @@
 use super::{Node, NodeList};
 
-mod biquad;
-mod iir;
+pub mod biquad;
+pub mod iir;
 
 pub struct Filters;
 

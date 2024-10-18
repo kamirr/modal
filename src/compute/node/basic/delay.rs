@@ -19,13 +19,21 @@ pub struct Delay {
 }
 
 impl Delay {
-    fn new(len: usize) -> Self {
+    pub fn new(len: usize) -> Self {
         Delay {
             time_in: Arc::new(TimeInput::new(len)),
             feedback: Arc::new(PercentageInput::new(0.0)),
             data: std::iter::repeat(0.0).take(len).collect(),
             out: 0.0,
         }
+    }
+
+    pub fn set_len(&self, samples: usize) {
+        self.time_in.set_samples(samples);
+    }
+
+    pub fn len(&self) -> usize {
+        self.data.len()
     }
 }
 

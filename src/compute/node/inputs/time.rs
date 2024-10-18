@@ -42,6 +42,10 @@ impl TimeInput {
         }
     }
 
+    pub fn set_samples(&self, samples: usize) {
+        self.samples.store(samples, Ordering::Release);
+    }
+
     pub fn get_samples(&self, recv: &Value) -> usize {
         recv.as_float()
             .map(|f| f.round() as usize)
@@ -71,6 +75,7 @@ impl InputUi for TimeInput {
     fn show_disconnected(&self, ui: &mut eframe::egui::Ui, verbose: bool) {
         let ty = self.in_ty.load(Ordering::Relaxed);
         let mut samples = self.samples.load(Ordering::Acquire);
+        let old_samples = samples;
 
         match ty {
             TimeUnit::Samples => {
@@ -94,6 +99,8 @@ impl InputUi for TimeInput {
             }
         }
 
-        self.samples.store(samples, Ordering::Release);
+        self.samples
+            .compare_exchange(old_samples, samples, Ordering::Release, Ordering::Relaxed)
+            .ok();
     }
 }

@@ -20,7 +20,7 @@ use std::{
 
 #[atomic_enum]
 #[derive(PartialEq, derive_more::Display, strum::EnumIter)]
-enum BiquadTy {
+pub enum BiquadTy {
     Lpf,
     Hpf,
     Bpf,
@@ -68,7 +68,7 @@ impl NodeConfig for BiquadConfig {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-struct Biquad {
+pub struct Biquad {
     config: Arc<BiquadConfig>,
     f0: Arc<FreqInput>,
     q: Arc<PositiveInput>,
@@ -79,11 +79,11 @@ struct Biquad {
 }
 
 impl Biquad {
-    fn new() -> Self {
-        let config = BiquadConfig::new(BiquadTy::Lpf, ParamTy::Q);
+    pub fn new(ty: BiquadTy, freq: f32) -> Self {
+        let config = BiquadConfig::new(ty, ParamTy::Q);
         Biquad {
             config: Arc::new(config),
-            f0: Arc::new(FreqInput::new(440.0)),
+            f0: Arc::new(FreqInput::new(freq)),
             q: Arc::new(PositiveInput::new(0.707)),
             bw: Arc::new(PositiveInput::new(1.0)),
             param_ty: ParamTy::Q,
@@ -184,5 +184,5 @@ impl Node for Biquad {
 }
 
 pub fn biquad() -> Box<dyn Node> {
-    Box::new(Biquad::new())
+    Box::new(Biquad::new(BiquadTy::Lpf, 440.0))
 }
