@@ -30,10 +30,9 @@ impl Entry {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, strum::EnumDiscriminants)]
+#[derive(Debug, Default, Clone, PartialEq, Serialize, Deserialize, strum::EnumDiscriminants)]
 #[strum_discriminants(name(ValueKind))]
 #[strum_discriminants(vis(pub))]
-#[derive(Default)]
 pub enum Value {
     #[default]
     None,
