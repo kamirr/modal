@@ -78,7 +78,6 @@ impl RawDelay {
         }
     }
 
-    #[expect(dead_code)]
     pub fn new_allpass(len: f32) -> Self {
         let len_i = len.round() as usize;
         RawDelay {

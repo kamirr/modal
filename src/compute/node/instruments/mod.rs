@@ -1,5 +1,6 @@
 mod banded;
 mod blow_hole;
+mod twang;
 
 use banded::BandedPreset;
 
@@ -13,6 +14,11 @@ impl NodeList for Instruments {
             (
                 Box::new(blow_hole::BlowHole::new(220.0)),
                 "Blow Hole".to_string(),
+                vec!["Instrument".to_string()],
+            ),
+            (
+                twang::twang(),
+                "Twang String".to_string(),
                 vec!["Instrument".to_string()],
             ),
             (
