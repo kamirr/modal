@@ -35,6 +35,12 @@ impl Delay {
     pub fn len(&self) -> usize {
         self.data.len()
     }
+
+    pub fn clear(&mut self) {
+        for sample in &mut self.data {
+            *sample = 0.0;
+        }
+    }
 }
 
 #[typetag::serde]
