@@ -6,7 +6,7 @@ mod scope;
 mod util;
 mod wave;
 
-use std::{collections::HashMap, sync::Arc, time::Instant};
+use std::{collections::HashMap, fs::File, sync::Arc, time::Instant};
 
 use eframe::egui;
 use egui_node_graph::{InputParamKind, NodeId, NodeResponse};
@@ -20,6 +20,7 @@ use compute::{
     OutputPort,
 };
 use graph::{OutputState, SynthDataType};
+use rfd::FileDialog;
 
 use crate::{
     compute::Runtime,
@@ -32,7 +33,12 @@ fn main() {
         ..Default::default()
     };
 
-    eframe::run_native("Modal", options, Box::new(|cc| Box::new(SynthApp::new(cc)))).unwrap();
+    eframe::run_native(
+        "Modal",
+        options,
+        Box::new(|cc| Box::new(SynthApp::with_context(cc))),
+    )
+    .unwrap();
 }
 
 struct SynthApp {
@@ -44,16 +50,14 @@ struct SynthApp {
 }
 
 impl SynthApp {
-    fn new(cc: &eframe::CreationContext) -> Self {
-        pub use node::all::*;
-
-        let state: Option<(
+    fn new(
+        state: Option<(
             (Runtime, Vec<(NodeId, u64)>),
             SynthEditorState,
             SynthGraphState,
-        )> = cc
-            .storage
-            .and_then(|storage| eframe::get_value(storage, "synth-app"));
+        )>,
+    ) -> Self {
+        pub use node::all::*;
 
         if let Some(((rt, mapping), editor, mut user_state)) = state {
             for (idx, node) in rt.nodes() {
@@ -117,6 +121,18 @@ impl SynthApp {
                 prev_frame: Instant::now(),
             }
         }
+    }
+
+    fn with_context(cc: &eframe::CreationContext) -> Self {
+        let state: Option<(
+            (Runtime, Vec<(NodeId, u64)>),
+            SynthEditorState,
+            SynthGraphState,
+        )> = cc
+            .storage
+            .and_then(|storage| eframe::get_value(storage, "synth-app"));
+
+        Self::new(state)
     }
 }
 
@@ -219,15 +235,19 @@ impl SynthApp {
             self.user_state.ctx.midi_smf.sort_by_key(|smf| smf.name());
         }
     }
+
+    fn serializable_state(&mut self) -> impl serde::Serialize + use<'_> {
+        let rt_state = self.remote.save_state();
+        let editor_state = &self.state;
+        let user_state = &self.user_state;
+
+        (rt_state, editor_state, user_state)
+    }
 }
 
 impl eframe::App for SynthApp {
     fn save(&mut self, storage: &mut dyn eframe::Storage) {
-        let rt_state = self.remote.save_state();
-        let editor_state = &self.state;
-        let user_state = &self.user_state;
-        let full_state = (rt_state, editor_state, user_state);
-        eframe::set_value(storage, "synth-app", &full_state);
+        eframe::set_value(storage, "synth-app", &self.serializable_state());
         println!("state saved");
     }
 
@@ -239,6 +259,55 @@ impl eframe::App for SynthApp {
         egui::TopBottomPanel::top("top").show(ctx, |ui| {
             egui::menu::bar(ui, |ui| {
                 egui::widgets::global_dark_light_mode_switch(ui);
+
+                egui::menu::menu_button(ui, "File", |ui| {
+                    if ui.button("Save").clicked() {
+                        let chosen_path =
+                            FileDialog::new().add_filter("json", &["json"]).save_file();
+
+                        let Some(path) = chosen_path else { return };
+
+                        let state = self.serializable_state();
+                        match File::create(&path) {
+                            Ok(file) => serde_json::to_writer(file, &state).unwrap(),
+                            Err(e) => println!("Failed to open file {}: {}", path.display(), e),
+                        }
+                    }
+
+                    if ui.button("Load").clicked() {
+                        let chosen_path =
+                            FileDialog::new().add_filter("json", &["json"]).pick_file();
+
+                        let Some(path) = chosen_path else { return };
+
+                        let file = match File::open(&path) {
+                            Ok(file) => file,
+                            Err(e) => {
+                                println!("Failed to open file {}: {}", path.display(), e);
+                                return;
+                            }
+                        };
+
+                        let state = match serde_json::from_reader::<
+                            _,
+                            (
+                                (Runtime, Vec<(NodeId, u64)>),
+                                SynthEditorState,
+                                SynthGraphState,
+                            ),
+                        >(file)
+                        {
+                            Ok(state) => state,
+                            Err(e) => {
+                                println!("Failed to deserialize state {}: {}", path.display(), e);
+                                return;
+                            }
+                        };
+
+                        let _ = std::mem::replace(self, Self::new(Some(state)));
+                    }
+                });
+
                 if ui.button("Open Midi").clicked() {
                     self.load_midi();
                 }
