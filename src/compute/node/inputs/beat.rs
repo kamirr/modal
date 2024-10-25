@@ -100,9 +100,9 @@ impl InputUi for BeatInput {
 
         ui.vertical(|ui| {
             ui.horizontal(|ui| {
-                ui.add(DragValue::new(&mut inner.num).clamp_range(1..=24));
+                ui.add(DragValue::new(&mut inner.num).range(1..=24));
                 ui.label(":");
-                ui.add(DragValue::new(&mut inner.den).clamp_range(1..=24));
+                ui.add(DragValue::new(&mut inner.den).range(1..=24));
             });
 
             if inner.note_select {

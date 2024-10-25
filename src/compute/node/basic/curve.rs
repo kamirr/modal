@@ -73,9 +73,9 @@ impl NodeConfig for CurveConfig {
                     .map(|(i, y)| [i as f64 / (values.len() - 1) as f64, *y as f64])
                     .collect();
 
-                let line = egui::plot::Line::new(xys);
+                let line = egui_plot::Line::new(xys);
 
-                egui::plot::Plot::new("plot")
+                egui_plot::Plot::new("plot")
                     .show_x(false)
                     .show_y(false)
                     .allow_zoom(false)

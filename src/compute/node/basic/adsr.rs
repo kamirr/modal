@@ -29,19 +29,19 @@ impl NodeConfig for AdsrConfig {
 
         ui.horizontal(|ui| {
             ui.label("attack");
-            ui.add(DragValue::new(&mut attack).clamp_range(0.01..=1.0));
+            ui.add(DragValue::new(&mut attack).range(0.01..=1.0));
         });
         ui.horizontal(|ui| {
             ui.label("decay");
-            ui.add(DragValue::new(&mut decay).clamp_range(0.01..=1.0));
+            ui.add(DragValue::new(&mut decay).range(0.01..=1.0));
         });
         ui.horizontal(|ui| {
             ui.label("sustain %");
-            ui.add(DragValue::new(&mut sustain_ratio).clamp_range(0.0..=100.0));
+            ui.add(DragValue::new(&mut sustain_ratio).range(0.0..=100.0));
         });
         ui.horizontal(|ui| {
             ui.label("release");
-            ui.add(DragValue::new(&mut release).clamp_range(0.01..=1.0));
+            ui.add(DragValue::new(&mut release).range(0.01..=1.0));
         });
 
         self.attack.store(attack, Ordering::Release);

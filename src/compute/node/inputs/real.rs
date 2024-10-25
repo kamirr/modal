@@ -33,7 +33,7 @@ impl InputUi for RealInput {
 
         ui.add(
             DragValue::new(&mut s)
-                .clamp_range(-999999.0..=999999.0)
+                .range(-999999.0..=999999.0)
                 .fixed_decimals(if s_old.abs() < 1.0 {
                     2
                 } else if s_old.abs() < 10.0 {

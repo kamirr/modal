@@ -6,7 +6,7 @@ use std::{
     time::Instant,
 };
 
-use egui_node_graph::{
+use egui_graph_edit::{
     AnyParameterId, DataTypeTrait, Graph, GraphEditorState, InputParamKind, NodeDataTrait, NodeId,
     NodeResponse, NodeTemplateIter, NodeTemplateTrait, UserResponseTrait, WidgetValueTrait,
 };
@@ -49,9 +49,9 @@ impl NodeDataTrait for SynthNodeData {
         &self,
         ui: &mut egui::Ui,
         _node_id: NodeId,
-        _graph: &egui_node_graph::Graph<Self, Self::DataType, Self::ValueType>,
+        _graph: &egui_graph_edit::Graph<Self, Self::DataType, Self::ValueType>,
         _user_state: &mut Self::UserState,
-    ) -> Vec<egui_node_graph::NodeResponse<Self::Response, Self>>
+    ) -> Vec<egui_graph_edit::NodeResponse<Self::Response, Self>>
     where
         Self::Response: UserResponseTrait,
     {
@@ -70,9 +70,9 @@ impl NodeDataTrait for SynthNodeData {
         &self,
         ui: &mut egui::Ui,
         node_id: NodeId,
-        _graph: &egui_node_graph::Graph<Self, Self::DataType, Self::ValueType>,
+        _graph: &egui_graph_edit::Graph<Self, Self::DataType, Self::ValueType>,
         user_state: &mut Self::UserState,
-    ) -> Vec<egui_node_graph::NodeResponse<Self::Response, Self>>
+    ) -> Vec<egui_graph_edit::NodeResponse<Self::Response, Self>>
     where
         Self::Response: UserResponseTrait,
     {
@@ -106,7 +106,7 @@ impl NodeDataTrait for SynthNodeData {
         graph: &Graph<Self, Self::DataType, Self::ValueType>,
         user_state: &mut Self::UserState,
         param_name: &str,
-    ) -> Vec<egui_node_graph::NodeResponse<Self::Response, Self>>
+    ) -> Vec<egui_graph_edit::NodeResponse<Self::Response, Self>>
     where
         Self::Response: UserResponseTrait,
     {

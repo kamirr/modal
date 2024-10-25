@@ -8,8 +8,8 @@ mod wave;
 
 use std::{collections::HashMap, fs::File, sync::Arc, time::Instant};
 
-use eframe::egui;
-use egui_node_graph::{InputParamKind, NodeId, NodeResponse};
+use eframe::egui::{self, Vec2};
+use egui_graph_edit::{InputParamKind, NodeId, NodeResponse};
 
 use compute::{
     node::{
@@ -29,14 +29,16 @@ use crate::{
 
 fn main() {
     let options = eframe::NativeOptions {
-        initial_window_size: Some(egui::vec2(1600.0, 1200.0)),
+        window_builder: Some(Box::new(|viewport| {
+            viewport.with_inner_size(Vec2::new(1600.0, 1200.0))
+        })),
         ..Default::default()
     };
 
     eframe::run_native(
         "Modal",
         options,
-        Box::new(|cc| Box::new(SynthApp::with_context(cc))),
+        Box::new(|cc| Ok(Box::new(SynthApp::with_context(cc)))),
     )
     .unwrap();
 }
@@ -124,6 +126,9 @@ impl SynthApp {
     }
 
     fn with_context(cc: &eframe::CreationContext) -> Self {
+        cc.egui_ctx
+            .all_styles_mut(|style| style.interaction.selectable_labels = false);
+
         let state: Option<(
             (Runtime, Vec<(NodeId, u64)>),
             SynthEditorState,
@@ -236,7 +241,7 @@ impl SynthApp {
         }
     }
 
-    fn serializable_state(&mut self) -> impl serde::Serialize + use<'_> {
+    fn serializable_state(&mut self) -> impl serde::Serialize + '_ {
         let rt_state = self.remote.save_state();
         let editor_state = &self.state;
         let user_state = &self.user_state;
@@ -258,7 +263,7 @@ impl eframe::App for SynthApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         egui::TopBottomPanel::top("top").show(ctx, |ui| {
             egui::menu::bar(ui, |ui| {
-                egui::widgets::global_dark_light_mode_switch(ui);
+                egui::widgets::global_theme_preference_switch(ui);
 
                 egui::menu::menu_button(ui, "File", |ui| {
                     if ui.button("Save").clicked() {

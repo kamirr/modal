@@ -34,7 +34,7 @@ impl MidiScope {
     }
 
     pub fn show(&mut self, ui: &mut egui::Ui) {
-        let drag = egui::DragValue::new(&mut self.len).clamp_range(0..=120);
+        let drag = egui::DragValue::new(&mut self.len).range(0..=120);
         ui.horizontal(|ui| {
             ui.label("memory");
             ui.add(drag);

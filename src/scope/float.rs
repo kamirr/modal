@@ -1,9 +1,7 @@
 use std::{collections::VecDeque, fmt::Debug};
 
-use eframe::egui::{
-    self,
-    plot::{Line, Plot, PlotPoints},
-};
+use eframe::egui;
+use egui_plot::{Line, Plot, PlotPoints};
 use itertools::Itertools;
 use num_traits::Zero;
 use rustfft::{num_complex::Complex32, FftPlanner};
@@ -125,13 +123,10 @@ impl FloatScope {
     fn show_fft(&mut self, ui: &mut egui::Ui) {
         ui.horizontal(|ui| {
             ui.label("From");
-            ui.add(
-                egui::DragValue::new(&mut self.freq_range.0).clamp_range(1..=self.freq_range.1 - 1),
-            );
+            ui.add(egui::DragValue::new(&mut self.freq_range.0).range(1..=self.freq_range.1 - 1));
             ui.label("Hz to");
             ui.add(
-                egui::DragValue::new(&mut self.freq_range.1)
-                    .clamp_range(self.freq_range.0 + 1..=12000),
+                egui::DragValue::new(&mut self.freq_range.1).range(self.freq_range.0 + 1..=12000),
             );
             ui.label("Hz");
         });
@@ -189,7 +184,7 @@ impl FloatScope {
         let mut mem_s = self.memory.len() as f32 / 44100.0;
         let drag = egui::DragValue::new(&mut mem_s)
             .speed(0.01)
-            .clamp_range(0.01..=120.0);
+            .range(0.01..=120.0);
         ui.horizontal(|ui| {
             ui.label("memory");
             ui.add(drag);

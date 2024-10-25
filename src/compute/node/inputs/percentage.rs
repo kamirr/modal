@@ -33,7 +33,7 @@ impl InputUi for PercentageInput {
         ui.horizontal(|ui| {
             ui.add(
                 DragValue::new(&mut s)
-                    .clamp_range(0.0..=100.0)
+                    .range(0.0..=100.0)
                     .fixed_decimals(0)
                     .speed(1),
             );

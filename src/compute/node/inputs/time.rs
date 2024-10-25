@@ -75,7 +75,7 @@ impl InputUi for TimeInput {
 
         match ty {
             TimeUnit::Samples => {
-                ui.add(egui::DragValue::new(&mut samples).clamp_range(1..=std::usize::MAX));
+                ui.add(egui::DragValue::new(&mut samples).range(1..=std::usize::MAX));
             }
             TimeUnit::Seconds => {
                 let mut secs = samples as f32 / 44100.0;

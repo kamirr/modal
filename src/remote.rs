@@ -5,7 +5,7 @@ use std::{
 };
 
 use bimap::BiHashMap;
-use egui_node_graph::NodeId;
+use egui_graph_edit::NodeId;
 use thunderdome::Index;
 
 use crate::compute::{
