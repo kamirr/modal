@@ -62,10 +62,10 @@ impl Node for Delay {
     }
 }
 
-pub fn delay() -> Box<dyn Node> {
+pub fn delay(resize_strat: ResizeStrategy) -> Box<dyn Node> {
     Box::new(Delay::new({
         let mut delay = RawDelay::new(4410);
-        delay.resize_strategy(ResizeStrategy::ZeroFillDrain);
+        delay.resize_strategy(resize_strat);
         delay
     }))
 }

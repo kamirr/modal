@@ -16,6 +16,8 @@ pub mod oscillator;
 pub mod pulse;
 pub mod transform;
 
+use delay::ResizeStrategy;
+
 use super::{Node, NodeList};
 
 pub struct Basic;
@@ -34,7 +36,18 @@ impl NodeList for Basic {
             ),
             (convert::convert(), "Convert".into(), vec!["Math".into()]),
             (curve::curve(), "Curve".into(), vec!["Source".into()]),
-            (delay::delay(), "Delay".into(), vec!["Effect".into()]),
+            (
+                delay::delay(ResizeStrategy::ZeroFillDrain),
+                "Delay".into(),
+                vec!["Effect".into()],
+            ),
+            (
+                delay::delay(ResizeStrategy::Resample {
+                    freq_div: 44100 / 50,
+                }),
+                "Resampling Delay".into(),
+                vec!["Effect".into()],
+            ),
             (gain::gain(), "Gain".into(), vec!["Effect".into()]),
             (gate::gate(), "Gate".into(), vec!["Control".into()]),
             (latch::latch(), "Latch".into(), vec!["Effect".into()]),
