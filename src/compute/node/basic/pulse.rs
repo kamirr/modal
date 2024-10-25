@@ -5,6 +5,7 @@ use serde::{Deserialize, Serialize};
 use crate::compute::{
     node::{
         inputs::{
+            real::RealInput,
             time::TimeInput,
             trigger::{TriggerInput, TriggerMode},
         },
@@ -40,6 +41,7 @@ impl PulseState {
 pub struct Pulse {
     trigger: Arc<TriggerInput>,
     time: Arc<TimeInput>,
+    value: Arc<RealInput>,
     state: PulseState,
     out: f32,
 }
@@ -49,6 +51,7 @@ impl Pulse {
         Pulse {
             trigger: Arc::new(TriggerInput::new(TriggerMode::Up, trigger_level)),
             time: Arc::new(TimeInput::new(4410.0)),
+            value: Arc::new(RealInput::new(1.0)),
             state: PulseState::Idle,
             out: 0.0,
         }
@@ -62,7 +65,8 @@ impl Node for Pulse {
             self.state = PulseState::Up(self.time.get_samples(&data[1]));
         }
 
-        self.out = self.state.step();
+        let gain = self.state.step();
+        self.out = gain * self.value.get_f32(&data[2]);
 
         Default::default()
     }
@@ -75,6 +79,7 @@ impl Node for Pulse {
         vec![
             Input::stateful("trigger", &self.trigger),
             Input::stateful("length", &self.time),
+            Input::stateful("value", &self.value),
         ]
     }
 }
