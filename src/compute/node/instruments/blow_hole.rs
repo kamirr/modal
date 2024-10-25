@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::compute::{
     node::{
-        all::{delay::Delay, one_zero::OneZero, pole_zero::RawPoleZero},
+        all::{delay::RawDelay, one_zero::OneZero, pole_zero::RawPoleZero},
         inputs::{percentage::PercentageInput, real::RealInput},
         Input, Node, NodeEvent, NodeExt,
     },
@@ -38,7 +38,7 @@ pub struct BlowHole {
     vent_in: Arc<PercentageInput>,
     tonehole_in: Arc<PercentageInput>,
 
-    delays: [Delay; 3],
+    delays: [RawDelay; 3],
     reed_table: ReedTable,
     tonehole: RawPoleZero,
     vent: RawPoleZero,
@@ -54,14 +54,14 @@ impl BlowHole {
     pub fn new(lowest_freq: f32) -> Self {
         assert!(lowest_freq >= 0.0);
 
-        let n_delay = (0.5 * 44100.0 / lowest_freq) as usize;
+        let n_delay = 0.5 * 44100.0 / lowest_freq;
         let delays = [
             // reed to the register vent
-            Delay::new(10),
+            RawDelay::new(10),
             // register vent to the tonehole
-            Delay::new(n_delay + 1),
+            RawDelay::new_linear(n_delay + 1.0),
             // tonehole to end of bore
-            Delay::new(8),
+            RawDelay::new(8),
         ];
 
         let reed_table = ReedTable::new(0.7, -0.3);
@@ -126,7 +126,7 @@ impl BlowHole {
         let mut delay = (44100.0 / f) * 0.5 - 3.5;
         delay -= self.delays[0].len() as f32 + self.delays[2].len() as f32;
 
-        self.delays[1].set_len(delay as usize);
+        self.delays[1].resize(delay);
     }
 
     pub fn set_vent(&mut self, value: f32) {
@@ -168,39 +168,27 @@ impl Node for BlowHole {
         self.set_tonehole(self.tonehole_in.get_f32(&data[4]));
 
         // Calculate the differential pressure = reflected - mouthpiece pressures
-        let p_diff = self.delays[0].read_f32() - pressure;
+        let p_diff = self.delays[0].last_out() - pressure;
 
         // Do two-port junction scattering for register vent
         let pa = pressure + p_diff * self.reed_table.calculate(p_diff);
-        let pb = self.delays[1].read_f32();
+        let pb = self.delays[1].last_out();
 
         self.vent.feed(pa + pb);
 
-        self.delays[0].feed(&[
-            Value::Float(self.vent.read() + pb),
-            Value::Disconnected,
-            Value::Disconnected,
-        ]);
-        self.out = self.delays[0].read_f32();
+        self.delays[0].push(self.vent.read() + pb);
+        self.out = self.delays[0].last_out();
 
         // Do three-port junction scattering (under tonehole)
         let pa2 = pa + self.vent.read();
-        let pb2 = self.delays[2].read_f32();
+        let pb2 = self.delays[2].last_out();
         let pth = self.tonehole.read();
         let temp = self.scatter * (pa2 + pb2 - 2.0 * pth);
 
         self.filt
             .feed(&[Value::Float(pa2 + temp), Value::Disconnected]);
-        self.delays[2].feed(&[
-            Value::Float(self.filt.read_f32() * -0.95),
-            Value::Disconnected,
-            Value::Disconnected,
-        ]);
-        self.delays[1].feed(&[
-            Value::Float(pb2 + temp),
-            Value::Disconnected,
-            Value::Disconnected,
-        ]);
+        self.delays[2].push(self.filt.read_f32() * -0.95);
+        self.delays[1].push(pb2 + temp);
         self.tonehole.feed(pa2 + pb2 - pth + temp);
 
         Vec::default()

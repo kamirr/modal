@@ -72,7 +72,7 @@ impl Node for Chorus {
 pub fn chorus() -> Box<dyn Node> {
     Box::new(Chorus {
         delay: std::iter::repeat(0.0).take(2205 + 10).collect(),
-        delay_in: Arc::new(TimeInput::new(882)),
+        delay_in: Arc::new(TimeInput::new(882.0)),
         width_in: Arc::new(PercentageInput::new(10.0)),
         mix_in: Arc::new(PercentageInput::new(50.0)),
         out: 0.0,

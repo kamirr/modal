@@ -1,5 +1,6 @@
-use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::atomic::Ordering;
 
+use atomic_float::AtomicF32;
 use eframe::egui;
 use serde::{Deserialize, Serialize};
 
@@ -23,32 +24,27 @@ serde_atomic_enum!(AtomicTimeUnit);
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct TimeInput {
-    samples: AtomicUsize,
+    samples: AtomicF32,
     in_ty: AtomicTimeUnit,
 }
 
 impl TimeInput {
-    pub fn new(samples: usize) -> Self {
+    pub fn new(samples: f32) -> Self {
         TimeInput {
-            samples: AtomicUsize::new(samples),
+            samples: AtomicF32::new(samples),
             in_ty: AtomicTimeUnit::new(TimeUnit::Miliseconds),
         }
     }
 
     pub fn from_ms(ms: f32) -> Self {
         TimeInput {
-            samples: AtomicUsize::new((ms * 44100.0 / 1000.0) as _),
+            samples: AtomicF32::new(ms * 44100.0 / 1000.0),
             in_ty: AtomicTimeUnit::new(TimeUnit::Miliseconds),
         }
     }
 
-    pub fn set_samples(&self, samples: usize) {
-        self.samples.store(samples, Ordering::Release);
-    }
-
-    pub fn get_samples(&self, recv: &Value) -> usize {
+    pub fn get_samples(&self, recv: &Value) -> f32 {
         recv.as_float()
-            .map(|f| f.round() as usize)
             .unwrap_or(self.samples.load(Ordering::Relaxed))
     }
 

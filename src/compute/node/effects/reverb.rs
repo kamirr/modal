@@ -43,10 +43,10 @@ impl Node for Reverb {
             delay.push_front(value);
             let target_samples = self.times[k].get_samples(&data[3 + k]);
 
-            if delay.len() >= target_samples {
+            if delay.len() >= target_samples as usize {
                 delay.pop_back();
             }
-            if delay.len() > target_samples {
+            if delay.len() > target_samples as usize {
                 delay.pop_back();
             }
         }

@@ -130,7 +130,7 @@ pub struct Curve {
     resettable: Arc<GateInput>,
 
     status: CurveStatus,
-    t: usize,
+    t: f32,
     out: f32,
 }
 
@@ -140,14 +140,14 @@ impl Curve {
             config: Arc::new(CurveConfig::new()),
 
             trigger: Arc::new(TriggerInput::new(TriggerMode::Up, 0.5)),
-            length: Arc::new(TimeInput::new(44100)),
+            length: Arc::new(TimeInput::new(44100.0)),
             min: Arc::new(RealInput::new(-1.0)),
             max: Arc::new(RealInput::new(1.0)),
             repeat: Arc::new(GateInput::new(0.5)),
             resettable: Arc::new(GateInput::new(0.5)),
 
             status: CurveStatus::Done,
-            t: 0,
+            t: 0.0,
             out: 0.0,
         }
     }
@@ -164,7 +164,7 @@ impl Node for Curve {
         let resettable = self.resettable.gate(&data[5]);
         if trigger && (self.status == CurveStatus::Done || resettable) {
             self.status = CurveStatus::Playing;
-            self.t = 0;
+            self.t = 0.0;
         }
 
         if self.t > length {
@@ -173,7 +173,7 @@ impl Node for Curve {
 
         if self.status == CurveStatus::Done && repeat {
             self.status = CurveStatus::Playing;
-            self.t = 0;
+            self.t = 0.0;
         }
 
         let raw_out = match self.status {
@@ -195,7 +195,7 @@ impl Node for Curve {
         };
 
         self.out = raw_out / 100.0 * (max - min) + min;
-        self.t += 1;
+        self.t += 1.0;
 
         Default::default()
     }

@@ -16,18 +16,18 @@ use crate::compute::{
 #[derive(Debug, Clone, Serialize, Deserialize)]
 enum PulseState {
     Idle,
-    Up(usize),
+    Up(f32),
 }
 
 impl PulseState {
     fn step(&mut self) -> f32 {
         match self {
             PulseState::Idle => 0.0,
-            &mut PulseState::Up(n) => {
-                if n == 0 {
+            &mut PulseState::Up(t) => {
+                if t <= 0.0 {
                     *self = PulseState::Idle
                 } else {
-                    *self = PulseState::Up(n - 1)
+                    *self = PulseState::Up(t - 1.0)
                 }
 
                 1.0
@@ -48,7 +48,7 @@ impl Pulse {
     fn new(trigger_level: f32) -> Self {
         Pulse {
             trigger: Arc::new(TriggerInput::new(TriggerMode::Up, trigger_level)),
-            time: Arc::new(TimeInput::new(4410)),
+            time: Arc::new(TimeInput::new(4410.0)),
             state: PulseState::Idle,
             out: 0.0,
         }

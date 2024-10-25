@@ -6,7 +6,7 @@ use crate::compute::{
     node::{
         all::{
             biquad::{Biquad, BiquadTy},
-            delay::Delay,
+            delay::RawDelay,
         },
         inputs::{
             freq::FreqInput,
@@ -112,13 +112,10 @@ impl Banded {
         let min_len = self.modes[self.modes.len() - 1].delay.len();
         let modes_len = self.modes.len() as f32;
         for mode in &mut self.modes {
-            for _ in 0..mode.delay.len() / min_len {
+            let multiple = mode.delay.len() / min_len;
+            for _ in 0..multiple as usize {
                 let value = mode.excitation * pluck / modes_len;
-                mode.delay.feed(&[
-                    Value::Float(value),
-                    Value::Disconnected,
-                    Value::Disconnected,
-                ]);
+                mode.delay.push(value);
             }
         }
     }
@@ -138,7 +135,7 @@ impl Node for Banded {
             * self
                 .modes
                 .iter()
-                .map(|Mode { delay, .. }| delay.read_f32())
+                .map(|Mode { delay, .. }| delay.last_out())
                 .sum::<f32>();
 
         let bow_pressure = self.bow_pressure.get_f32(&data[1]);
@@ -152,7 +149,7 @@ impl Node for Banded {
         };
 
         self.output = self.modes.iter_mut().fold(0.0, |acc, mode| {
-            let mut filt_in = mode.basegain * mode.delay.read_f32();
+            let mut filt_in = mode.basegain * mode.delay.last_out();
             if bow_en {
                 filt_in += bow_input;
             }
@@ -164,11 +161,7 @@ impl Node for Banded {
             ]);
 
             let filt_out = mode.bandpass.read_f32();
-            mode.delay.feed(&[
-                Value::Float(filt_out),
-                Value::Disconnected,
-                Value::Disconnected,
-            ]);
+            mode.delay.push(filt_out);
 
             acc + filt_out
         }) * 4.0;
@@ -204,7 +197,7 @@ struct Mode {
     basegain: f32,
     excitation: f32,
     bandpass: Biquad,
-    delay: Delay,
+    delay: RawDelay,
 }
 
 impl Mode {
@@ -214,27 +207,27 @@ impl Mode {
         match preset {
             BandedPreset::TunedBar => core::array::from_fn::<_, 4, _>(|i| {
                 let mode = [1.0, 4.0198391420, 10.7184986595, 18.0697050938][i];
-                let delay_len = (base_len / mode) as usize;
+                let delay_len = base_len / mode;
 
                 Mode {
                     mode,
                     basegain: 0.999f32.powi(i as i32 + 1),
                     excitation: 1.0,
                     bandpass: Biquad::new(BiquadTy::Bpf, freq * mode),
-                    delay: Delay::new(delay_len),
+                    delay: RawDelay::new_linear(delay_len),
                 }
             })
             .to_vec(),
             BandedPreset::GlassHarmonica => core::array::from_fn::<_, 5, _>(|i| {
                 let mode = [1.0, 2.32, 4.25, 6.63, 9.38][i];
-                let delay_len = (base_len / mode) as usize;
+                let delay_len = base_len / mode;
 
                 Mode {
                     mode,
                     basegain: 0.999f32.powi(i as i32 + 1),
                     excitation: 1.0,
                     bandpass: Biquad::new(BiquadTy::Bpf, freq * mode),
-                    delay: Delay::new(delay_len),
+                    delay: RawDelay::new_linear(delay_len),
                 }
             })
             .to_vec(),
@@ -284,27 +277,27 @@ impl Mode {
                     57.063034 / 10.,
                 ];
 
-                let delay_len = (base_len / mode[i]) as usize;
+                let delay_len = base_len / mode[i];
 
                 Mode {
                     mode: mode[i],
                     basegain: basegain[i],
                     excitation: excitation[i],
                     bandpass: Biquad::new(BiquadTy::Bpf, freq * mode[i]),
-                    delay: Delay::new(delay_len),
+                    delay: RawDelay::new_linear(delay_len),
                 }
             })
             .to_vec(),
             BandedPreset::UniformBar => core::array::from_fn::<_, 4, _>(|i| {
                 let mode = [1.0, 2.756, 5.404, 8.933][i];
-                let delay_len = (base_len / mode) as usize;
+                let delay_len = base_len / mode;
 
                 Mode {
                     mode,
                     basegain: 0.9f32.powi(i as i32 + 1),
                     excitation: 1.0,
                     bandpass: Biquad::new(BiquadTy::Bpf, freq * mode),
-                    delay: Delay::new(delay_len),
+                    delay: RawDelay::new_linear(delay_len),
                 }
             })
             .to_vec(),
@@ -318,7 +311,7 @@ impl Mode {
 
         for mode in modes {
             let len = base / mode.mode;
-            mode.delay.set_len(len as usize);
+            mode.delay.resize(len);
             mode.bandpass = Biquad::new(BiquadTy::Bpf, freq * mode.mode);
         }
     }

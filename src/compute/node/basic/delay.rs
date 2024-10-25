@@ -1,5 +1,8 @@
-use std::{collections::VecDeque, sync::Arc};
+mod delay_impl;
 
+use std::sync::Arc;
+
+pub use delay_impl::RawDelay;
 use serde::{Deserialize, Serialize};
 
 use crate::compute::{
@@ -14,31 +17,15 @@ use crate::compute::{
 pub struct Delay {
     time_in: Arc<TimeInput>,
     feedback: Arc<PercentageInput>,
-    data: VecDeque<f32>,
-    out: f32,
+    delay_impl: RawDelay,
 }
 
 impl Delay {
-    pub fn new(len: usize) -> Self {
+    pub fn new(delay_impl: RawDelay) -> Self {
         Delay {
-            time_in: Arc::new(TimeInput::new(len)),
+            time_in: Arc::new(TimeInput::new(delay_impl.len())),
             feedback: Arc::new(PercentageInput::new(0.0)),
-            data: std::iter::repeat(0.0).take(len).collect(),
-            out: 0.0,
-        }
-    }
-
-    pub fn set_len(&self, samples: usize) {
-        self.time_in.set_samples(samples);
-    }
-
-    pub fn len(&self) -> usize {
-        self.data.len()
-    }
-
-    pub fn clear(&mut self) {
-        for sample in &mut self.data {
-            *sample = 0.0;
+            delay_impl,
         }
     }
 }
@@ -47,24 +34,23 @@ impl Delay {
 impl Node for Delay {
     fn feed(&mut self, data: &[Value]) -> Vec<NodeEvent> {
         let target_len = self.time_in.get_samples(&data[1]);
-        let feedback = self.feedback.get_f32(&data[2]);
+        let feedback_gain = self.feedback.get_f32(&data[2]);
 
-        while target_len > self.data.len() {
-            self.data.push_back(0.0);
-        }
-        if target_len < self.data.len() {
-            self.data.drain(0..(self.data.len() - target_len));
+        let input = data[0].as_float().unwrap_or(0.0);
+        let feedback = feedback_gain * self.delay_impl.last_out();
+
+        let new_size = target_len as f32;
+        if self.delay_impl.len() != new_size {
+            self.delay_impl.resize(new_size);
         }
 
-        self.data
-            .push_back(data[0].as_float().unwrap_or(0.0) + self.data.front().unwrap() * feedback);
-        self.out = self.data.pop_front().unwrap();
+        self.delay_impl.push(input + feedback);
 
         Default::default()
     }
 
     fn read(&self, out: &mut [Value]) {
-        out[0] = Value::Float(self.out)
+        out[0] = Value::Float(self.delay_impl.last_out())
     }
 
     fn inputs(&self) -> Vec<Input> {
@@ -77,5 +63,5 @@ impl Node for Delay {
 }
 
 pub fn delay() -> Box<dyn Node> {
-    Box::new(Delay::new(4410))
+    Box::new(Delay::new(RawDelay::new(4410)))
 }
