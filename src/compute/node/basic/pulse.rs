@@ -24,13 +24,13 @@ impl PulseState {
         match self {
             PulseState::Idle => 0.0,
             &mut PulseState::Up(t) => {
-                if t <= 0.0 {
-                    *self = PulseState::Idle
+                if t >= 1.0 {
+                    *self = PulseState::Up(t - 1.0);
+                    1.0
                 } else {
-                    *self = PulseState::Up(t - 1.0)
+                    *self = PulseState::Idle;
+                    t.min(0.0)
                 }
-
-                1.0
             }
         }
     }
