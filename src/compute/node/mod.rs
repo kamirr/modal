@@ -93,6 +93,18 @@ pub trait Node: DynClone + Debug + Send {
     }
 }
 
+pub trait NodeExt {
+    fn read_f32(&self) -> f32;
+}
+
+impl<T: Node> NodeExt for T {
+    fn read_f32(&self) -> f32 {
+        let mut buf = [Value::None];
+        self.read(&mut buf);
+        buf[0].as_float().unwrap()
+    }
+}
+
 pub trait NodeList {
     fn all(&self) -> Vec<(Box<dyn Node>, String, Vec<String>)>;
 }

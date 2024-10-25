@@ -10,9 +10,10 @@ use crate::compute::{
         },
         inputs::{
             freq::FreqInput,
+            positive::PositiveInput,
             trigger::{TriggerInput, TriggerMode},
         },
-        Input, Node, NodeEvent,
+        Input, Node, NodeEvent, NodeExt,
     },
     Value,
 };
@@ -30,7 +31,6 @@ struct BowTable {
 }
 
 impl BowTable {
-    #[expect(dead_code)]
     fn compute(&mut self, input: f32) -> f32 {
         let mut sample = input + self.offset;
         sample *= self.slope;
@@ -63,9 +63,12 @@ impl Default for BowTable {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Banded {
     pluck: Arc<TriggerInput>,
+    bow_pressure: Arc<PositiveInput>,
     freq: Arc<FreqInput>,
 
+    bow_vel: f32,
     bow_table: BowTable,
+
     modes: Vec<Mode>,
     base_gain: f32,
     integration_const: f32,
@@ -82,8 +85,10 @@ impl Banded {
 
         Banded {
             pluck: Arc::new(TriggerInput::new(TriggerMode::Beat, 0.0)),
+            bow_pressure: Arc::new(PositiveInput::new(0.0)),
             freq: Arc::new(FreqInput::new(DEFAULT_FREQ)),
 
+            bow_vel: 0.0,
             bow_table: BowTable {
                 slope: 3.0,
                 ..Default::default()
@@ -103,12 +108,12 @@ impl Banded {
         }
     }
 
-    fn pluck(&mut self, amplitude: f32) {
+    fn pluck(&mut self, pluck: f32) {
         let min_len = self.modes[self.modes.len() - 1].delay.len();
         let modes_len = self.modes.len() as f32;
         for mode in &mut self.modes {
             for _ in 0..mode.delay.len() / min_len {
-                let value = mode.excitation * amplitude / modes_len;
+                let value = mode.excitation * pluck / modes_len;
                 mode.delay.feed(&[
                     Value::Float(value),
                     Value::Disconnected,
@@ -122,31 +127,43 @@ impl Banded {
 #[typetag::serde]
 impl Node for Banded {
     fn feed(&mut self, data: &[Value]) -> Vec<NodeEvent> {
-        let freq = self.freq.get_f32(&data[1]);
+        let freq = self.freq.get_f32(&data[2]);
         if freq != self.curr_freq {
             self.curr_freq = freq;
             Mode::set_frequency(self.modes.as_mut_slice(), freq);
         }
 
-        let do_pluck = self.pluck.trigger(&data[0]);
-        if do_pluck {
-            self.pluck(0.5);
-        }
+        self.bow_vel = self.integration_const * self.bow_vel;
+        self.bow_vel += self.base_gain
+            * self
+                .modes
+                .iter()
+                .map(|Mode { delay, .. }| delay.read_f32())
+                .sum::<f32>();
+
+        let bow_pressure = self.bow_pressure.get_f32(&data[1]);
+        let bow_en = bow_pressure > 0.0;
+        let mut bow_input = bow_pressure - self.bow_vel;
+        bow_input *= self.bow_table.compute(bow_input);
+        bow_input /= self.modes.len() as f32;
+
+        if self.pluck.trigger(&data[0]) {
+            self.pluck(0.5)
+        };
 
         self.output = self.modes.iter_mut().fold(0.0, |acc, mode| {
-            let mut buf = [Value::None];
-
-            mode.delay.read(&mut buf);
-            let filt_in = mode.basegain * buf[0].as_float().unwrap();
+            let mut filt_in = mode.basegain * mode.delay.read_f32();
+            if bow_en {
+                filt_in += bow_input;
+            }
 
             mode.bandpass.feed(&[
                 Value::Float(filt_in),
                 Value::Disconnected,
                 Value::Disconnected,
             ]);
-            mode.bandpass.read(&mut buf);
-            let filt_out = buf[0].as_float().unwrap();
 
+            let filt_out = mode.bandpass.read_f32();
             mode.delay.feed(&[
                 Value::Float(filt_out),
                 Value::Disconnected,
@@ -166,6 +183,7 @@ impl Node for Banded {
     fn inputs(&self) -> Vec<Input> {
         vec![
             Input::stateful("pluck", &self.pluck),
+            Input::stateful("bow", &self.bow_pressure),
             Input::stateful("freq", &self.freq),
         ]
     }
