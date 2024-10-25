@@ -2,7 +2,7 @@ mod delay_impl;
 
 use std::sync::Arc;
 
-pub use delay_impl::RawDelay;
+pub use delay_impl::{RawDelay, ResizeStrategy};
 use serde::{Deserialize, Serialize};
 
 use crate::compute::{
@@ -63,5 +63,9 @@ impl Node for Delay {
 }
 
 pub fn delay() -> Box<dyn Node> {
-    Box::new(Delay::new(RawDelay::new(4410)))
+    Box::new(Delay::new({
+        let mut delay = RawDelay::new(4410);
+        delay.resize_strategy(ResizeStrategy::ZeroFillDrain);
+        delay
+    }))
 }

@@ -10,7 +10,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::compute::{
     node::{
-        all::delay::RawDelay,
+        all::delay::{RawDelay, ResizeStrategy},
         inputs::{freq::FreqInput, percentage::PercentageInput},
         Input, Node, NodeConfig, NodeEvent,
     },
@@ -101,8 +101,11 @@ pub struct TwangConfig {
 
 impl NodeConfig for TwangConfig {
     fn show(&self, ui: &mut eframe::egui::Ui, _data: &dyn std::any::Any) {
-        self.pluck
-            .fetch_or(ui.button("Pluck").clicked(), Ordering::Relaxed);
+        self.pluck.fetch_or(
+            ui.centered_and_justified(|ui| ui.button("Pluck").clicked())
+                .inner,
+            Ordering::Relaxed,
+        );
     }
 }
 
@@ -141,6 +144,9 @@ impl Twang {
             pluck_pos: 0.4,
         };
 
+        this.delay_line.resize_strategy(ResizeStrategy::Resample {
+            freq_div: 44100 / 40, // resample 40 times per second
+        });
         this.set_frequency(220.0);
 
         this
