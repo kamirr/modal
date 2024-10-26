@@ -26,4 +26,29 @@ Connection Kit](https://jackaudio.org/) and synchronizing various blocks and
 oscillators via a dedicated `Beat` signal.
 
 # Examples
-Soon™
+## Oscillators
+The fundamental Oscillator block will cover all your needs when it comes to
+oscillators. Place it by clicking RMB and start typing `oscillator` or look
+under `Source` category. Click on the name to place the block. Then click `Play`
+to hear the output in real-time.
+
+Change the frequency by changing the number in the frequency input and
+preview the produced signal by clicking on `Scope`.
+
+![Osc1](https://raw.githubusercontent.com/kamirr/modal/main/screenshots/osc-1.png)
+![Osc2](https://raw.githubusercontent.com/kamirr/modal/main/screenshots/osc-2.png)
+
+Change the shape of the waveform by turning the knob. In-between values
+are also supported in which case Modal will automatically interpolate between
+the waveforms in a way that makes sense™.
+
+![Osc3](https://raw.githubusercontent.com/kamirr/modal/main/screenshots/osc-3.png)
+![Osc4](https://raw.githubusercontent.com/kamirr/modal/main/screenshots/osc-4.png)
+
+Change the value range of the oscillator by checking `Manual range`,
+which enables two extra inputs. This is useful for modulating the behavior of
+other blocks, like changing the frequency of another oscillator in time (vibrato)
+or its shape.
+
+![Osc6](https://raw.githubusercontent.com/kamirr/modal/main/screenshots/osc-5.png)
+![Osc7](https://raw.githubusercontent.com/kamirr/modal/main/screenshots/osc-6.png)
