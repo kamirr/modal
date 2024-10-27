@@ -44,4 +44,4 @@ rubato = "0.16.0"
 egui_plot = "0.29.0"
 
 [patch.crates-io]
-egui-graph-edit = { path = "/home/kamil/workspace/egui-graph-edit/egui-graph-edit" }
+egui-graph-edit = { git = "https://github.com/kamirr/egui-graph-edit" }
