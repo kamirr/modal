@@ -258,8 +258,8 @@ impl WidgetValueTrait for SynthValueType {
 
         ui.push_id(param_name, |ui| {
             ui.horizontal(|ui| {
-                ui.label(param_name);
                 if let Some(input) = ui_inputs.get(param_name) {
+                    input.show_name(ui, param_name);
                     input.show_always(ui, *node_data.verbose.borrow());
                     input.show_disconnected(ui, *node_data.verbose.borrow());
 
@@ -270,6 +270,8 @@ impl WidgetValueTrait for SynthValueType {
                             input.value_kind(),
                         ));
                     }
+                } else {
+                    ui.label(param_name);
                 }
             });
         });

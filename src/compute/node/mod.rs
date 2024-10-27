@@ -23,6 +23,9 @@ pub trait InputUi: Send + Sync {
     fn needs_deep_update(&self) -> bool {
         false
     }
+    fn show_name(&self, ui: &mut egui::Ui, name: &str) {
+        ui.label(name);
+    }
     fn show_always(&self, _ui: &mut egui::Ui, _verbose: bool) {}
     fn show_disconnected(&self, _ui: &mut egui::Ui, _verbose: bool) {}
 }

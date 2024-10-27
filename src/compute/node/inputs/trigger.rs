@@ -29,6 +29,7 @@ pub struct TriggerInput {
     beat: BeatInput,
     prev: AtomicF32,
     need_update: AtomicBool,
+    force_trigger: AtomicBool,
 }
 
 impl TriggerInput {
@@ -39,6 +40,7 @@ impl TriggerInput {
             beat: BeatInput::new(true),
             prev: AtomicF32::new(0.0),
             need_update: AtomicBool::new(false),
+            force_trigger: AtomicBool::new(false),
         }
     }
 
@@ -50,7 +52,7 @@ impl TriggerInput {
 
         self.prev.store(curr, Ordering::Release);
 
-        match self.mode.load(Ordering::Relaxed) {
+        let do_trigger = match self.mode.load(Ordering::Relaxed) {
             TriggerMode::Up => {
                 let level = self.level.get_f32(&Value::None);
                 curr >= level && prev < level
@@ -61,7 +63,10 @@ impl TriggerInput {
             }
             TriggerMode::Beat => self.beat.process(recv).is_some(),
             TriggerMode::Change => curr != prev,
-        }
+        };
+        let force_trigger = self.force_trigger.swap(false, Ordering::Relaxed);
+
+        do_trigger || force_trigger
     }
 }
 
@@ -71,6 +76,12 @@ impl InputUi for TriggerInput {
         match self.mode.load(Ordering::Relaxed) {
             Up | Down | Change => ValueKind::Float,
             Beat => ValueKind::Beat,
+        }
+    }
+
+    fn show_name(&self, ui: &mut eframe::egui::Ui, name: &str) {
+        if ui.button(name).clicked() {
+            self.force_trigger.store(true, Ordering::Relaxed);
         }
     }
 
