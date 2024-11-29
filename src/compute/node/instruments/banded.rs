@@ -213,7 +213,7 @@ impl Mode {
                     mode,
                     basegain: 0.999f32.powi(i as i32 + 1),
                     excitation: 1.0,
-                    bandpass: Biquad::new(BiquadTy::Bpf, freq * mode),
+                    bandpass: Biquad::new(BiquadTy::Band, freq * mode),
                     delay: RawDelay::new_linear(delay_len),
                 }
             })
@@ -226,7 +226,7 @@ impl Mode {
                     mode,
                     basegain: 0.999f32.powi(i as i32 + 1),
                     excitation: 1.0,
-                    bandpass: Biquad::new(BiquadTy::Bpf, freq * mode),
+                    bandpass: Biquad::new(BiquadTy::Band, freq * mode),
                     delay: RawDelay::new_linear(delay_len),
                 }
             })
@@ -283,7 +283,7 @@ impl Mode {
                     mode: mode[i],
                     basegain: basegain[i],
                     excitation: excitation[i],
-                    bandpass: Biquad::new(BiquadTy::Bpf, freq * mode[i]),
+                    bandpass: Biquad::new(BiquadTy::Band, freq * mode[i]),
                     delay: RawDelay::new_linear(delay_len),
                 }
             })
@@ -296,7 +296,7 @@ impl Mode {
                     mode,
                     basegain: 0.9f32.powi(i as i32 + 1),
                     excitation: 1.0,
-                    bandpass: Biquad::new(BiquadTy::Bpf, freq * mode),
+                    bandpass: Biquad::new(BiquadTy::Band, freq * mode),
                     delay: RawDelay::new_linear(delay_len),
                 }
             })
@@ -312,7 +312,7 @@ impl Mode {
         for mode in modes {
             let len = base / mode.mode;
             mode.delay.resize(len);
-            mode.bandpass = Biquad::new(BiquadTy::Bpf, freq * mode.mode);
+            mode.bandpass = Biquad::new(BiquadTy::Band, freq * mode.mode);
         }
     }
 }

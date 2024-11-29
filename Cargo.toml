@@ -42,6 +42,7 @@ typetag = "0.2.7"
 rand_chacha = { version = "0.3.1", features = ["serde1"] }
 rubato = "0.16.0"
 egui_plot = "0.29.0"
+num-complex = "0.4.6"
 
 [patch.crates-io]
 egui-graph-edit = { git = "https://github.com/kamirr/egui-graph-edit" }

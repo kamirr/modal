@@ -2427,6 +2427,7 @@ dependencies = [
  "jack",
  "midly",
  "noise",
+ "num-complex",
  "num-derive 0.3.3",
  "num-traits",
  "pid",
