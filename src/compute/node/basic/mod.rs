@@ -6,6 +6,7 @@ pub mod constant;
 pub mod convert;
 pub mod curve;
 pub mod delay;
+pub mod difference;
 pub mod gain;
 pub mod gate;
 pub mod latch;
@@ -47,6 +48,11 @@ impl NodeList for Basic {
                 }),
                 "Resampling Delay".into(),
                 vec!["Effect".into()],
+            ),
+            (
+                difference::difference(),
+                "Difference".to_string(),
+                vec!["Effect".to_string()],
             ),
             (gain::gain(), "Gain".into(), vec!["Effect".into()]),
             (gate::gate(), "Gate".into(), vec!["Control".into()]),
