@@ -6,6 +6,7 @@ pub mod clip;
 pub mod glide;
 pub mod heart;
 pub mod reverb;
+pub mod reverse_delay;
 
 pub struct Effects;
 
@@ -18,6 +19,11 @@ impl NodeList for Effects {
             (glide::glide(), "Glide".into(), vec!["Effect".into()]),
             (heart::heart(), "Heart".into(), vec!["Effect".into()]),
             (reverb::reverb(), "Reverb".into(), vec!["Effect".into()]),
+            (
+                reverse_delay::reverse_delay(),
+                "Reverse Delay".into(),
+                vec!["Effect".into()],
+            ),
         ]
     }
 }
