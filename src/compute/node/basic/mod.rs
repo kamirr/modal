@@ -7,6 +7,7 @@ pub mod convert;
 pub mod curve;
 pub mod delay;
 pub mod difference;
+pub mod expr;
 pub mod gain;
 pub mod gate;
 pub mod latch;
@@ -53,6 +54,11 @@ impl NodeList for Basic {
                 difference::difference(),
                 "Difference".to_string(),
                 vec!["Effect".to_string()],
+            ),
+            (
+                expr::expression(),
+                "Expression".to_string(),
+                vec!["Math".to_string()],
             ),
             (gain::gain(), "Gain".into(), vec!["Effect".into()]),
             (gate::gate(), "Gate".into(), vec!["Control".into()]),
