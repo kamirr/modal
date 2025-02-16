@@ -3,7 +3,7 @@ use std::sync::Arc;
 use crate::compute::inputs::real::RealInput;
 use runtime::{
     node::{Input, Node, NodeEvent},
-    Output, Value, ValueKind,
+    ExternInputs, Output, Value, ValueKind,
 };
 use serde::{Deserialize, Serialize};
 
@@ -16,7 +16,7 @@ pub struct Difference {
 
 #[typetag::serde]
 impl Node for Difference {
-    fn feed(&mut self, data: &[Value]) -> Vec<NodeEvent> {
+    fn feed(&mut self, _inputs: &ExternInputs, data: &[Value]) -> Vec<NodeEvent> {
         self.out = self.a.get_f32(&data[0]) - self.b.get_f32(&data[1]);
 
         Default::default()

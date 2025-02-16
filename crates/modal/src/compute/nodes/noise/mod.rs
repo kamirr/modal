@@ -13,7 +13,7 @@ use crate::{
 };
 use runtime::{
     node::{Input, Node, NodeConfig, NodeEvent},
-    Value,
+    ExternInputs, Value,
 };
 
 use super::NodeList;
@@ -74,7 +74,7 @@ pub struct NoiseGen {
 
 #[typetag::serde]
 impl Node for NoiseGen {
-    fn feed(&mut self, data: &[Value]) -> Vec<NodeEvent> {
+    fn feed(&mut self, _inputs: &ExternInputs, data: &[Value]) -> Vec<NodeEvent> {
         // Latch continuously if disconnected
         let latch = if data[0].disconnected() {
             true

@@ -2,7 +2,7 @@ use atomic_enum::atomic_enum;
 use serde::{Deserialize, Serialize};
 
 use crate::{compute::inputs::slider::SliderInput, serde_atomic_enum, util::enum_combo_box};
-use runtime::{Value, ValueKind};
+use runtime::{ExternInputs, Value, ValueKind};
 
 use crate::node::{Input, Node, NodeConfig, NodeEvent};
 
@@ -136,7 +136,7 @@ impl PoleZero {
 
 #[typetag::serde]
 impl Node for PoleZero {
-    fn feed(&mut self, data: &[Value]) -> Vec<NodeEvent> {
+    fn feed(&mut self, _inputs: &ExternInputs, data: &[Value]) -> Vec<NodeEvent> {
         self.next(data[0].as_float().unwrap_or_default(), &data[1]);
 
         let new_filt_ty = self.config.filt_ty.load(Ordering::Relaxed);

@@ -17,7 +17,7 @@ use crate::compute::inputs::{
 use crate::wave::WaveScale;
 use runtime::{
     node::{Input, Node, NodeConfig, NodeEvent},
-    Value,
+    ExternInputs, Value,
 };
 use serde::{Deserialize, Serialize};
 
@@ -65,7 +65,7 @@ impl Oscillator {
 
 #[typetag::serde]
 impl Node for Oscillator {
-    fn feed(&mut self, data: &[Value]) -> Vec<NodeEvent> {
+    fn feed(&mut self, _inputs: &ExternInputs, data: &[Value]) -> Vec<NodeEvent> {
         if self.bpm_sync {
             if let Some(BeatResponse { period_secs }) = self.beat.process(&data[0]) {
                 self.hz = 1.0 / period_secs;

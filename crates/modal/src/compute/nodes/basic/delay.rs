@@ -6,7 +6,7 @@ use crate::compute::inputs::{percentage::PercentageInput, time::TimeInput};
 pub use delay_impl::{RawDelay, ResizeStrategy};
 use runtime::{
     node::{Input, Node, NodeEvent},
-    Value, ValueKind,
+    ExternInputs, Value, ValueKind,
 };
 use serde::{Deserialize, Serialize};
 
@@ -29,7 +29,7 @@ impl Delay {
 
 #[typetag::serde]
 impl Node for Delay {
-    fn feed(&mut self, data: &[Value]) -> Vec<NodeEvent> {
+    fn feed(&mut self, _inputs: &ExternInputs, data: &[Value]) -> Vec<NodeEvent> {
         let target_len = self.time_in.get_samples(&data[1]);
         let feedback_gain = self.feedback.get_f32(&data[2]);
 

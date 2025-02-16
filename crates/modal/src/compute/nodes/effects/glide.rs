@@ -1,6 +1,7 @@
 use std::sync::{atomic::Ordering, Arc};
 
 use atomic_enum::atomic_enum;
+use runtime::ExternInputs;
 use serde::{Deserialize, Serialize};
 
 use crate::compute::inputs::{positive::PositiveInput, real::RealInput};
@@ -69,7 +70,7 @@ impl Glide {
 
 #[typetag::serde]
 impl Node for Glide {
-    fn feed(&mut self, data: &[Value]) -> Vec<NodeEvent> {
+    fn feed(&mut self, _inputs: &ExternInputs, data: &[Value]) -> Vec<NodeEvent> {
         let next = data[0].as_float().unwrap_or_default();
 
         let new_ty = self.conf.ty.load(Ordering::Relaxed);

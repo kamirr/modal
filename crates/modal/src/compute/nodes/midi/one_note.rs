@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 use crate::compute::inputs::midi::MidiInput;
 use runtime::{
     node::{Input, Node, NodeEvent},
-    Output, Value, ValueKind,
+    ExternInputs, Output, Value, ValueKind,
 };
 
 #[derive(Clone, Copy, Debug, Serialize, Deserialize)]
@@ -58,7 +58,7 @@ impl OneNote {
 
 #[typetag::serde]
 impl Node for OneNote {
-    fn feed(&mut self, data: &[Value]) -> Vec<NodeEvent> {
+    fn feed(&mut self, _inputs: &ExternInputs, data: &[Value]) -> Vec<NodeEvent> {
         if let Some((_, msg)) = self.midi_in.pop_msg(&data[0]) {
             self.state.update(&msg);
         }

@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 
 use runtime::{
     node::{Input, Node, NodeEvent},
-    Value, ValueKind,
+    ExternInputs, Value, ValueKind,
 };
 
 use crate::compute::inputs::slider::SliderInput;
@@ -17,7 +17,7 @@ pub struct Bits {
 
 #[typetag::serde]
 impl Node for Bits {
-    fn feed(&mut self, data: &[Value]) -> Vec<NodeEvent> {
+    fn feed(&mut self, _inputs: &ExternInputs, data: &[Value]) -> Vec<NodeEvent> {
         let sig = data[0].as_float().unwrap_or(0.0);
 
         let bits = self.bits.as_f32(&data[1]);

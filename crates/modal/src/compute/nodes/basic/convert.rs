@@ -3,7 +3,7 @@ use std::sync::{atomic::Ordering, Arc};
 use crate::{serde_atomic_enum, util::enum_combo_box};
 use runtime::{
     node::{Input, Node, NodeConfig, NodeEvent},
-    Value, ValueKind,
+    ExternInputs, Value, ValueKind,
 };
 use serde::{Deserialize, Serialize};
 
@@ -60,7 +60,7 @@ impl Convert {
 
 #[typetag::serde]
 impl Node for Convert {
-    fn feed(&mut self, data: &[Value]) -> Vec<NodeEvent> {
+    fn feed(&mut self, _inputs: &ExternInputs, data: &[Value]) -> Vec<NodeEvent> {
         self.out = match self.conf.convert_type() {
             ConvTy::FreqToTime => data[0].as_float().map(|f| 44100.0 / f).unwrap_or(0.0),
         };

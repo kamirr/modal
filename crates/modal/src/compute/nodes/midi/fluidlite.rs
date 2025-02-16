@@ -7,7 +7,7 @@ use serde::{Deserialize, Serialize};
 use crate::compute::inputs::midi::MidiInput;
 use runtime::{
     node::{Input, Node, NodeEvent},
-    Value,
+    ExternInputs, Value,
 };
 
 struct MyFluidlite(fl::Synth);
@@ -56,7 +56,7 @@ impl Fluidlite {
 
 #[typetag::serde]
 impl Node for Fluidlite {
-    fn feed(&mut self, data: &[Value]) -> Vec<NodeEvent> {
+    fn feed(&mut self, _inputs: &ExternInputs, data: &[Value]) -> Vec<NodeEvent> {
         match self.midi_in.pop_msg(&data[0]) {
             Some((channel, msg)) => match msg {
                 MidiMessage::NoteOn { key, vel } => {

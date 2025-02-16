@@ -16,7 +16,7 @@ use eframe::{
 use egui_curve_edit as egui_curve;
 use runtime::{
     node::{Input, Node, NodeConfig, NodeEvent},
-    Value,
+    ExternInputs, Value,
 };
 use serde::{Deserialize, Serialize};
 
@@ -153,7 +153,7 @@ impl Curve {
 
 #[typetag::serde]
 impl Node for Curve {
-    fn feed(&mut self, data: &[Value]) -> Vec<NodeEvent> {
+    fn feed(&mut self, _inputs: &ExternInputs, data: &[Value]) -> Vec<NodeEvent> {
         let trigger = self.trigger.trigger(&data[0]);
         let length = self.length.get_samples(&data[1]);
         let min = self.min.get_f32(&data[2]);

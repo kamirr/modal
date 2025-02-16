@@ -4,7 +4,7 @@ use crate::{
     compute::inputs::slider::SliderInput,
     node::{Input, Node, NodeEvent},
 };
-use runtime::{Value, ValueKind};
+use runtime::{ExternInputs, Value, ValueKind};
 
 use std::sync::Arc;
 
@@ -24,7 +24,7 @@ impl OneZero {
         }
     }
 
-    fn next(&mut self, input: f32, param: &Value) {
+    pub fn next(&mut self, input: f32, param: &Value) {
         let b = self.coeffs(param);
 
         self.in_hist[0] = input;
@@ -48,7 +48,7 @@ impl OneZero {
 
 #[typetag::serde]
 impl Node for OneZero {
-    fn feed(&mut self, data: &[Value]) -> Vec<NodeEvent> {
+    fn feed(&mut self, _inputs: &ExternInputs, data: &[Value]) -> Vec<NodeEvent> {
         self.next(data[0].as_float().unwrap_or_default(), &data[1]);
 
         Default::default()

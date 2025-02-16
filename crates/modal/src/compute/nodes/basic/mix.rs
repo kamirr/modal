@@ -11,7 +11,7 @@ use serde::{Deserialize, Serialize};
 
 use runtime::{
     node::{Input, Node, NodeConfig, NodeEvent},
-    Value,
+    ExternInputs, Value,
 };
 
 use crate::compute::inputs::slider::SliderInput;
@@ -67,7 +67,7 @@ impl Mix {
 
 #[typetag::serde]
 impl Node for Mix {
-    fn feed(&mut self, data: &[Value]) -> Vec<NodeEvent> {
+    fn feed(&mut self, _inputs: &ExternInputs, data: &[Value]) -> Vec<NodeEvent> {
         self.out = data
             .iter()
             .zip(self.weights.iter())

@@ -14,7 +14,7 @@ use crate::compute::{
 };
 use runtime::{
     node::{Input, Node, NodeConfig, NodeEvent},
-    Value, ValueKind,
+    ExternInputs, Value, ValueKind,
 };
 
 static RANDOM: [f32; 20] = [
@@ -182,7 +182,7 @@ impl Twang {
 
 #[typetag::serde]
 impl Node for Twang {
-    fn feed(&mut self, data: &[Value]) -> Vec<NodeEvent> {
+    fn feed(&mut self, _inputs: &ExternInputs, data: &[Value]) -> Vec<NodeEvent> {
         if self.config.pluck.fetch_and(false, Ordering::Relaxed) {
             for r in RANDOM.iter() {
                 self.tick(*r);

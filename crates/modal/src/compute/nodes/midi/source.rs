@@ -14,7 +14,7 @@ use serde::{Deserialize, Serialize};
 use crate::{graph::SynthCtx, util};
 use runtime::{
     node::{Node, NodeConfig, NodeEvent},
-    Output, Value, ValueKind,
+    ExternInputs, Output, Value, ValueKind,
 };
 
 use self::null::NullSourceNew;
@@ -160,7 +160,7 @@ pub struct MidiIn {
 
 #[typetag::serde]
 impl Node for MidiIn {
-    fn feed(&mut self, _data: &[Value]) -> Vec<NodeEvent> {
+    fn feed(&mut self, _inputs: &ExternInputs, _data: &[Value]) -> Vec<NodeEvent> {
         if let Ok(mut conf) = self.conf.inner.try_lock() {
             if let Some(new) = conf.replace_new.take() {
                 self.source.new = new;

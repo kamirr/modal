@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 
 use runtime::{
     node::{Input, Node, NodeEvent},
-    Value, ValueKind,
+    ExternInputs, Value, ValueKind,
 };
 
 use crate::compute::inputs::{slider::SliderInput, time::TimeInput};
@@ -20,7 +20,7 @@ struct Reverb {
 
 #[typetag::serde]
 impl Node for Reverb {
-    fn feed(&mut self, data: &[Value]) -> Vec<NodeEvent> {
+    fn feed(&mut self, _inputs: &ExternInputs, data: &[Value]) -> Vec<NodeEvent> {
         let sample = data[0].as_float().unwrap_or(0.0);
         let drywet = self.drywet.as_f32(&data[1]);
         let feedback = self.feedback.as_f32(&data[2]);

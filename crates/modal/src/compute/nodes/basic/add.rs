@@ -11,7 +11,7 @@ use serde::{Deserialize, Serialize};
 
 use runtime::{
     node::{Input, Node, NodeConfig, NodeEvent},
-    Value,
+    ExternInputs, Value,
 };
 
 use crate::compute::inputs::real::RealInput;
@@ -65,7 +65,7 @@ impl Add {
 
 #[typetag::serde]
 impl Node for Add {
-    fn feed(&mut self, data: &[Value]) -> Vec<NodeEvent> {
+    fn feed(&mut self, _inputs: &ExternInputs, data: &[Value]) -> Vec<NodeEvent> {
         self.out = data
             .iter()
             .zip(self.defaults.iter())

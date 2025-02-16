@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 
 use runtime::{
     node::{Input, Node, NodeEvent},
-    Output, Value, ValueKind,
+    ExternInputs, Output, Value, ValueKind,
 };
 
 use crate::compute::inputs::slider::SliderInput;
@@ -18,7 +18,7 @@ pub struct Bpm {
 
 #[typetag::serde]
 impl Node for Bpm {
-    fn feed(&mut self, data: &[Value]) -> Vec<NodeEvent> {
+    fn feed(&mut self, _inputs: &ExternInputs, data: &[Value]) -> Vec<NodeEvent> {
         let bpm = self.bpm.as_f32(&data[0]);
 
         self.t += 1;

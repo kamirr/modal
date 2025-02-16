@@ -1,5 +1,6 @@
 use std::sync::{atomic::Ordering, Arc};
 
+use runtime::ExternInputs;
 use serde::{Deserialize, Serialize};
 
 use crate::compute::inputs::slider::SliderInput;
@@ -60,7 +61,7 @@ impl Node for Clip {
         Some(Arc::clone(&self.config) as Arc<_>)
     }
 
-    fn feed(&mut self, data: &[Value]) -> Vec<NodeEvent> {
+    fn feed(&mut self, _inputs: &ExternInputs, data: &[Value]) -> Vec<NodeEvent> {
         let value = data[0].as_float().unwrap_or(0.0);
         let level = self.level.as_f32(&data[1]).max(0.0);
         let offset = self.offset.as_f32(&data[2]);

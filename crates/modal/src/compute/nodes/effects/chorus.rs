@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 use crate::compute::inputs::{percentage::PercentageInput, time::TimeInput};
 use runtime::{
     node::{Input, Node, NodeEvent},
-    Value, ValueKind,
+    ExternInputs, Value, ValueKind,
 };
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -32,7 +32,7 @@ impl Chorus {
 
 #[typetag::serde]
 impl Node for Chorus {
-    fn feed(&mut self, data: &[Value]) -> Vec<NodeEvent> {
+    fn feed(&mut self, _inputs: &ExternInputs, data: &[Value]) -> Vec<NodeEvent> {
         let sample = data[0].as_float().unwrap_or(0.0);
         self.delay.push_front(sample);
         self.delay.pop_back();

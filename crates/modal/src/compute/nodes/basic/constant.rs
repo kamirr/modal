@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 
 use runtime::{
     node::{Input, Node, NodeEvent},
-    Value,
+    ExternInputs, Value,
 };
 
 use crate::compute::inputs::real::RealInput;
@@ -17,7 +17,7 @@ pub struct Constant {
 
 #[typetag::serde]
 impl Node for Constant {
-    fn feed(&mut self, data: &[Value]) -> Vec<NodeEvent> {
+    fn feed(&mut self, _inputs: &ExternInputs, data: &[Value]) -> Vec<NodeEvent> {
         self.out = self.value.get_f32(&data[0]);
 
         Default::default()

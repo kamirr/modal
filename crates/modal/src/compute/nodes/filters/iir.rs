@@ -1,5 +1,5 @@
 use atomic_enum::atomic_enum;
-use runtime::{Value, ValueKind};
+use runtime::{ExternInputs, Value, ValueKind};
 use serde::{Deserialize, Serialize};
 
 use crate::compute::inputs::percentage::PercentageInput;
@@ -74,7 +74,7 @@ impl Iir {
 
 #[typetag::serde]
 impl Node for Iir {
-    fn feed(&mut self, data: &[Value]) -> Vec<NodeEvent> {
+    fn feed(&mut self, _inputs: &ExternInputs, data: &[Value]) -> Vec<NodeEvent> {
         self.next(data[0].as_float().unwrap_or_default(), &data[1]);
 
         Default::default()

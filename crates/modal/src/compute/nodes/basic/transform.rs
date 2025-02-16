@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use runtime::{
     node::{Input, Node, NodeConfig, NodeEvent},
-    Value, ValueKind,
+    ExternInputs, Value, ValueKind,
 };
 use serde::{Deserialize, Serialize};
 
@@ -37,7 +37,7 @@ impl Transform {
 
 #[typetag::serde]
 impl Node for Transform {
-    fn feed(&mut self, data: &[Value]) -> Vec<NodeEvent> {
+    fn feed(&mut self, _inputs: &ExternInputs, data: &[Value]) -> Vec<NodeEvent> {
         let signal = data[0].as_float().unwrap_or(0.0);
         let in_min = self.in_min.get_f32(&data[1]);
         let in_max = self.in_max.get_f32(&data[2]);

@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 
 use runtime::{
     node::{Input, Node, NodeEvent},
-    Value, ValueKind,
+    ExternInputs, Value, ValueKind,
 };
 
 use crate::compute::inputs::real::RealInput;
@@ -18,7 +18,7 @@ pub struct Heart {
 
 #[typetag::serde]
 impl Node for Heart {
-    fn feed(&mut self, data: &[Value]) -> Vec<NodeEvent> {
+    fn feed(&mut self, _inputs: &ExternInputs, data: &[Value]) -> Vec<NodeEvent> {
         let osc = self.osc.get_f32(&data[0]).clamp(-1.0, 1.0) * 2.0;
         let density = self.density.get_f32(&data[1]);
         let mix = data[2].as_float().unwrap_or_default();

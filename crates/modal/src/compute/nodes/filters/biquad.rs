@@ -10,7 +10,7 @@ use crate::{
     serde_atomic_enum,
     util::{enum_combo_box, toggle_button},
 };
-use runtime::{Value, ValueKind};
+use runtime::{ExternInputs, Value, ValueKind};
 
 use crate::node::{Input, Node, NodeConfig, NodeEvent};
 
@@ -278,7 +278,7 @@ impl Biquad {
 
 #[typetag::serde]
 impl Node for Biquad {
-    fn feed(&mut self, data: &[Value]) -> Vec<NodeEvent> {
+    fn feed(&mut self, _inputs: &ExternInputs, data: &[Value]) -> Vec<NodeEvent> {
         self.next(data[0].as_float().unwrap_or_default(), &data[1], &data[2]);
 
         let new_param_ty = self.config.param_ty.load(Ordering::Relaxed);

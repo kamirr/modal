@@ -1,7 +1,10 @@
 pub mod node;
 pub mod util;
 
-use std::time::Duration;
+use std::{
+    collections::{HashMap, VecDeque},
+    time::Duration,
+};
 
 use midly::MidiMessage;
 use node::Node;
@@ -34,6 +37,7 @@ impl Entry {
 #[derive(Debug, Default, Clone, PartialEq, Serialize, Deserialize, strum::EnumDiscriminants)]
 #[strum_discriminants(name(ValueKind))]
 #[strum_discriminants(vis(pub))]
+#[strum_discriminants(derive(Serialize, Deserialize))]
 pub enum Value {
     #[default]
     None,
@@ -110,12 +114,51 @@ impl Value {
     }
 }
 
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
+pub struct ExternInputs {
+    mapping: HashMap<String, (u64, ValueKind)>,
+    #[serde(with = "crate::util::serde_arena")]
+    storage: Arena<VecDeque<Value>>,
+}
+
+impl ExternInputs {
+    pub fn define(&mut self, name: String, kind: ValueKind) -> Index {
+        let index = self.storage.insert(VecDeque::default());
+        self.mapping.insert(name, (index.to_bits(), kind));
+
+        index
+    }
+
+    pub fn list(&self) -> impl Iterator<Item = (&'_ String, ValueKind)> {
+        self.mapping.iter().map(|(key, (_idx, kind))| (key, *kind))
+    }
+
+    pub fn get(&self, name: &str) -> Option<Index> {
+        self.mapping
+            .get(name)
+            .copied()
+            .map(|(idx_bits, _kind)| Index::from_bits(idx_bits))
+            .flatten()
+    }
+
+    pub fn read(&self, index: Index) -> Option<&'_ Value> {
+        self.storage.get(index).map(VecDeque::front).flatten()
+    }
+
+    pub fn step(&mut self) {
+        for (_, buffer) in &mut self.storage {
+            buffer.pop_front();
+        }
+    }
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Runtime {
     #[serde(skip)]
     values: Vec<Vec<Value>>,
     #[serde(with = "crate::util::serde_arena")]
     nodes: Arena<Entry>,
+    inputs: ExternInputs,
 }
 
 impl Runtime {
@@ -123,6 +166,7 @@ impl Runtime {
         Runtime {
             values: Vec::new(),
             nodes: Arena::new(),
+            inputs: ExternInputs::default(),
         }
     }
 
@@ -187,9 +231,11 @@ impl Runtime {
                 });
             }
 
-            let evs_one = entry.node.feed(&buf);
+            let evs_one = entry.node.feed(&self.inputs, &buf);
             evs.push((idx, evs_one));
         }
+
+        self.inputs.step();
 
         evs
     }
@@ -203,5 +249,9 @@ impl Runtime {
 
     pub fn nodes(&self) -> impl Iterator<Item = (Index, &Box<dyn Node>)> {
         self.nodes.iter().map(|(idx, entry)| (idx, &entry.node))
+    }
+
+    pub fn extern_inputs(&mut self) -> &mut ExternInputs {
+        &mut self.inputs
     }
 }

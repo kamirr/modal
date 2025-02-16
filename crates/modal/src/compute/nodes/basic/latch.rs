@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 
 use runtime::{
     node::{Input, Node, NodeEvent},
-    Value, ValueKind,
+    ExternInputs, Value, ValueKind,
 };
 
 use crate::compute::inputs::trigger::{TriggerInput, TriggerMode};
@@ -26,7 +26,7 @@ impl Latch {
 
 #[typetag::serde]
 impl Node for Latch {
-    fn feed(&mut self, data: &[Value]) -> Vec<NodeEvent> {
+    fn feed(&mut self, _inputs: &ExternInputs, data: &[Value]) -> Vec<NodeEvent> {
         if self.trigger.trigger(&data[0]) {
             self.out = data[1].as_float().unwrap_or_default();
         }

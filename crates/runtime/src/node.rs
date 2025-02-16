@@ -3,6 +3,8 @@ use std::{any::Any, fmt::Debug, sync::Arc};
 
 use dyn_clone::DynClone;
 
+use crate::ExternInputs;
+
 use super::{Output, Value, ValueKind};
 
 pub trait NodeConfig {
@@ -69,7 +71,7 @@ pub enum NodeEvent {
 
 #[typetag::serde(tag = "__ty")]
 pub trait Node: DynClone + Debug + Send {
-    fn feed(&mut self, _data: &[Value]) -> Vec<NodeEvent> {
+    fn feed(&mut self, _inputs: &ExternInputs, _data: &[Value]) -> Vec<NodeEvent> {
         Default::default()
     }
 

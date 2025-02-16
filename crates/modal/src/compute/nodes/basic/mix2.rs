@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 
 use runtime::{
     node::{Input, Node, NodeEvent},
-    Value, ValueKind,
+    ExternInputs, Value, ValueKind,
 };
 
 use crate::compute::inputs::slider::SliderInput;
@@ -26,7 +26,7 @@ impl Mix2 {
 
 #[typetag::serde]
 impl Node for Mix2 {
-    fn feed(&mut self, data: &[Value]) -> Vec<NodeEvent> {
+    fn feed(&mut self, _inputs: &ExternInputs, data: &[Value]) -> Vec<NodeEvent> {
         let sig0 = data[0].as_float().unwrap_or_default();
         let sig1 = data[1].as_float().unwrap_or_default();
         let ratio = self.ratio.as_f32(&data[2]);

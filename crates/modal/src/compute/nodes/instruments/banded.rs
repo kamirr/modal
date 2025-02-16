@@ -15,7 +15,7 @@ use crate::compute::{
 };
 use runtime::{
     node::{Input, Node, NodeEvent, NodeExt},
-    Value,
+    ExternInputs, Value,
 };
 
 /// This class implements a simple bowed string non-linear function,
@@ -123,7 +123,7 @@ impl Banded {
 
 #[typetag::serde]
 impl Node for Banded {
-    fn feed(&mut self, data: &[Value]) -> Vec<NodeEvent> {
+    fn feed(&mut self, inputs: &ExternInputs, data: &[Value]) -> Vec<NodeEvent> {
         let freq = self.freq.get_f32(&data[2]);
         if freq != self.curr_freq {
             self.curr_freq = freq;
@@ -154,11 +154,14 @@ impl Node for Banded {
                 filt_in += bow_input;
             }
 
-            mode.bandpass.feed(&[
-                Value::Float(filt_in),
-                Value::Disconnected,
-                Value::Disconnected,
-            ]);
+            mode.bandpass.feed(
+                inputs,
+                &[
+                    Value::Float(filt_in),
+                    Value::Disconnected,
+                    Value::Disconnected,
+                ],
+            );
 
             let filt_out = mode.bandpass.read_f32();
             mode.delay.push(filt_out);

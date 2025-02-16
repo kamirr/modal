@@ -11,7 +11,7 @@ use crate::compute::inputs::real::RealInput;
 use math_jit::{Compiler, Library, Program};
 use runtime::{
     node::{Input, Node, NodeConfig, NodeEvent},
-    Output, Value, ValueKind,
+    ExternInputs, Output, Value, ValueKind,
 };
 use serde::{Deserialize, Serialize};
 
@@ -177,7 +177,7 @@ impl Clone for Expression {
 
 #[typetag::serde]
 impl Node for Expression {
-    fn feed(&mut self, data: &[Value]) -> Vec<NodeEvent> {
+    fn feed(&mut self, _inputs: &ExternInputs, data: &[Value]) -> Vec<NodeEvent> {
         if self.serialization_loss_tracker.is_none() {
             self.serialization_loss_tracker = Some(());
             *self.config.ready.lock().unwrap() = self.last_valid_expr.clone();

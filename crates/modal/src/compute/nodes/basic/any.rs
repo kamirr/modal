@@ -8,7 +8,7 @@ use serde::{Deserialize, Serialize};
 
 use runtime::{
     node::{Input, Node, NodeConfig, NodeEvent},
-    Value,
+    ExternInputs, Value,
 };
 
 use crate::compute::inputs::trigger::{TriggerInput, TriggerMode};
@@ -64,7 +64,7 @@ impl Any {
 
 #[typetag::serde]
 impl Node for Any {
-    fn feed(&mut self, data: &[Value]) -> Vec<NodeEvent> {
+    fn feed(&mut self, _inputs: &ExternInputs, data: &[Value]) -> Vec<NodeEvent> {
         let emit = data
             .iter()
             .zip(self.defaults.iter())

@@ -9,7 +9,7 @@ use serde::{Deserialize, Serialize};
 
 use runtime::{
     node::{Input, Node, NodeConfig, NodeEvent},
-    Value, ValueKind,
+    ExternInputs, Value, ValueKind,
 };
 
 use crate::compute::inputs::gate::GateInput;
@@ -96,7 +96,7 @@ impl Adsr {
 
 #[typetag::serde]
 impl Node for Adsr {
-    fn feed(&mut self, data: &[Value]) -> Vec<NodeEvent> {
+    fn feed(&mut self, _inputs: &ExternInputs, data: &[Value]) -> Vec<NodeEvent> {
         let _ = self.gate.gate(&data[0]);
         let sig = data[1].as_float().unwrap_or(0.0);
 

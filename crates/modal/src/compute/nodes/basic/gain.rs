@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 use crate::compute::inputs::real::RealInput;
 use runtime::{
     node::{Input, Node, NodeEvent},
-    Value, ValueKind,
+    ExternInputs, Value, ValueKind,
 };
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -16,7 +16,7 @@ struct Gain {
 
 #[typetag::serde]
 impl Node for Gain {
-    fn feed(&mut self, data: &[Value]) -> Vec<NodeEvent> {
+    fn feed(&mut self, _inputs: &ExternInputs, data: &[Value]) -> Vec<NodeEvent> {
         let s0 = data[0].as_float().unwrap_or(0.0);
         let s1 = self.s1.get_f32(&data[1]);
 

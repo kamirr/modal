@@ -1,6 +1,7 @@
 use std::{f32::consts::PI, sync::Arc};
 
 use rand::Rng;
+use runtime::ExternInputs;
 use serde::{Deserialize, Serialize};
 
 use crate::compute::inputs::{percentage::PercentageInput, real::RealInput};
@@ -117,7 +118,7 @@ impl BlowHole {
         }
         self.tonehole.feed(0.0);
         self.vent.feed(0.0);
-        self.filt.feed(&[Value::Float(0.0), Value::Disconnected]);
+        self.filt.next(0.0, &Value::Disconnected);
     }
 
     pub fn set_freq(&mut self, f: f32) {
@@ -150,7 +151,7 @@ impl BlowHole {
 
 #[typetag::serde]
 impl Node for BlowHole {
-    fn feed(&mut self, data: &[Value]) -> Vec<NodeEvent> {
+    fn feed(&mut self, inputs: &ExternInputs, data: &[Value]) -> Vec<NodeEvent> {
         let pressure = {
             let mut raw = self.pressure.get_f32(&data[0]);
             let noise = rand::thread_rng().gen_range(-0.2..0.2); //self.noise.get_f32(&data[1]);
@@ -184,7 +185,7 @@ impl Node for BlowHole {
         let temp = self.scatter * (pa2 + pb2 - 2.0 * pth);
 
         self.filt
-            .feed(&[Value::Float(pa2 + temp), Value::Disconnected]);
+            .feed(inputs, &[Value::Float(pa2 + temp), Value::Disconnected]);
         self.delays[2].push(self.filt.read_f32() * -0.95);
         self.delays[1].push(pb2 + temp);
         self.tonehole.feed(pa2 + pb2 - pth + temp);

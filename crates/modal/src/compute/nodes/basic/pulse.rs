@@ -9,7 +9,7 @@ use crate::compute::inputs::{
 };
 use runtime::{
     node::{Input, Node, NodeEvent},
-    Value,
+    ExternInputs, Value,
 };
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -58,7 +58,7 @@ impl Pulse {
 
 #[typetag::serde]
 impl Node for Pulse {
-    fn feed(&mut self, data: &[Value]) -> Vec<NodeEvent> {
+    fn feed(&mut self, _inputs: &ExternInputs, data: &[Value]) -> Vec<NodeEvent> {
         if self.trigger.trigger(&data[0]) {
             self.state = PulseState::Up(self.time.get_samples(&data[1]));
         }

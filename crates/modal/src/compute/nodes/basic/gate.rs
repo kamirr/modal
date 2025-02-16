@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 
 use runtime::{
     node::{Input, Node, NodeEvent},
-    Value,
+    ExternInputs, Value,
 };
 
 use crate::compute::inputs::gate::GateInput;
@@ -26,7 +26,7 @@ impl Gate {
 
 #[typetag::serde]
 impl Node for Gate {
-    fn feed(&mut self, data: &[Value]) -> Vec<NodeEvent> {
+    fn feed(&mut self, _inputs: &ExternInputs, data: &[Value]) -> Vec<NodeEvent> {
         self.out = if self.gate.gate(&data[0]) { 1.0 } else { 0.0 };
 
         Default::default()
