@@ -3,7 +3,7 @@ use float::FloatScope;
 use midi::MidiScope;
 use serde::{Deserialize, Serialize};
 
-use crate::compute::{Value, ValueKind};
+use runtime::{Value, ValueKind};
 
 mod float;
 mod midi;

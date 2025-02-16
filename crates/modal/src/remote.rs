@@ -8,7 +8,7 @@ use bimap::BiHashMap;
 use egui_graph_edit::NodeId;
 use thunderdome::Index;
 
-use crate::compute::{
+use runtime::{
     node::{Node, NodeEvent},
     OutputPort, Runtime, Value,
 };

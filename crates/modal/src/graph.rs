@@ -12,16 +12,16 @@ use egui_graph_edit::{
 };
 
 use eframe::{egui, emath::Align};
+use runtime::{
+    node::{InputUi, Node, NodeConfig},
+    ValueKind,
+};
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    compute::{
-        self,
-        node::{
-            all::source::{jack::JackSourceNew, smf::SmfSourceNew},
-            InputUi, Node, NodeConfig, NodeList,
-        },
-        ValueKind,
+    compute::nodes::{
+        all::source::{jack::JackSourceNew, smf::SmfSourceNew},
+        NodeList,
     },
     scope::Scope,
     util::{self, toggle_button},
@@ -182,11 +182,11 @@ pub enum SynthDataType {
 }
 
 impl SynthDataType {
-    pub fn from_value_kind(ty: compute::ValueKind) -> Self {
+    pub fn from_value_kind(ty: runtime::ValueKind) -> Self {
         match ty {
-            compute::ValueKind::Float => SynthDataType::Float,
-            compute::ValueKind::Midi => SynthDataType::Midi,
-            compute::ValueKind::Beat => SynthDataType::Beat,
+            runtime::ValueKind::Float => SynthDataType::Float,
+            runtime::ValueKind::Midi => SynthDataType::Midi,
+            runtime::ValueKind::Beat => SynthDataType::Beat,
             _ => unimplemented!("compute kind {ty:?} isn't supported as a graph connection type"),
         }
     }
@@ -211,23 +211,23 @@ impl DataTypeTrait<SynthGraphState> for SynthDataType {
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-pub struct SynthValueType(pub compute::Value);
+pub struct SynthValueType(pub runtime::Value);
 
 impl SynthValueType {
     pub fn data_type(&self) -> SynthDataType {
         match &self.0 {
-            compute::Value::Float(_) => SynthDataType::Float,
-            compute::Value::Midi { .. } => SynthDataType::Midi,
-            compute::Value::Beat(_) => SynthDataType::Beat,
+            runtime::Value::Float(_) => SynthDataType::Float,
+            runtime::Value::Midi { .. } => SynthDataType::Midi,
+            runtime::Value::Beat(_) => SynthDataType::Beat,
             _ => unimplemented!(),
         }
     }
 
     pub fn default_with_type(ty: SynthDataType) -> Self {
         SynthValueType(match ty {
-            SynthDataType::Float => compute::Value::Float(0.0),
-            SynthDataType::Midi => compute::Value::None,
-            SynthDataType::Beat => compute::Value::None,
+            SynthDataType::Float => runtime::Value::Float(0.0),
+            SynthDataType::Midi => runtime::Value::None,
+            SynthDataType::Beat => runtime::Value::None,
         })
     }
 }
@@ -236,7 +236,7 @@ impl Eq for SynthValueType {}
 
 impl Default for SynthValueType {
     fn default() -> Self {
-        SynthValueType(compute::Value::Float(0.0))
+        SynthValueType(runtime::Value::Float(0.0))
     }
 }
 

@@ -8,24 +8,19 @@ mod wave;
 
 use std::{collections::HashMap, fs::File, sync::Arc, time::Instant};
 
+use compute::nodes::all::source::{smf::SmfSourceNew, MidiSourceNew};
 use eframe::egui::{self, Vec2};
 use egui_graph_edit::{InputParamKind, NodeId, NodeResponse};
 
-use compute::{
-    node::{
-        self,
-        all::source::{smf::SmfSourceNew, MidiSourceNew},
-        Input, NodeEvent,
-    },
-    OutputPort,
+use runtime::{
+    node::{self, Input, NodeEvent},
+    OutputPort, Runtime,
 };
+
 use graph::{OutputState, SynthDataType};
 use rfd::FileDialog;
 
-use crate::{
-    compute::Runtime,
-    graph::{SynthEditorState, SynthGraphExt, SynthGraphState},
-};
+use crate::graph::{SynthEditorState, SynthGraphExt, SynthGraphState};
 
 fn main() {
     let options = eframe::NativeOptions {
@@ -59,7 +54,7 @@ impl SynthApp {
             SynthGraphState,
         )>,
     ) -> Self {
-        pub use node::all::*;
+        pub use compute::nodes::all::*;
 
         if let Some(((rt, mapping), editor, mut user_state)) = state {
             for (idx, node) in rt.nodes() {

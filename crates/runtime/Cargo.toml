@@ -1,0 +1,13 @@
+[package]
+name = "runtime"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+dyn-clone = { workspace = true }
+eframe = { workspace = true }
+midly = { workspace = true }
+serde = { workspace = true }
+strum = { workspace = true }
+thunderdome = { workspace = true }
+typetag = { workspace = true }
