@@ -18,7 +18,7 @@ egui-curve-edit = {git = "https://github.com/kamirr/egui-curve-edit", features =
 ]}
 egui-graph-edit = {version = "0.5.1", features = ["persistence"]}
 egui-knobs = {git = "https://github.com/kamirr/egui-knobs"}
-egui_plot = "0.30.0"
+egui_plot = "0.31.0"
 fluidlite = "0.2.1"
 image = "0.24.6"
 itertools = "0.10.5"
