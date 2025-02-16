@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 use crate::compute::inputs::percentage::PercentageInput;
 use crate::{serde_atomic_enum, util::enum_combo_box};
 
-use crate::node::{Input, Node, NodeConfig, NodeEvent};
+use runtime::node::{Input, Node, NodeConfig, NodeEvent};
 
 use std::{
     any::Any,

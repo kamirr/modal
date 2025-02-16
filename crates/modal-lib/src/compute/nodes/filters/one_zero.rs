@@ -1,9 +1,7 @@
 use serde::{Deserialize, Serialize};
 
-use crate::{
-    compute::inputs::slider::SliderInput,
-    node::{Input, Node, NodeEvent},
-};
+use crate::compute::inputs::slider::SliderInput;
+use runtime::node::{Input, Node, NodeEvent};
 use runtime::{ExternInputs, Value, ValueKind};
 
 use std::sync::Arc;

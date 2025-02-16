@@ -12,7 +12,7 @@ use crate::{
 };
 use runtime::{ExternInputs, Value, ValueKind};
 
-use crate::node::{Input, Node, NodeConfig, NodeEvent};
+use runtime::node::{Input, Node, NodeConfig, NodeEvent};
 
 use std::{
     any::Any,

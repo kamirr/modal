@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 use crate::{compute::inputs::slider::SliderInput, serde_atomic_enum, util::enum_combo_box};
 use runtime::{ExternInputs, Value, ValueKind};
 
-use crate::node::{Input, Node, NodeConfig, NodeEvent};
+use runtime::node::{Input, Node, NodeConfig, NodeEvent};
 
 use std::{
     any::Any,

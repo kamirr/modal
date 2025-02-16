@@ -1,26 +1,22 @@
-mod compute;
-mod graph;
-mod remote;
-mod scope;
-
-mod util;
-mod wave;
-
 use std::{collections::HashMap, fs::File, sync::Arc, time::Instant};
 
-use compute::nodes::all::source::{smf::SmfSourceNew, MidiSourceNew};
 use eframe::egui::{self, Vec2};
 use egui_graph_edit::{InputParamKind, NodeId, NodeResponse};
+use modal_lib::{
+    compute::nodes::all::source::{smf::SmfSourceNew, MidiSourceNew},
+    remote,
+};
 
 use runtime::{
-    node::{self, Input, NodeEvent},
+    node::{Input, NodeEvent},
     OutputPort, Runtime,
 };
 
-use graph::{OutputState, SynthDataType};
 use rfd::FileDialog;
 
-use crate::graph::{SynthEditorState, SynthGraphExt, SynthGraphState};
+use modal_lib::graph::{
+    self, OutputState, SynthDataType, SynthEditorState, SynthGraphExt, SynthGraphState,
+};
 
 fn main() {
     let options = eframe::NativeOptions {
@@ -54,7 +50,7 @@ impl SynthApp {
             SynthGraphState,
         )>,
     ) -> Self {
-        pub use compute::nodes::all::*;
+        pub use modal_lib::compute::nodes::all::*;
 
         if let Some(((rt, mapping), editor, mut user_state)) = state {
             for (idx, node) in rt.nodes() {
