@@ -214,14 +214,14 @@ impl ClapPlugin for Modal {
     const CLAP_FEATURES: &'static [ClapFeature] = &[
         ClapFeature::AudioEffect,
         ClapFeature::Mono,
-        ClapFeature::Utility,
+        ClapFeature::Instrument,
     ];
 }
 
 impl Vst3Plugin for Modal {
     const VST3_CLASS_ID: [u8; 16] = *b"ModalSynth0xBEEF";
     const VST3_SUBCATEGORIES: &'static [Vst3SubCategory] =
-        &[Vst3SubCategory::Fx, Vst3SubCategory::Tools];
+        &[Vst3SubCategory::Fx, Vst3SubCategory::Instrument];
 }
 
 nih_export_clap!(Modal);
