@@ -5,6 +5,7 @@ members = [
     "crates/modal-bin",
     "crates/modal-plugin",
     "crates/runtime",
+    "xtask",
 ]
 
 [workspace.dependencies]
