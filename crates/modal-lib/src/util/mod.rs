@@ -1,5 +1,7 @@
 #![allow(dead_code)]
 
+use image::ImageFormat;
+
 pub mod serde_rwlock {
     use serde::de::Deserializer;
     use serde::ser::Serializer;
@@ -254,8 +256,11 @@ pub fn toggle_button(label: &str, state: bool) -> eframe::egui::Button {
     }
 }
 
-pub fn load_image_from_path(path: impl AsRef<std::path::Path>) -> eframe::egui::ColorImage {
-    let image = image::io::Reader::open(path).unwrap().decode().unwrap();
+pub fn load_image_from_path(bytes: &[u8]) -> eframe::egui::ColorImage {
+    dbg!(bytes.len());
+    let image = image::io::Reader::with_format(std::io::Cursor::new(bytes), ImageFormat::Png)
+        .decode()
+        .unwrap();
     let size = [image.width() as _, image.height() as _];
     let image_buffer = image.to_rgba8();
     let pixels = image_buffer.as_flat_samples();

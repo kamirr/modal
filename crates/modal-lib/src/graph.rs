@@ -19,10 +19,7 @@ use runtime::{
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    compute::nodes::{
-        all::source::{jack::JackSourceNew, smf::SmfSourceNew},
-        NodeList,
-    },
+    compute::nodes::{all::source::MidiSourceNew, NodeList},
     scope::Scope,
     util::{self, toggle_button},
 };
@@ -441,31 +438,18 @@ impl UserResponseTrait for SynthNodeResponse {}
 
 #[derive(Serialize, Deserialize)]
 pub struct SynthCtx {
-    pub midi_smf: Vec<SmfSourceNew>,
-    pub midi_jack: Vec<JackSourceNew>,
+    pub midi: HashMap<String, Vec<Box<dyn MidiSourceNew>>>,
     #[serde(skip)]
     #[serde(default = "Instant::now")]
-    last_updated_jack: Instant,
+    pub last_updated_jack: Instant,
 }
 
 impl Default for SynthCtx {
     fn default() -> Self {
         SynthCtx {
-            midi_smf: Default::default(),
-            midi_jack: Default::default(),
+            midi: HashMap::new(),
             last_updated_jack: Instant::now(),
         }
-    }
-}
-
-impl SynthCtx {
-    pub fn update_jack(&mut self) {
-        if self.last_updated_jack.elapsed().as_secs_f32() < 2.0 {
-            return;
-        }
-
-        self.last_updated_jack = Instant::now();
-        self.midi_jack = JackSourceNew::all();
     }
 }
 

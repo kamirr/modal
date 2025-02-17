@@ -7,7 +7,7 @@ pub mod instruments;
 pub mod midi;
 pub mod noise;
 
-pub trait NodeList {
+pub trait NodeList: Send + Sync {
     fn all(&self) -> Vec<(Box<dyn Node>, String, Vec<String>)>;
 }
 

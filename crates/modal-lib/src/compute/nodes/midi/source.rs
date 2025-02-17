@@ -70,18 +70,12 @@ impl Clone for RecoverableMidiSource {
     }
 }
 
-#[derive(Clone, Copy, Debug, derive_more::Display, PartialEq, Eq, Serialize, Deserialize)]
-enum SourceKind {
-    File,
-    Jack,
-}
-
 #[derive(Debug, Serialize, Deserialize)]
 struct Inner {
     #[serde(skip)]
     replace_new: Option<Box<dyn MidiSourceNew>>,
     replacing: bool,
-    source_kind: SourceKind,
+    source_kind: String,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -96,7 +90,7 @@ impl MidiInConf {
             inner: Mutex::new(Inner {
                 replace_new: None,
                 replacing: false,
-                source_kind: SourceKind::File,
+                source_kind: String::from(""),
             }),
         }
     }
@@ -117,30 +111,20 @@ impl NodeConfig for MidiInConf {
         if inner.replacing {
             egui::Window::new("Choose Midi Source").show(ui.ctx(), |ui| {
                 ui.horizontal(|ui| {
-                    ui.selectable_value(&mut inner.source_kind, SourceKind::File, "File");
-                    ui.selectable_value(&mut inner.source_kind, SourceKind::Jack, "Jack");
+                    for (kind, _) in &ctx.midi {
+                        ui.selectable_value(&mut inner.source_kind, kind.to_string(), kind);
+                    }
                 });
                 ui.separator();
 
-                egui::ScrollArea::new([false, true]).show(ui, |ui| match inner.source_kind {
-                    SourceKind::File => {
-                        for new in &ctx.midi_smf {
+                egui::ScrollArea::new([false, true]).show(ui, |ui| {
+                    if let Some(list) = ctx.midi.get(&inner.source_kind) {
+                        for entry in list {
                             if ui
-                                .add(egui::Label::new(new.name()).sense(egui::Sense::click()))
+                                .add(egui::Label::new(entry.name()).sense(egui::Sense::click()))
                                 .clicked()
                             {
-                                inner.replace_new = Some(clone_box(new));
-                                inner.replacing = false;
-                            }
-                        }
-                    }
-                    SourceKind::Jack => {
-                        for new in &ctx.midi_jack {
-                            if ui
-                                .add(egui::Label::new(new.name()).sense(egui::Sense::click()))
-                                .clicked()
-                            {
-                                inner.replace_new = Some(clone_box(new));
+                                inner.replace_new = Some(clone_box(&**entry));
                                 inner.replacing = false;
                             }
                         }

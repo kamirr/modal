@@ -45,6 +45,12 @@ pub enum RtResponse {
     Step,
 }
 
+pub trait AudioOut: Send {
+    fn queue_len(&self) -> usize;
+    fn feed(&mut self, samples: &[f32]);
+    fn start(&mut self);
+}
+
 pub struct RuntimeRemote {
     tx: Sender<RtRequest>,
     rx: Receiver<RtResponse>,
@@ -56,7 +62,11 @@ pub struct RuntimeRemote {
 }
 
 impl RuntimeRemote {
-    pub fn with_rt_and_mapping(mut rt: Runtime, mapping: Vec<(NodeId, u64)>) -> Self {
+    pub fn from_parts(
+        mut rt: Runtime,
+        mapping: Vec<(NodeId, u64)>,
+        mut audio_out: Box<dyn AudioOut>,
+    ) -> Self {
         let (cmd_tx, cmd_rx) = channel();
         let (resp_tx, resp_rx) = channel();
 
@@ -64,25 +74,20 @@ impl RuntimeRemote {
         let buf_size = 512;
         let mut buf = vec![0.0; buf_size];
 
-        let (stream, handle) = rodio::OutputStream::try_default().unwrap();
-        std::mem::forget(stream);
-
-        let sink = rodio::Sink::try_new(&handle).unwrap();
-        while sink.len() as f32 * buf_size as f32 / 44100.0 < 0.1 {
-            let source = rodio::buffer::SamplesBuffer::new(1, 44100, buf.clone());
-            sink.append(source);
+        while audio_out.queue_len() as f32 * buf_size as f32 / 44100.0 < 0.1 {
+            audio_out.feed(&buf);
         }
-        sink.play();
+        audio_out.start();
 
         let mut recording = HashMap::<OutputPort, Vec<Value>>::new();
 
         std::thread::spawn(move || {
             loop {
-                while sink.len() as f32 * buf_size as f32 / 44100.0 > 0.08 {
+                while audio_out.queue_len() as f32 * buf_size as f32 / 44100.0 > 0.08 {
                     std::thread::sleep(Duration::from_millis(10));
                 }
 
-                while sink.len() as f32 * buf_size as f32 / 44100.0 < 0.1 {
+                while audio_out.queue_len() as f32 * buf_size as f32 / 44100.0 < 0.1 {
                     for s in &mut buf {
                         let evs = rt.step();
                         if !evs.is_empty() {
@@ -101,8 +106,7 @@ impl RuntimeRemote {
                         }
                     }
 
-                    let source = rodio::buffer::SamplesBuffer::new(1, 44100, buf.clone());
-                    sink.append(source);
+                    audio_out.feed(&buf);
                 }
 
                 for (input, buffer) in &mut recording {
@@ -177,8 +181,8 @@ impl RuntimeRemote {
         }
     }
 
-    pub fn start() -> Self {
-        Self::with_rt_and_mapping(Runtime::new(), Vec::new())
+    pub fn start(audio_out: Box<dyn AudioOut>) -> Self {
+        Self::from_parts(Runtime::new(), Vec::new(), audio_out)
     }
 
     pub fn insert(&mut self, id: NodeId, node: Box<dyn Node>) {
@@ -324,11 +328,5 @@ impl RuntimeRemote {
             .filter(|(_, buf)| !buf.is_empty())
             .map(|(k, v)| (*k, std::mem::take(v)))
             .collect()
-    }
-}
-
-impl Default for RuntimeRemote {
-    fn default() -> Self {
-        RuntimeRemote::start()
     }
 }

@@ -23,11 +23,11 @@ impl WaveInput {
     }
 
     fn wave_knob_image() -> ColorImage {
-        load_image_from_path("assets/knob.png")
+        load_image_from_path(include_bytes!("assets/knob.png"))
     }
 
     fn wave_scale_image() -> ColorImage {
-        load_image_from_path("assets/shape-scale.png")
+        load_image_from_path(include_bytes!("assets/shape-scale.png"))
     }
 }
 
