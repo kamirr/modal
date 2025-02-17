@@ -102,7 +102,7 @@ pub struct ModalParams {
 impl Default for ModalParams {
     fn default() -> Self {
         Self {
-            editor_state: EguiState::from_size(1920, 1080),
+            editor_state: EguiState::from_size(1280, 720),
         }
     }
 }
