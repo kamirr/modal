@@ -6,6 +6,7 @@ use eframe::egui::{self, Vec2};
 use egui_graph_edit::{InputParamKind, NodeId, NodeResponse};
 use modal_lib::{
     compute::nodes::all::source::{jack::JackSourceNew, smf::SmfSourceNew, MidiSourceNew},
+    graph::MidiCollection,
     remote,
 };
 
@@ -236,9 +237,12 @@ impl SynthApp {
                 .ctx
                 .midi
                 .entry("File".to_string())
-                .or_default();
-            file_midi.push(Box::new(new));
-            file_midi.sort_by_key(|smf| smf.name());
+                .or_insert(MidiCollection::List(Vec::new()));
+            let MidiCollection::List(list) = file_midi else {
+                unreachable!()
+            };
+            list.push(Box::new(new));
+            list.sort_by_key(|smf| smf.name());
         }
     }
 
@@ -484,11 +488,16 @@ impl eframe::App for SynthApp {
         let synth_ctx = &mut self.user_state.ctx;
         if synth_ctx.last_updated_jack.elapsed().as_secs_f32() > 2.0 {
             synth_ctx.last_updated_jack = Instant::now();
-            let midi_jack = synth_ctx.midi.entry(String::from("Jack")).or_default();
-            *midi_jack = JackSourceNew::all()
-                .into_iter()
-                .map(|new| Box::new(new) as Box<dyn MidiSourceNew>)
-                .collect();
+            let midi_jack = synth_ctx
+                .midi
+                .entry(String::from("Jack"))
+                .or_insert(MidiCollection::List(Vec::new()));
+            *midi_jack = MidiCollection::List(
+                JackSourceNew::all()
+                    .into_iter()
+                    .map(|new| Box::new(new) as Box<dyn MidiSourceNew>)
+                    .collect(),
+            );
         }
 
         self.remote.wait();

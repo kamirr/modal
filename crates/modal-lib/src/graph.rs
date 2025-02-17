@@ -437,8 +437,14 @@ pub enum SynthNodeResponse {
 impl UserResponseTrait for SynthNodeResponse {}
 
 #[derive(Serialize, Deserialize)]
+pub enum MidiCollection {
+    Single(Box<dyn MidiSourceNew>),
+    List(Vec<Box<dyn MidiSourceNew>>),
+}
+
+#[derive(Serialize, Deserialize)]
 pub struct SynthCtx {
-    pub midi: HashMap<String, Vec<Box<dyn MidiSourceNew>>>,
+    pub midi: HashMap<String, MidiCollection>,
     #[serde(skip)]
     #[serde(default = "Instant::now")]
     pub last_updated_jack: Instant,

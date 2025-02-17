@@ -9,7 +9,10 @@ use std::{
 };
 
 use midly::{num::u7, MidiMessage};
-use modal_lib::compute::nodes::all::source::{MidiSource, MidiSourceNew};
+use modal_lib::{
+    compute::nodes::all::source::{MidiSource, MidiSourceNew},
+    graph::MidiCollection,
+};
 use nih_plug::{
     midi::{MidiConfig, NoteEvent},
     nih_export_clap, nih_export_vst3,
@@ -75,10 +78,10 @@ pub struct Modal {
 impl Default for Modal {
     fn default() -> Self {
         let (mut app, reader) = SynthApp::new(None);
-        app.user_state
-            .ctx
-            .midi
-            .insert("DAW".to_string(), vec![Box::new(DawMidiStreamNew)]);
+        app.user_state.ctx.midi.insert(
+            "Track".to_string(),
+            MidiCollection::Single(Box::new(DawMidiStreamNew)),
+        );
         Modal {
             app: Arc::new(Mutex::new(app)),
             reader,
