@@ -1,6 +1,6 @@
 use std::{collections::VecDeque, fmt::Debug, sync::Arc};
 
-use fluidlite as fl;
+use fluidlite::{self as fl};
 use midly::MidiMessage;
 use serde::{Deserialize, Serialize};
 
@@ -38,16 +38,22 @@ impl Debug for MyFluidlite {
 pub struct Fluidlite {
     midi_in: Arc<MidiInput>,
     #[serde(skip)]
-    synth: MyFluidlite,
+    synth: Option<MyFluidlite>,
     out: f32,
     buf: VecDeque<f32>,
+}
+
+impl Default for Fluidlite {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl Fluidlite {
     pub fn new() -> Self {
         Fluidlite {
             midi_in: Arc::new(MidiInput::new()),
-            synth: MyFluidlite::default(),
+            synth: None,
             out: 0.0,
             buf: VecDeque::new(),
         }
@@ -57,37 +63,36 @@ impl Fluidlite {
 #[typetag::serde]
 impl Node for Fluidlite {
     fn feed(&mut self, _inputs: &ExternInputs, data: &[Value]) -> Vec<NodeEvent> {
-        match self.midi_in.pop_msg(&data[0]) {
-            Some((channel, msg)) => match msg {
-                MidiMessage::NoteOn { key, vel } => {
-                    let vel = vel.as_int() as u32;
-                    let key = key.as_int() as u32;
-                    if vel > 0 {
-                        self.synth.0.note_on(channel as u32, key, vel).ok();
-                    } else {
-                        self.synth.0.note_off(channel as u32, key).ok();
-                    }
+        let Some(synth) = &mut self.synth else {
+            self.out = 0.0;
+            return Default::default();
+        };
+
+        if let Some((channel, msg)) = self.midi_in.pop_msg(&data[0]) { match msg {
+            MidiMessage::NoteOn { key, vel } => {
+                let vel = vel.as_int() as u32;
+                let key = key.as_int() as u32;
+                if vel > 0 {
+                    synth.0.note_on(channel as u32, key, vel).ok();
+                } else {
+                    synth.0.note_off(channel as u32, key).ok();
                 }
-                MidiMessage::NoteOff { key, .. } => {
-                    self.synth
-                        .0
-                        .note_off(channel as u32, key.as_int() as _)
-                        .ok();
-                }
-                MidiMessage::Controller { controller, value } => {
-                    self.synth
-                        .0
-                        .cc(channel as _, controller.as_int() as _, value.as_int() as _)
-                        .ok();
-                }
-                _ => {}
-            },
+            }
+            MidiMessage::NoteOff { key, .. } => {
+                synth.0.note_off(channel as u32, key.as_int() as _).ok();
+            }
+            MidiMessage::Controller { controller, value } => {
+                synth
+                    .0
+                    .cc(channel as _, controller.as_int() as _, value.as_int() as _)
+                    .ok();
+            }
             _ => {}
-        }
+        } }
 
         if self.buf.is_empty() {
             let mut buf = [0.0; 441];
-            self.synth.0.write(&mut buf[..]).unwrap();
+            synth.0.write(&mut buf[..]).unwrap();
             // las sample is always 0
             self.buf.extend(&buf[0..440]);
         }

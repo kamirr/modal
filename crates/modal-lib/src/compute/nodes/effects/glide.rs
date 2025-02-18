@@ -48,6 +48,12 @@ pub struct Glide {
     out: f32,
 }
 
+impl Default for Glide {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl Glide {
     pub fn new() -> Self {
         Glide {

@@ -22,6 +22,12 @@ pub struct Transform {
     out: f32,
 }
 
+impl Default for Transform {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl Transform {
     pub fn new() -> Self {
         Transform {

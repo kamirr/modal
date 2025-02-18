@@ -130,7 +130,7 @@ impl Node for Banded {
             Mode::set_frequency(self.modes.as_mut_slice(), freq);
         }
 
-        self.bow_vel = self.integration_const * self.bow_vel;
+        self.bow_vel *= self.integration_const;
         self.bow_vel += self.base_gain
             * self
                 .modes
@@ -209,7 +209,7 @@ impl Mode {
 
         match preset {
             BandedPreset::TunedBar => core::array::from_fn::<_, 4, _>(|i| {
-                let mode = [1.0, 4.0198391420, 10.7184986595, 18.0697050938][i];
+                let mode = [1.0, 4.019_839_3, 10.718_498, 18.069_706][i];
                 let delay_len = base_len / mode;
 
                 Mode {
@@ -236,31 +236,31 @@ impl Mode {
             .to_vec(),
             BandedPreset::TibetanPrayerBowl => core::array::from_fn::<_, 12, _>(|i| {
                 let mode = [
-                    0.996108344,
-                    1.0038916562,
+                    0.996_108_35,
+                    1.003_891_7,
                     2.979178,
-                    2.99329767,
+                    2.993_297_6,
                     5.704452,
                     5.704452,
                     8.9982,
-                    9.01549726,
+                    9.015_497,
                     12.83303,
                     12.807382,
-                    17.2808219,
-                    21.97602739726,
+                    17.280_823,
+                    21.976_027,
                 ];
 
                 let basegain = [
-                    0.999925960128219,
-                    0.999925960128219,
-                    0.999982774366897,
-                    0.999982774366897,
+                    0.999_926,
+                    0.999_926,
+                    0.999_982_8,
+                    0.999_982_8,
                     1.0,
                     1.0,
                     1.0,
                     1.0,
-                    0.999965497558225,
-                    0.999965497558225,
+                    0.999_965_5,
+                    0.999_965_5,
                     0.9999999999999999999965497558225,
                     0.999999999999999965497558225,
                 ];
@@ -270,8 +270,8 @@ impl Mode {
                     11.900357 / 10.,
                     10.914886 / 10.,
                     10.914886 / 10.,
-                    42.995041 / 10.,
-                    42.995041 / 10.,
+                    42.995_04 / 10.,
+                    42.995_04 / 10.,
                     40.063034 / 10.,
                     40.063034 / 10.,
                     7.063034 / 10.,
@@ -308,7 +308,7 @@ impl Mode {
     }
 
     fn set_frequency(modes: &mut [Self], freq: f32) {
-        debug_assert!(freq >= 0.0 && freq <= 1568.0);
+        debug_assert!((0.0..=1568.0).contains(&freq));
 
         let base = 44100.0 / freq;
 

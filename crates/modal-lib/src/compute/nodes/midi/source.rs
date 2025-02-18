@@ -11,7 +11,7 @@ use eframe::egui;
 use midly::MidiMessage;
 use serde::{Deserialize, Serialize};
 
-use crate::{graph::SynthCtx, util};
+use crate::graph::{MidiCollection, SynthCtx};
 use runtime::{
     node::{Node, NodeConfig, NodeEvent},
     ExternInputs, Output, Value, ValueKind,
@@ -70,18 +70,12 @@ impl Clone for RecoverableMidiSource {
     }
 }
 
-#[derive(Clone, Copy, Debug, derive_more::Display, PartialEq, Eq, Serialize, Deserialize)]
-enum SourceKind {
-    File,
-    Jack,
-}
-
 #[derive(Debug, Serialize, Deserialize)]
 struct Inner {
     #[serde(skip)]
     replace_new: Option<Box<dyn MidiSourceNew>>,
+    name: String,
     replacing: bool,
-    source_kind: SourceKind,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -95,8 +89,8 @@ impl MidiInConf {
         MidiInConf {
             inner: Mutex::new(Inner {
                 replace_new: None,
+                name: String::from("Select input"),
                 replacing: false,
-                source_kind: SourceKind::File,
             }),
         }
     }
@@ -107,47 +101,39 @@ impl NodeConfig for MidiInConf {
         let mut inner = self.inner.lock().unwrap();
         let ctx = data.downcast_ref::<SynthCtx>().unwrap();
 
-        if ui
-            .add(util::toggle_button("Change", inner.replacing))
-            .clicked()
-        {
-            inner.replacing = !inner.replacing;
-        }
-
-        if inner.replacing {
-            egui::Window::new("Choose Midi Source").show(ui.ctx(), |ui| {
-                ui.horizontal(|ui| {
-                    ui.selectable_value(&mut inner.source_kind, SourceKind::File, "File");
-                    ui.selectable_value(&mut inner.source_kind, SourceKind::Jack, "Jack");
-                });
-                ui.separator();
-
-                egui::ScrollArea::new([false, true]).show(ui, |ui| match inner.source_kind {
-                    SourceKind::File => {
-                        for new in &ctx.midi_smf {
-                            if ui
-                                .add(egui::Label::new(new.name()).sense(egui::Sense::click()))
-                                .clicked()
-                            {
-                                inner.replace_new = Some(clone_box(new));
-                                inner.replacing = false;
-                            }
+        ui.menu_button(inner.name.clone(), |ui| {
+            let mut any_shown = false;
+            for (kind, collection) in &ctx.midi {
+                match collection {
+                    MidiCollection::Single(midi_source_new) => {
+                        if ui.button(midi_source_new.name()).clicked() {
+                            inner.name = midi_source_new.name();
+                            inner.replace_new = Some(clone_box(&**midi_source_new));
+                            ui.close_menu();
+                        }
+                        any_shown = true;
+                    }
+                    MidiCollection::List(midi_source_news) => {
+                        if !midi_source_news.is_empty() {
+                            ui.menu_button(kind, |ui| {
+                                for midi_source_new in midi_source_news {
+                                    if ui.button(midi_source_new.name()).clicked() {
+                                        inner.name = midi_source_new.name();
+                                        inner.replace_new = Some(clone_box(&**midi_source_new));
+                                        ui.close_menu();
+                                    }
+                                }
+                            });
+                            any_shown = true;
                         }
                     }
-                    SourceKind::Jack => {
-                        for new in &ctx.midi_jack {
-                            if ui
-                                .add(egui::Label::new(new.name()).sense(egui::Sense::click()))
-                                .clicked()
-                            {
-                                inner.replace_new = Some(clone_box(new));
-                                inner.replacing = false;
-                            }
-                        }
-                    }
-                });
-            });
-        }
+                }
+            }
+
+            if !any_shown {
+                ui.label("No MIDI sources found");
+            }
+        });
     }
 }
 

@@ -2,13 +2,15 @@
 edition = "2021"
 name = "modal"
 version = "0.1.0"
+license = "MIT"
 
 [dependencies]
-eframe = {workspace = true}
-egui-graph-edit = {version = "0.5.3", features = ["persistence"]}
-rfd = "0.11.3"
-serde = {workspace = true}
-serde_json = "1.0.96"
+eframe = { workspace = true }
+egui-graph-edit = { workspace = true }
+rfd = { workspace = true }
+rodio = "0.17.1"
+serde = { workspace = true }
+serde_json = { workspace = true }
 
-modal-lib = {path = "../modal-lib"}
-runtime = {path = "../runtime"}
+modal-lib = { path = "../modal-lib" }
+runtime = { path = "../runtime" }

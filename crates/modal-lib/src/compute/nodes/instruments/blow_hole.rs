@@ -24,7 +24,7 @@ impl ReedTable {
 
     fn calculate(&mut self, input: f32) -> f32 {
         let out = self.offset + (self.slope * input);
-        return out.clamp(-1.0, 1.0);
+        out.clamp(-1.0, 1.0)
     }
 }
 
@@ -123,7 +123,7 @@ impl BlowHole {
 
     pub fn set_freq(&mut self, f: f32) {
         let mut delay = (44100.0 / f) * 0.5 - 3.5;
-        delay -= self.delays[0].len() as f32 + self.delays[2].len() as f32;
+        delay -= self.delays[0].len() + self.delays[2].len();
 
         self.delays[1].resize(delay);
     }

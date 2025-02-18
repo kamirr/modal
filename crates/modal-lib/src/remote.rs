@@ -6,12 +6,19 @@ use std::{
 
 use bimap::BiHashMap;
 use egui_graph_edit::NodeId;
+use serde::{Deserialize, Serialize};
+use strum::Display;
 use thunderdome::Index;
 
 use runtime::{
     node::{Node, NodeEvent},
-    OutputPort, Runtime, Value,
+    OutputPort, Runtime, Value, ValueKind,
 };
+
+#[derive(Clone, Debug, Display, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub enum ExternInput {
+    TrackAudio,
+}
 
 #[derive(Debug)]
 pub enum RtRequest {
@@ -30,6 +37,14 @@ pub enum RtRequest {
         dst: Index,
         inputs: Vec<Option<OutputPort>>,
     },
+    ExternDefine {
+        input: ExternInput,
+        kind: ValueKind,
+    },
+    ExternAppend {
+        input: ExternInput,
+        values: Vec<Value>,
+    },
     Play(Option<OutputPort>),
     Record(Index, usize),
     StopRecording(Index, usize),
@@ -45,8 +60,14 @@ pub enum RtResponse {
     Step,
 }
 
+pub trait AudioOut: Send {
+    fn queue_len(&self) -> usize;
+    fn feed(&mut self, samples: &[f32]);
+    fn start(&mut self);
+}
+
 pub struct RuntimeRemote {
-    tx: Sender<RtRequest>,
+    pub tx: Sender<RtRequest>,
     rx: Receiver<RtResponse>,
     must_wait: bool,
     mapping: BiHashMap<NodeId, Index>,
@@ -56,33 +77,34 @@ pub struct RuntimeRemote {
 }
 
 impl RuntimeRemote {
-    pub fn with_rt_and_mapping(mut rt: Runtime, mapping: Vec<(NodeId, u64)>) -> Self {
+    pub fn from_parts(
+        mut rt: Runtime,
+        mapping: Vec<(NodeId, u64)>,
+        mut audio_out: Box<dyn AudioOut>,
+    ) -> Self {
         let (cmd_tx, cmd_rx) = channel();
         let (resp_tx, resp_rx) = channel();
+
+        let mut extern_input_indices = HashMap::new();
 
         let mut record = None;
         let buf_size = 512;
         let mut buf = vec![0.0; buf_size];
 
-        let (stream, handle) = rodio::OutputStream::try_default().unwrap();
-        std::mem::forget(stream);
-
-        let sink = rodio::Sink::try_new(&handle).unwrap();
-        while sink.len() as f32 * buf_size as f32 / 44100.0 < 0.1 {
-            let source = rodio::buffer::SamplesBuffer::new(1, 44100, buf.clone());
-            sink.append(source);
+        while audio_out.queue_len() as f32 * buf_size as f32 / 44100.0 < 0.1 {
+            audio_out.feed(&buf);
         }
-        sink.play();
+        audio_out.start();
 
         let mut recording = HashMap::<OutputPort, Vec<Value>>::new();
 
         std::thread::spawn(move || {
-            loop {
-                while sink.len() as f32 * buf_size as f32 / 44100.0 > 0.08 {
+            'outer: loop {
+                while audio_out.queue_len() as f32 * buf_size as f32 / 44100.0 > 0.08 {
                     std::thread::sleep(Duration::from_millis(10));
                 }
 
-                while sink.len() as f32 * buf_size as f32 / 44100.0 < 0.1 {
+                while audio_out.queue_len() as f32 * buf_size as f32 / 44100.0 < 0.1 {
                     for s in &mut buf {
                         let evs = rt.step();
                         if !evs.is_empty() {
@@ -101,8 +123,7 @@ impl RuntimeRemote {
                         }
                     }
 
-                    let source = rodio::buffer::SamplesBuffer::new(1, 44100, buf.clone());
-                    sink.append(source);
+                    audio_out.feed(&buf);
                 }
 
                 for (input, buffer) in &mut recording {
@@ -113,47 +134,57 @@ impl RuntimeRemote {
                     }
                 }
 
-                let cmd = match cmd_rx.try_recv() {
-                    Ok(cmd) => cmd,
-                    Err(TryRecvError::Empty) => continue,
-                    Err(TryRecvError::Disconnected) => break,
-                };
+                loop {
+                    let cmd = match cmd_rx.try_recv() {
+                        Ok(cmd) => cmd,
+                        Err(TryRecvError::Empty) => break,
+                        Err(TryRecvError::Disconnected) => break 'outer,
+                    };
 
-                match cmd {
-                    RtRequest::Insert { id, inputs, node } => {
-                        let idx = rt.insert(inputs, node);
-                        resp_tx.send(RtResponse::Inserted(id, idx)).ok();
-                    }
-                    RtRequest::Remove(index) => {
-                        rt.remove(index);
-                        recording.retain(|rec, _| rec.node != index);
+                    match cmd {
+                        RtRequest::Insert { id, inputs, node } => {
+                            let idx = rt.insert(inputs, node);
+                            resp_tx.send(RtResponse::Inserted(id, idx)).ok();
+                        }
+                        RtRequest::Remove(index) => {
+                            rt.remove(index);
+                            recording.retain(|rec, _| rec.node != index);
 
-                        if let Some(OutputPort { node, .. }) = record {
-                            if node == index {
-                                record = None;
+                            if let Some(OutputPort { node, .. }) = record {
+                                if node == index {
+                                    record = None;
+                                }
                             }
                         }
-                    }
-                    RtRequest::SetInput { src, dst, port } => {
-                        rt.set_input(dst, port, src);
-                    }
-                    RtRequest::SetAllInputs { dst, inputs } => {
-                        rt.set_all_inputs(dst, inputs);
-                    }
-                    RtRequest::Play(node) => {
-                        record = node;
-                    }
-                    RtRequest::Record(index, port) => {
-                        recording.insert(OutputPort::new(index, port), Vec::new());
-                    }
-                    RtRequest::StopRecording(index, port) => {
-                        recording.remove(&OutputPort::new(index, port));
-                    }
-                    RtRequest::CloneRuntime => {
-                        resp_tx.send(RtResponse::RuntimeCloned(rt.clone())).ok();
-                    }
-                    RtRequest::Shutdown => {
-                        break;
+                        RtRequest::SetInput { src, dst, port } => {
+                            rt.set_input(dst, port, src);
+                        }
+                        RtRequest::SetAllInputs { dst, inputs } => {
+                            rt.set_all_inputs(dst, inputs);
+                        }
+                        RtRequest::ExternDefine { input, kind } => {
+                            let index = rt.extern_inputs().define(input.to_string(), kind);
+                            extern_input_indices.insert(input, index);
+                        }
+                        RtRequest::ExternAppend { input, values } => {
+                            let index = extern_input_indices[&input];
+                            rt.extern_inputs().extend(index, values.into_iter());
+                        }
+                        RtRequest::Play(node) => {
+                            record = node;
+                        }
+                        RtRequest::Record(index, port) => {
+                            recording.insert(OutputPort::new(index, port), Vec::new());
+                        }
+                        RtRequest::StopRecording(index, port) => {
+                            recording.remove(&OutputPort::new(index, port));
+                        }
+                        RtRequest::CloneRuntime => {
+                            resp_tx.send(RtResponse::RuntimeCloned(rt.clone())).ok();
+                        }
+                        RtRequest::Shutdown => {
+                            break;
+                        }
                     }
                 }
 
@@ -177,8 +208,8 @@ impl RuntimeRemote {
         }
     }
 
-    pub fn start() -> Self {
-        Self::with_rt_and_mapping(Runtime::new(), Vec::new())
+    pub fn start(audio_out: Box<dyn AudioOut>) -> Self {
+        Self::from_parts(Runtime::new(), Vec::new(), audio_out)
     }
 
     pub fn insert(&mut self, id: NodeId, node: Box<dyn Node>) {
@@ -256,7 +287,7 @@ impl RuntimeRemote {
                 self.mapping.insert(id, idx);
             }
             RtResponse::NodeEvents(evs) => {
-                self.node_events.extend(evs.into_iter());
+                self.node_events.extend(evs);
             }
             RtResponse::RuntimeCloned(runtime) => {
                 self.runtime = Some(runtime);
@@ -265,7 +296,7 @@ impl RuntimeRemote {
                 self.recordings
                     .entry(index)
                     .or_default()
-                    .extend(samples.into_iter());
+                    .extend(samples);
             }
             RtResponse::Step => {}
         }
@@ -324,11 +355,5 @@ impl RuntimeRemote {
             .filter(|(_, buf)| !buf.is_empty())
             .map(|(k, v)| (*k, std::mem::take(v)))
             .collect()
-    }
-}
-
-impl Default for RuntimeRemote {
-    fn default() -> Self {
-        RuntimeRemote::start()
     }
 }

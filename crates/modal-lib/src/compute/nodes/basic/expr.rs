@@ -53,7 +53,7 @@ impl NodeConfig for ExpressionConfig {
             let clicked_elsewhere = ui.text_edit_singleline(&mut *text).clicked_elsewhere();
             if ui.button("Submit").lost_focus() || clicked_elsewhere {
                 let mut ready_lock = self.ready.lock().unwrap();
-                if &*ready_lock != &*text {
+                if *ready_lock != *text {
                     *ready_lock = text.clone();
                     self.new_formula.store(true, Ordering::Relaxed);
                 }
@@ -153,7 +153,7 @@ impl Debug for Expression {
             .field("inputs", &self.inputs)
             .field("sig1", &self.sig1)
             .field("sig2", &self.sig2)
-            .field("func", &self.func.is_some().then(|| "[JIT function]"))
+            .field("func", &self.func.is_some().then_some("[JIT function]"))
             .field("out", &self.out)
             .finish()
     }
@@ -218,7 +218,7 @@ impl Node for Expression {
 
             vals[v_idx] = desc
                 .input
-                .get_f32(&data.get(data_idx).unwrap_or(&Value::Float(0.0)));
+                .get_f32(data.get(data_idx).unwrap_or(&Value::Float(0.0)));
             data_idx += 1;
         }
         if self.sig1 {
@@ -240,7 +240,7 @@ impl Node for Expression {
                 let ret = fun(
                     vals[0], vals[1], vals[2], vals[3], vals[4], vals[5], &mut sig1, &mut sig2,
                 );
-                (ret as f32, sig1 as f32, sig2 as f32)
+                (ret, sig1, sig2)
             }
             None => (0.0, 0.0, 0.0),
         };
@@ -286,7 +286,7 @@ impl Node for Expression {
     fn inputs(&self) -> Vec<Input> {
         self.inputs
             .iter()
-            .filter_map(|desc| desc.enabled.then(|| (&desc.name, &desc.input)))
+            .filter_map(|desc| desc.enabled.then_some((&desc.name, &desc.input)))
             .map(|(name, input)| Input::stateful(name, input))
             .chain(self.sig1.then(|| Input::new("sig1", ValueKind::Float)))
             .chain(self.sig2.then(|| Input::new("sig2", ValueKind::Float)))

@@ -15,6 +15,12 @@ pub struct Mix2 {
     out: f32,
 }
 
+impl Default for Mix2 {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl Mix2 {
     pub fn new() -> Self {
         Mix2 {

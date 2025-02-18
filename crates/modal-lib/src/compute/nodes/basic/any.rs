@@ -27,7 +27,7 @@ impl NodeConfig for AnyConfig {
             ui.label("inputs");
 
             if ui
-                .add(DragValue::new(&mut ins).range(0..=std::u32::MAX))
+                .add(DragValue::new(&mut ins).range(0..=u32::MAX))
                 .lost_focus()
             {
                 self.ins.store(ins, Ordering::Release);
@@ -68,8 +68,7 @@ impl Node for Any {
         let emit = data
             .iter()
             .zip(self.defaults.iter())
-            .map(|(sample, default)| default.trigger(sample))
-            .any(|trig| trig);
+            .any(|(sample, default)| default.trigger(sample));
         self.out = if emit { 1.0 } else { 0.0 };
 
         let new_ins = self.config.ins.load(Ordering::Relaxed);

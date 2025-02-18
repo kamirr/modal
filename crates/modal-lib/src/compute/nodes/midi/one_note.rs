@@ -47,6 +47,12 @@ pub struct OneNote {
     state: OneNoteState,
 }
 
+impl Default for OneNote {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl OneNote {
     pub fn new() -> Self {
         OneNote {

@@ -75,7 +75,7 @@ impl BiquadConfig {
         let a = a.map(|f| Complex32::new(f, 0.0));
         let b = b.map(|f| Complex32::new(f, 0.0));
 
-        let max_f = (f as u32 * 3).max(1000).min(20000) / 1000 * 1000;
+        let max_f = (f as u32 * 3).clamp(1000, 20000) / 1000 * 1000;
 
         let mut xs: Vec<_> = (0..max_f)
             .step_by(max_f as usize / 120)

@@ -15,6 +15,12 @@ pub struct Latch {
     out: f32,
 }
 
+impl Default for Latch {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl Latch {
     pub fn new() -> Self {
         Latch {

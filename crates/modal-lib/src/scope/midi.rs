@@ -25,6 +25,12 @@ fn pretty_midi(msg: &MidiMessage) -> String {
     }
 }
 
+impl Default for MidiScope {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl MidiScope {
     pub fn new() -> Self {
         MidiScope {

@@ -7,7 +7,7 @@ use crate::ExternInputs;
 
 use super::{Output, Value, ValueKind};
 
-pub trait NodeConfig {
+pub trait NodeConfig: Send + Sync {
     fn show(&self, ui: &mut egui::Ui, data: &dyn Any);
     fn show_short(&self, _ui: &mut egui::Ui, _data: &dyn Any) {}
 }
