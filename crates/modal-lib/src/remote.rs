@@ -287,7 +287,7 @@ impl RuntimeRemote {
                 self.mapping.insert(id, idx);
             }
             RtResponse::NodeEvents(evs) => {
-                self.node_events.extend(evs.into_iter());
+                self.node_events.extend(evs);
             }
             RtResponse::RuntimeCloned(runtime) => {
                 self.runtime = Some(runtime);
@@ -296,7 +296,7 @@ impl RuntimeRemote {
                 self.recordings
                     .entry(index)
                     .or_default()
-                    .extend(samples.into_iter());
+                    .extend(samples);
             }
             RtResponse::Step => {}
         }

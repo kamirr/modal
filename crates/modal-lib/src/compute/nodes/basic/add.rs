@@ -30,7 +30,7 @@ impl NodeConfig for AddConfig {
             ui.label("inputs");
 
             if ui
-                .add(DragValue::new(&mut ins).range(0..=std::u32::MAX))
+                .add(DragValue::new(&mut ins).range(0..=u32::MAX))
                 .lost_focus()
             {
                 self.ins.store(ins, Ordering::Release);

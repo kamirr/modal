@@ -30,10 +30,19 @@ use serde::{Deserialize, Serialize};
 use stream_audio_out::StreamReader;
 use synth_app::SynthApp;
 
-static DAW_MIDI: LazyLock<(
-    barrage::Sender<(u8, MidiMessage)>,
-    barrage::Receiver<(u8, MidiMessage)>,
-)> = LazyLock::new(|| barrage::unbounded());
+struct DawMidi {
+    tx: barrage::Sender<(u8, MidiMessage)>,
+    rx: barrage::Receiver<(u8, MidiMessage)>,
+}
+
+impl DawMidi {
+    fn new() -> Self {
+        let (tx, rx) = barrage::unbounded();
+        DawMidi { tx, rx }
+    }
+}
+
+static DAW_MIDI: LazyLock<DawMidi> = LazyLock::new(DawMidi::new);
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 struct DawMidiStreamNew;
@@ -45,7 +54,7 @@ impl MidiSourceNew for DawMidiStreamNew {
     }
 
     fn new_src(&self) -> anyhow::Result<Box<dyn MidiSource>> {
-        let src = DawMidiSource(DAW_MIDI.1.clone());
+        let src = DawMidiSource(DAW_MIDI.rx.clone());
         Ok(Box::new(src))
     }
 }
@@ -60,11 +69,7 @@ impl Debug for DawMidiSource {
 
 impl MidiSource for DawMidiSource {
     fn try_next(&mut self) -> Option<(u8, MidiMessage)> {
-        if let Some(msg) = self.0.try_recv().unwrap() {
-            Some(dbg!(msg))
-        } else {
-            None
-        }
+        self.0.try_recv().unwrap().map(|msg| dbg!(msg))
     }
 
     fn reset(&mut self) {}
@@ -196,14 +201,14 @@ impl Plugin for Modal {
             }
 
             if let Some(msg) = midi_msg {
-                DAW_MIDI.0.send(msg).unwrap();
+                DAW_MIDI.tx.send(msg).unwrap();
             }
         }
 
         let samples = buffer
             .iter_samples()
             .map(|mut s| *s.get_mut(0).unwrap())
-            .map(|f| Value::Float(f))
+            .map(Value::Float)
             .collect::<Vec<_>>();
 
         let samples_len = samples.len();

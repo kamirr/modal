@@ -36,7 +36,7 @@ impl Node for Delay {
         let input = data[0].as_float().unwrap_or(0.0);
         let feedback = feedback_gain * self.delay_impl.last_out();
 
-        let new_size = target_len as f32;
+        let new_size = target_len;
         if self.delay_impl.len() != new_size {
             self.delay_impl.resize(new_size);
         }

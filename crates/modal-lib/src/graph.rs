@@ -79,7 +79,7 @@ impl NodeDataTrait for SynthNodeData {
                 .get(&node_id)
                 .and_then(|wk| wk.upgrade())
             {
-                config.show_short(ui, &mut user_state.ctx);
+                config.show_short(ui, &user_state.ctx);
             }
 
             return Default::default();
@@ -90,7 +90,7 @@ impl NodeDataTrait for SynthNodeData {
             .get(&node_id)
             .and_then(|wk| wk.upgrade())
         {
-            config.show(ui, &mut user_state.ctx);
+            config.show(ui, &user_state.ctx);
         }
 
         Default::default()

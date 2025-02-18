@@ -58,7 +58,7 @@ impl MidiSourceNew for JackSourceNew {
             ClientOptions::NO_START_SERVER,
         )?;
 
-        let midi_in = client.register_port("midi-in", jack::MidiIn::default())?;
+        let midi_in = client.register_port("midi-in", jack::MidiIn)?;
         let midi_in2 = midi_in.clone_unowned();
 
         let midi_out = client
@@ -66,11 +66,11 @@ impl MidiSourceNew for JackSourceNew {
             .ok_or(anyhow!("Port doesn't exist"))?;
 
         let (midi_tx, midi_rx) = channel();
-        let mut arena = Arena::new();
+        let arena = Arena::new();
         let process_cb = move |_: &jack::Client, ps: &jack::ProcessScope| {
             for msg in midi_in.iter(ps) {
                 if let Ok(live_ev) = LiveEvent::parse(msg.bytes) {
-                    let track_ev = live_ev.as_track_event(&mut arena);
+                    let track_ev = live_ev.as_track_event(&arena);
 
                     if let TrackEventKind::Midi { channel, message } = track_ev {
                         midi_tx.send((channel.as_int(), message)).ok();

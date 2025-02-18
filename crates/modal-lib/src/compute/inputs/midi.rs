@@ -21,6 +21,12 @@ pub struct MidiInput {
     inner: Mutex<Inner>,
 }
 
+impl Default for MidiInput {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl MidiInput {
     pub fn new() -> Self {
         MidiInput {

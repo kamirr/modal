@@ -15,8 +15,17 @@ use runtime::{
     node::{Input, NodeEvent},
     OutputPort, Runtime,
 };
+use serde::{Deserialize, Serialize};
 
 use crate::stream_audio_out::{StreamAudioOut, StreamReader};
+
+#[derive(Serialize, Deserialize)]
+pub struct SynthAppState {
+    pub rt: Runtime,
+    pub mapping: Vec<(NodeId, u64)>,
+    pub editor_state: SynthEditorState,
+    pub graph_state: SynthGraphState,
+}
 
 pub struct SynthApp {
     state: graph::SynthEditorState,
@@ -26,18 +35,18 @@ pub struct SynthApp {
 }
 
 impl SynthApp {
-    pub fn new(
-        state: Option<(
-            (Runtime, Vec<(NodeId, u64)>),
-            SynthEditorState,
-            SynthGraphState,
-        )>,
-    ) -> (Self, StreamReader, Sender<RtRequest>) {
+    pub fn new(state: Option<SynthAppState>) -> (Self, StreamReader, Sender<RtRequest>) {
         use modal_lib::compute::nodes::all::*;
 
         let (audio_out, stream_reader) = StreamAudioOut::new();
 
-        let this = if let Some(((rt, mapping), editor, mut user_state)) = state {
+        let this = if let Some(SynthAppState {
+            rt,
+            mapping,
+            editor_state,
+            mut graph_state,
+        }) = state
+        {
             for (idx, node) in rt.nodes() {
                 let node_id = mapping
                     .iter()
@@ -45,13 +54,13 @@ impl SynthApp {
                     .unwrap()
                     .0;
                 if let Some(config) = node.config() {
-                    user_state
+                    graph_state
                         .node_configs
                         .insert(node_id, Arc::downgrade(&config));
                 }
 
-                user_state.node_ui_inputs.insert(node_id, HashMap::new());
-                let inputs = user_state.node_ui_inputs.get_mut(&node_id).unwrap();
+                graph_state.node_ui_inputs.insert(node_id, HashMap::new());
+                let inputs = graph_state.node_ui_inputs.get_mut(&node_id).unwrap();
                 for input in node.inputs() {
                     if let Some(default) = input.default_value {
                         inputs.insert(input.name, default);
@@ -61,17 +70,20 @@ impl SynthApp {
 
             let mut remote = remote::RuntimeRemote::from_parts(rt, mapping, Box::new(audio_out));
 
-            for (node_id, node) in &editor.graph.nodes {
+            for (node_id, node) in &editor_state.graph.nodes {
                 for (param_name, _out_state) in node.user_data.out_states.borrow().iter() {
-                    remote.record(node_id, editor.graph.get_port(node_id, param_name).unwrap());
+                    remote.record(
+                        node_id,
+                        editor_state.graph.get_port(node_id, param_name).unwrap(),
+                    );
                 }
             }
 
-            remote.play(user_state.rt_playback);
+            remote.play(graph_state.rt_playback);
 
             SynthApp {
-                state: editor,
-                user_state,
+                state: editor_state,
+                user_state: graph_state,
                 all_nodes: graph::AllSynthNodeTemplates::new(vec![
                     Box::new(Basic),
                     Box::new(Effects),

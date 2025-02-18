@@ -15,6 +15,12 @@ pub struct Gate {
     out: f32,
 }
 
+impl Default for Gate {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl Gate {
     pub fn new() -> Self {
         Gate {

@@ -144,7 +144,7 @@ pub mod serde_perlin {
     #[derive(Serialize, Deserialize)]
     struct Perlin(u32);
 
-    pub fn serialize<'smf, S>(val: &noise::Perlin, s: S) -> Result<S::Ok, S::Error>
+    pub fn serialize<S>(val: &noise::Perlin, s: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
     {
@@ -208,6 +208,12 @@ pub mod perlin {
     #[derive(Clone, Debug, Serialize, Deserialize)]
     pub struct Perlin1D {
         rand_noise: Vec<f32>,
+    }
+
+    impl Default for Perlin1D {
+        fn default() -> Self {
+            Self::new()
+        }
     }
 
     impl Perlin1D {

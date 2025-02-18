@@ -8,11 +8,18 @@ use runtime::{Value, ValueKind};
 mod float;
 mod midi;
 
+#[allow(clippy::large_enum_variant)]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum Scope {
     Float(FloatScope),
     Midi(MidiScope),
     Unknown,
+}
+
+impl Default for Scope {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl Scope {

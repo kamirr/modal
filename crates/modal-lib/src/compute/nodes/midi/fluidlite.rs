@@ -43,6 +43,12 @@ pub struct Fluidlite {
     buf: VecDeque<f32>,
 }
 
+impl Default for Fluidlite {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl Fluidlite {
     pub fn new() -> Self {
         Fluidlite {
@@ -62,30 +68,27 @@ impl Node for Fluidlite {
             return Default::default();
         };
 
-        match self.midi_in.pop_msg(&data[0]) {
-            Some((channel, msg)) => match msg {
-                MidiMessage::NoteOn { key, vel } => {
-                    let vel = vel.as_int() as u32;
-                    let key = key.as_int() as u32;
-                    if vel > 0 {
-                        synth.0.note_on(channel as u32, key, vel).ok();
-                    } else {
-                        synth.0.note_off(channel as u32, key).ok();
-                    }
+        if let Some((channel, msg)) = self.midi_in.pop_msg(&data[0]) { match msg {
+            MidiMessage::NoteOn { key, vel } => {
+                let vel = vel.as_int() as u32;
+                let key = key.as_int() as u32;
+                if vel > 0 {
+                    synth.0.note_on(channel as u32, key, vel).ok();
+                } else {
+                    synth.0.note_off(channel as u32, key).ok();
                 }
-                MidiMessage::NoteOff { key, .. } => {
-                    synth.0.note_off(channel as u32, key.as_int() as _).ok();
-                }
-                MidiMessage::Controller { controller, value } => {
-                    synth
-                        .0
-                        .cc(channel as _, controller.as_int() as _, value.as_int() as _)
-                        .ok();
-                }
-                _ => {}
-            },
+            }
+            MidiMessage::NoteOff { key, .. } => {
+                synth.0.note_off(channel as u32, key.as_int() as _).ok();
+            }
+            MidiMessage::Controller { controller, value } => {
+                synth
+                    .0
+                    .cc(channel as _, controller.as_int() as _, value.as_int() as _)
+                    .ok();
+            }
             _ => {}
-        }
+        } }
 
         if self.buf.is_empty() {
             let mut buf = [0.0; 441];

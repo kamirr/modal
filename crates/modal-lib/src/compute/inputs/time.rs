@@ -46,7 +46,7 @@ impl TimeInput {
     }
 
     pub fn get_ms(&self, recv: &Value) -> f32 {
-        self.get_samples(recv) as f32 / 44100.0 * 1000.0
+        self.get_samples(recv) / 44100.0 * 1000.0
     }
 }
 
@@ -72,10 +72,10 @@ impl InputUi for TimeInput {
 
         match ty {
             TimeUnit::Samples => {
-                ui.add(egui::DragValue::new(&mut samples).range(1..=std::usize::MAX));
+                ui.add(egui::DragValue::new(&mut samples).range(1..=usize::MAX));
             }
             TimeUnit::Seconds => {
-                let mut secs = samples as f32 / 44100.0;
+                let mut secs = samples / 44100.0;
                 let input = PositiveInput::new(secs);
                 input.show_disconnected(ui, verbose);
 
@@ -83,7 +83,7 @@ impl InputUi for TimeInput {
                 samples = (secs * 44100.0).round() as _;
             }
             TimeUnit::Miliseconds => {
-                let mut msecs = samples as f32 / 44100.0 * 1000.0;
+                let mut msecs = samples / 44100.0 * 1000.0;
                 let input = PositiveInput::new(msecs);
                 input.show_disconnected(ui, verbose);
 

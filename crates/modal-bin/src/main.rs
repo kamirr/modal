@@ -21,6 +21,7 @@ use rfd::FileDialog;
 use modal_lib::graph::{
     self, OutputState, SynthDataType, SynthEditorState, SynthGraphExt, SynthGraphState,
 };
+use serde::{Deserialize, Serialize};
 
 fn main() {
     let options = eframe::NativeOptions {
@@ -38,6 +39,14 @@ fn main() {
     .unwrap();
 }
 
+#[derive(Serialize, Deserialize)]
+pub struct SynthAppState {
+    pub rt: Runtime,
+    pub mapping: Vec<(NodeId, u64)>,
+    pub editor_state: SynthEditorState,
+    pub graph_state: SynthGraphState,
+}
+
 struct SynthApp {
     state: graph::SynthEditorState,
     user_state: graph::SynthGraphState,
@@ -47,16 +56,16 @@ struct SynthApp {
 }
 
 impl SynthApp {
-    fn new(
-        state: Option<(
-            (Runtime, Vec<(NodeId, u64)>),
-            SynthEditorState,
-            SynthGraphState,
-        )>,
-    ) -> Self {
+    fn new(state: Option<SynthAppState>) -> Self {
         pub use modal_lib::compute::nodes::all::*;
 
-        if let Some(((rt, mapping), editor, mut user_state)) = state {
+        if let Some(SynthAppState {
+            rt,
+            mapping,
+            editor_state,
+            mut graph_state,
+        }) = state
+        {
             for (idx, node) in rt.nodes() {
                 let node_id = mapping
                     .iter()
@@ -64,13 +73,13 @@ impl SynthApp {
                     .unwrap()
                     .0;
                 if let Some(config) = node.config() {
-                    user_state
+                    graph_state
                         .node_configs
                         .insert(node_id, Arc::downgrade(&config));
                 }
 
-                user_state.node_ui_inputs.insert(node_id, HashMap::new());
-                let inputs = user_state.node_ui_inputs.get_mut(&node_id).unwrap();
+                graph_state.node_ui_inputs.insert(node_id, HashMap::new());
+                let inputs = graph_state.node_ui_inputs.get_mut(&node_id).unwrap();
                 for input in node.inputs() {
                     if let Some(default) = input.default_value {
                         inputs.insert(input.name, default);
@@ -81,17 +90,20 @@ impl SynthApp {
             let mut remote =
                 remote::RuntimeRemote::from_parts(rt, mapping, Box::new(RodioOut::default()));
 
-            for (node_id, node) in &editor.graph.nodes {
+            for (node_id, node) in &editor_state.graph.nodes {
                 for (param_name, _out_state) in node.user_data.out_states.borrow().iter() {
-                    remote.record(node_id, editor.graph.get_port(node_id, param_name).unwrap());
+                    remote.record(
+                        node_id,
+                        editor_state.graph.get_port(node_id, param_name).unwrap(),
+                    );
                 }
             }
 
-            remote.play(user_state.rt_playback);
+            remote.play(graph_state.rt_playback);
 
             SynthApp {
-                state: editor,
-                user_state,
+                state: editor_state,
+                user_state: graph_state,
                 all_nodes: graph::AllSynthNodeTemplates::new(vec![
                     Box::new(Basic),
                     Box::new(Effects),
@@ -125,11 +137,7 @@ impl SynthApp {
         cc.egui_ctx
             .all_styles_mut(|style| style.interaction.selectable_labels = false);
 
-        let state: Option<(
-            (Runtime, Vec<(NodeId, u64)>),
-            SynthEditorState,
-            SynthGraphState,
-        )> = cc
+        let state: Option<SynthAppState> = cc
             .storage
             .and_then(|storage| eframe::get_value(storage, "synth-app"));
 
@@ -298,15 +306,7 @@ impl eframe::App for SynthApp {
                             }
                         };
 
-                        let state = match serde_json::from_reader::<
-                            _,
-                            (
-                                (Runtime, Vec<(NodeId, u64)>),
-                                SynthEditorState,
-                                SynthGraphState,
-                            ),
-                        >(file)
-                        {
+                        let state = match serde_json::from_reader::<_, SynthAppState>(file) {
                             Ok(state) => state,
                             Err(e) => {
                                 println!("Failed to deserialize state {}: {}", path.display(), e);

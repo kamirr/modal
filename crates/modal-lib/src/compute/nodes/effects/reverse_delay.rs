@@ -18,6 +18,12 @@ pub struct ReverseDelay {
     out: f32,
 }
 
+impl Default for ReverseDelay {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl ReverseDelay {
     pub fn new() -> Self {
         let len = 44100 / 2;

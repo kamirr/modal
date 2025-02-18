@@ -139,8 +139,7 @@ impl ExternInputs {
             .mapping
             .get(name)
             .copied()
-            .map(|(idx_bits, _kind)| Index::from_bits(idx_bits))
-            .flatten();
+            .and_then(|(idx_bits, _kind)| Index::from_bits(idx_bits));
         res
     }
 
@@ -183,6 +182,12 @@ pub struct Runtime {
     #[serde(with = "crate::util::serde_arena")]
     nodes: Arena<Entry>,
     inputs: ExternInputs,
+}
+
+impl Default for Runtime {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl Runtime {

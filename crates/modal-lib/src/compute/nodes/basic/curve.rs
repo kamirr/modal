@@ -27,6 +27,12 @@ pub struct CurveConfig {
     edit: AtomicBool,
 }
 
+impl Default for CurveConfig {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl CurveConfig {
     pub fn new() -> Self {
         CurveConfig {
@@ -132,6 +138,12 @@ pub struct Curve {
     out: f32,
 }
 
+impl Default for Curve {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl Curve {
     pub fn new() -> Self {
         Curve {
@@ -178,7 +190,7 @@ impl Node for Curve {
             CurveStatus::Done => self.config.values()[0],
             CurveStatus::Playing => {
                 let values = self.config.values();
-                let t = self.t as f32 / length as f32;
+                let t = self.t / length;
 
                 let idx_f32 = t * values.len() as f32;
                 let idx = idx_f32 as usize;
