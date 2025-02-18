@@ -9,6 +9,7 @@ use std::{
 use midly::MidiMessage;
 use node::Node;
 use serde::{Deserialize, Serialize};
+use strum::Display;
 use thunderdome::{Arena, Index};
 
 use node::NodeEvent;
@@ -37,7 +38,7 @@ impl Entry {
 #[derive(Debug, Default, Clone, PartialEq, Serialize, Deserialize, strum::EnumDiscriminants)]
 #[strum_discriminants(name(ValueKind))]
 #[strum_discriminants(vis(pub))]
-#[strum_discriminants(derive(Serialize, Deserialize))]
+#[strum_discriminants(derive(Serialize, Deserialize, Display))]
 pub enum Value {
     #[default]
     None,
@@ -134,15 +135,38 @@ impl ExternInputs {
     }
 
     pub fn get(&self, name: &str) -> Option<Index> {
-        self.mapping
+        let res = self
+            .mapping
             .get(name)
             .copied()
             .map(|(idx_bits, _kind)| Index::from_bits(idx_bits))
-            .flatten()
+            .flatten();
+        res
     }
 
-    pub fn read(&self, index: Index) -> Option<&'_ Value> {
-        self.storage.get(index).map(VecDeque::front).flatten()
+    pub fn read(&self, index: Index) -> Option<Value> {
+        self.storage
+            .get(index)
+            .map(|deq| deq.front().cloned().unwrap_or_default())
+    }
+
+    pub fn extend(&mut self, index: Index, values: impl Iterator<Item = Value>) {
+        let kind = self
+            .mapping
+            .values()
+            .find_map(|(idx_bits, kind)| {
+                (Index::from_bits(*idx_bits).unwrap() == index).then_some(*kind)
+            })
+            .expect("Index not found in mapping");
+        let deque = &mut self.storage[index];
+        for v in values {
+            let found_kind = ValueKind::from(&v);
+            if found_kind != kind {
+                panic!("Mismatched ExternInput type: expected {kind}, found {found_kind}");
+            }
+
+            deque.push_back(v);
+        }
     }
 
     pub fn step(&mut self) {

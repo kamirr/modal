@@ -1,9 +1,13 @@
-use std::{collections::HashMap, fs::File, sync::Arc};
+use std::{
+    collections::HashMap,
+    fs::File,
+    sync::{mpsc::Sender, Arc},
+};
 
 use egui_graph_edit::{InputParamKind, NodeId, NodeResponse};
 use modal_lib::{
     graph::{self, OutputState, SynthDataType, SynthEditorState, SynthGraphExt, SynthGraphState},
-    remote,
+    remote::{self, RtRequest},
 };
 use nih_plug_egui::egui;
 use rfd::FileDialog;
@@ -28,7 +32,7 @@ impl SynthApp {
             SynthEditorState,
             SynthGraphState,
         )>,
-    ) -> (Self, StreamReader) {
+    ) -> (Self, StreamReader, Sender<RtRequest>) {
         use modal_lib::compute::nodes::all::*;
 
         let (audio_out, stream_reader) = StreamAudioOut::new();
@@ -94,7 +98,9 @@ impl SynthApp {
             }
         };
 
-        (this, stream_reader)
+        let sender = this.remote.tx.clone();
+
+        (this, stream_reader, sender)
     }
 
     pub fn update(&mut self, ctx: &egui::Context) {

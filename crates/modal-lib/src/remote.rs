@@ -6,12 +6,19 @@ use std::{
 
 use bimap::BiHashMap;
 use egui_graph_edit::NodeId;
+use serde::{Deserialize, Serialize};
+use strum::Display;
 use thunderdome::Index;
 
 use runtime::{
     node::{Node, NodeEvent},
-    OutputPort, Runtime, Value,
+    OutputPort, Runtime, Value, ValueKind,
 };
+
+#[derive(Clone, Debug, Display, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub enum ExternInput {
+    TrackAudio,
+}
 
 #[derive(Debug)]
 pub enum RtRequest {
@@ -29,6 +36,14 @@ pub enum RtRequest {
     SetAllInputs {
         dst: Index,
         inputs: Vec<Option<OutputPort>>,
+    },
+    ExternDefine {
+        input: ExternInput,
+        kind: ValueKind,
+    },
+    ExternAppend {
+        input: ExternInput,
+        values: Vec<Value>,
     },
     Play(Option<OutputPort>),
     Record(Index, usize),
@@ -52,7 +67,7 @@ pub trait AudioOut: Send {
 }
 
 pub struct RuntimeRemote {
-    tx: Sender<RtRequest>,
+    pub tx: Sender<RtRequest>,
     rx: Receiver<RtResponse>,
     must_wait: bool,
     mapping: BiHashMap<NodeId, Index>,
@@ -70,6 +85,8 @@ impl RuntimeRemote {
         let (cmd_tx, cmd_rx) = channel();
         let (resp_tx, resp_rx) = channel();
 
+        let mut extern_input_indices = HashMap::new();
+
         let mut record = None;
         let buf_size = 512;
         let mut buf = vec![0.0; buf_size];
@@ -82,7 +99,7 @@ impl RuntimeRemote {
         let mut recording = HashMap::<OutputPort, Vec<Value>>::new();
 
         std::thread::spawn(move || {
-            loop {
+            'outer: loop {
                 while audio_out.queue_len() as f32 * buf_size as f32 / 44100.0 > 0.08 {
                     std::thread::sleep(Duration::from_millis(10));
                 }
@@ -117,47 +134,57 @@ impl RuntimeRemote {
                     }
                 }
 
-                let cmd = match cmd_rx.try_recv() {
-                    Ok(cmd) => cmd,
-                    Err(TryRecvError::Empty) => continue,
-                    Err(TryRecvError::Disconnected) => break,
-                };
+                loop {
+                    let cmd = match cmd_rx.try_recv() {
+                        Ok(cmd) => cmd,
+                        Err(TryRecvError::Empty) => break,
+                        Err(TryRecvError::Disconnected) => break 'outer,
+                    };
 
-                match cmd {
-                    RtRequest::Insert { id, inputs, node } => {
-                        let idx = rt.insert(inputs, node);
-                        resp_tx.send(RtResponse::Inserted(id, idx)).ok();
-                    }
-                    RtRequest::Remove(index) => {
-                        rt.remove(index);
-                        recording.retain(|rec, _| rec.node != index);
+                    match cmd {
+                        RtRequest::Insert { id, inputs, node } => {
+                            let idx = rt.insert(inputs, node);
+                            resp_tx.send(RtResponse::Inserted(id, idx)).ok();
+                        }
+                        RtRequest::Remove(index) => {
+                            rt.remove(index);
+                            recording.retain(|rec, _| rec.node != index);
 
-                        if let Some(OutputPort { node, .. }) = record {
-                            if node == index {
-                                record = None;
+                            if let Some(OutputPort { node, .. }) = record {
+                                if node == index {
+                                    record = None;
+                                }
                             }
                         }
-                    }
-                    RtRequest::SetInput { src, dst, port } => {
-                        rt.set_input(dst, port, src);
-                    }
-                    RtRequest::SetAllInputs { dst, inputs } => {
-                        rt.set_all_inputs(dst, inputs);
-                    }
-                    RtRequest::Play(node) => {
-                        record = node;
-                    }
-                    RtRequest::Record(index, port) => {
-                        recording.insert(OutputPort::new(index, port), Vec::new());
-                    }
-                    RtRequest::StopRecording(index, port) => {
-                        recording.remove(&OutputPort::new(index, port));
-                    }
-                    RtRequest::CloneRuntime => {
-                        resp_tx.send(RtResponse::RuntimeCloned(rt.clone())).ok();
-                    }
-                    RtRequest::Shutdown => {
-                        break;
+                        RtRequest::SetInput { src, dst, port } => {
+                            rt.set_input(dst, port, src);
+                        }
+                        RtRequest::SetAllInputs { dst, inputs } => {
+                            rt.set_all_inputs(dst, inputs);
+                        }
+                        RtRequest::ExternDefine { input, kind } => {
+                            let index = rt.extern_inputs().define(input.to_string(), kind);
+                            extern_input_indices.insert(input, index);
+                        }
+                        RtRequest::ExternAppend { input, values } => {
+                            let index = extern_input_indices[&input];
+                            rt.extern_inputs().extend(index, values.into_iter());
+                        }
+                        RtRequest::Play(node) => {
+                            record = node;
+                        }
+                        RtRequest::Record(index, port) => {
+                            recording.insert(OutputPort::new(index, port), Vec::new());
+                        }
+                        RtRequest::StopRecording(index, port) => {
+                            recording.remove(&OutputPort::new(index, port));
+                        }
+                        RtRequest::CloneRuntime => {
+                            resp_tx.send(RtResponse::RuntimeCloned(rt.clone())).ok();
+                        }
+                        RtRequest::Shutdown => {
+                            break;
+                        }
                     }
                 }
 

@@ -5,13 +5,14 @@ use std::{
     collections::VecDeque,
     fmt::Debug,
     num::NonZeroU32,
-    sync::{Arc, LazyLock, Mutex},
+    sync::{mpsc::Sender, Arc, LazyLock, Mutex},
 };
 
 use midly::{num::u7, MidiMessage};
 use modal_lib::{
     compute::nodes::all::source::{MidiSource, MidiSourceNew},
     graph::MidiCollection,
+    remote::{ExternInput, RtRequest},
 };
 use nih_plug::{
     midi::{MidiConfig, NoteEvent},
@@ -24,6 +25,7 @@ use nih_plug::{
     },
 };
 use nih_plug_egui::{create_egui_editor, EguiState};
+use runtime::{Value, ValueKind};
 use serde::{Deserialize, Serialize};
 use stream_audio_out::StreamReader;
 use synth_app::SynthApp;
@@ -70,6 +72,7 @@ impl MidiSource for DawMidiSource {
 
 pub struct Modal {
     app: Arc<Mutex<SynthApp>>,
+    sender: Sender<RtRequest>,
     reader: StreamReader,
     params: Arc<ModalParams>,
     samples: VecDeque<f32>,
@@ -77,13 +80,20 @@ pub struct Modal {
 
 impl Default for Modal {
     fn default() -> Self {
-        let (mut app, reader) = SynthApp::new(None);
+        let (mut app, reader, sender) = SynthApp::new(None);
         app.user_state.ctx.midi.insert(
             "Track".to_string(),
             MidiCollection::Single(Box::new(DawMidiStreamNew)),
         );
+        sender
+            .send(RtRequest::ExternDefine {
+                input: ExternInput::TrackAudio,
+                kind: ValueKind::Float,
+            })
+            .ok();
         Modal {
             app: Arc::new(Mutex::new(app)),
+            sender,
             reader,
             params: Arc::new(ModalParams::default()),
             samples: VecDeque::default(),
@@ -186,20 +196,32 @@ impl Plugin for Modal {
             }
 
             if let Some(msg) = midi_msg {
-                println!("Received message: {msg:?}");
                 DAW_MIDI.0.send(msg).unwrap();
             }
         }
 
-        for channel in buffer.iter_samples() {
-            while self.samples.len() < channel.len() {
-                let chunk = self.reader.read();
-                self.samples.extend(chunk.into_iter());
-            }
+        let samples = buffer
+            .iter_samples()
+            .map(|mut s| *s.get_mut(0).unwrap())
+            .map(|f| Value::Float(f))
+            .collect::<Vec<_>>();
 
-            for sample in channel {
-                *sample = self.samples.pop_front().unwrap_or_default();
-            }
+        let samples_len = samples.len();
+
+        self.sender
+            .send(RtRequest::ExternAppend {
+                input: ExternInput::TrackAudio,
+                values: samples,
+            })
+            .ok();
+
+        while self.samples.len() < samples_len {
+            let chunk = self.reader.read();
+            self.samples.extend(chunk.into_iter());
+        }
+
+        for mut sample in buffer.iter_samples() {
+            *sample.get_mut(0).unwrap() = self.samples.pop_front().unwrap_or_default();
         }
 
         ProcessStatus::Normal

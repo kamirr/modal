@@ -8,6 +8,7 @@ pub mod curve;
 pub mod delay;
 pub mod difference;
 pub mod expr;
+pub mod extern_input_reader;
 pub mod gain;
 pub mod gate;
 pub mod latch;
@@ -76,6 +77,11 @@ impl NodeList for Basic {
                 vec!["Source".into()],
             ),
             (pulse::pulse(), "Pulse".into(), vec!["Control".into()]),
+            (
+                extern_input_reader::track_audio(),
+                "Track Audio".into(),
+                vec!["Source".into()],
+            ),
             (
                 transform::transform(),
                 "Transform".into(),
