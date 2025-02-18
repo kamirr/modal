@@ -1,5 +1,6 @@
 # Modal
-Modal is a standalone, modular sound synthesiser.
+Modal is modular sound synthesiser designed for both standalone use and as
+a plugin in your favorite DAW.
 
 Modal enables flexible operations on sounds as well as low-frequency signals in
 real time, where any signal can control the behavior of any block. A considerable
@@ -20,6 +21,10 @@ limited to):
   - Uniform Bar
   - Plucked String
 - Fluidlite synth evaluator
+- Arbitary arithmetic expressions
+- Clipping
+- Chorus
+- Glide
 
 Besides raw signals, Modal supports MIDI via `midi` files and the [JACK Audio
 Connection Kit](https://jackaudio.org/) and synchronizing various blocks and
