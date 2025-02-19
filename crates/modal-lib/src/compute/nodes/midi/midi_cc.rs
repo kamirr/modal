@@ -19,6 +19,12 @@ use crate::{compute::inputs::midi::MidiInput, serde_atomic_enum, util::enum_comb
 #[derive(Serialize, Deserialize, PartialEq, Eq, strum::EnumIter)]
 pub enum MidiCcKind {
     FootPedal,
+    Volume,
+    Expression,
+    Effect1,
+    Effect2,
+    DamperPedal,
+    Portamento,
 }
 
 serde_atomic_enum!(AtomicMidiCcKind);
@@ -27,18 +33,35 @@ impl MidiCcKind {
     pub fn number(self) -> u7 {
         u7::new(match self {
             MidiCcKind::FootPedal => 4,
+            MidiCcKind::Volume => 7,
+            MidiCcKind::Expression => 11,
+            MidiCcKind::Effect1 => 12,
+            MidiCcKind::Effect2 => 13,
+            MidiCcKind::DamperPedal => 64,
+            MidiCcKind::Portamento => 65,
         })
     }
 
     pub fn binary(self) -> bool {
         match self {
-            MidiCcKind::FootPedal => false,
+            MidiCcKind::FootPedal
+            | MidiCcKind::Volume
+            | MidiCcKind::Expression
+            | MidiCcKind::Effect1
+            | MidiCcKind::Effect2 => false,
+            MidiCcKind::DamperPedal | MidiCcKind::Portamento => true,
         }
     }
 
     pub fn default(self) -> u7 {
         u7::new(match self {
             MidiCcKind::FootPedal => 0,
+            MidiCcKind::Volume => 127,
+            MidiCcKind::Expression => 127,
+            MidiCcKind::Effect1 => 0,
+            MidiCcKind::Effect2 => 0,
+            MidiCcKind::DamperPedal => 0,
+            MidiCcKind::Portamento => 0,
         })
     }
 }
@@ -50,6 +73,12 @@ impl fmt::Display for MidiCcKind {
             "{}",
             match self {
                 MidiCcKind::FootPedal => "Foot Pedal",
+                MidiCcKind::Volume => "Volume",
+                MidiCcKind::Expression => "Expression",
+                MidiCcKind::Effect1 => "Effect Controller 1",
+                MidiCcKind::Effect2 => "Effect Controller 2",
+                MidiCcKind::DamperPedal => "Damper Pedal",
+                MidiCcKind::Portamento => "Portamento",
             }
         )
     }
@@ -115,5 +144,12 @@ impl Node for MidiCc {
 }
 
 pub fn midi_cc() -> Box<dyn Node> {
-    todo!()
+    Box::new(MidiCc {
+        config: Arc::new(MidiCcConfig {
+            cc: MidiCcKind::FootPedal.into(),
+        }),
+        midi_in: Arc::new(MidiInput::new()),
+        cc: MidiCcKind::FootPedal,
+        value: 0.0,
+    })
 }
