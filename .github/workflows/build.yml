@@ -1,10 +1,6 @@
 name: Automated Builds
 
-on:
-  pull_request:
-    branches:
-      - main
-  workflow_dispatch:
+on: push
 
 defaults:
   run:
