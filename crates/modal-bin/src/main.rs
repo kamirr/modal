@@ -257,9 +257,22 @@ impl SynthApp {
     fn serializable_state(&mut self) -> impl serde::Serialize + '_ {
         let rt_state = self.remote.save_state();
         let editor_state = &self.state;
-        let user_state = &self.user_state;
+        let graph_state = &self.user_state;
 
-        (rt_state, editor_state, user_state)
+        #[derive(Serialize)]
+        struct SerImpl<'a, 'b> {
+            pub rt: Runtime,
+            pub mapping: Vec<(NodeId, u64)>,
+            pub editor_state: &'a SynthEditorState,
+            pub graph_state: &'b SynthGraphState,
+        }
+
+        SerImpl {
+            rt: rt_state.0,
+            mapping: rt_state.1,
+            editor_state,
+            graph_state,
+        }
     }
 }
 
