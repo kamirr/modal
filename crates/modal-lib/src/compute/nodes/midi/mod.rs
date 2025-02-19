@@ -2,6 +2,7 @@ use super::NodeList;
 use runtime::node::Node;
 
 pub mod fluidlite;
+pub mod midi_cc;
 pub mod one_note;
 pub mod source;
 
@@ -15,6 +16,7 @@ impl NodeList for Midi {
                 "Fluidlite Synth".into(),
                 vec!["Midi".into()],
             ),
+            (midi_cc::midi_cc(), "Midi CC".into(), vec!["Midi".into()]),
             (
                 one_note::one_note(),
                 "One Note Instrument".into(),
