@@ -6,6 +6,7 @@ pub mod chorus;
 pub mod clip;
 pub mod glide;
 pub mod heart;
+pub mod pitch_shift;
 pub mod reverb;
 pub mod reverse_delay;
 
@@ -19,6 +20,11 @@ impl NodeList for Effects {
             (clip::clip(), "Clip".into(), vec!["Effect".into()]),
             (glide::glide(), "Glide".into(), vec!["Effect".into()]),
             (heart::heart(), "Heart".into(), vec!["Effect".into()]),
+            (
+                pitch_shift::pitch_shift(),
+                "Pitch Shift".into(),
+                vec!["Effect".into()],
+            ),
             (reverb::reverb(), "Reverb".into(), vec!["Effect".into()]),
             (
                 reverse_delay::reverse_delay(),

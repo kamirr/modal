@@ -37,6 +37,8 @@ rand_distr = "0.4.3"
 rubato = "0.16.0"
 rustfft = "6.1.0"
 serde = { workspace = true }
+serde-big-array = "0.5.1"
+signalsmith-stretch = "0.1.1"
 strum = { workspace = true }
 thunderdome = { workspace = true }
 typetag = { workspace = true }
