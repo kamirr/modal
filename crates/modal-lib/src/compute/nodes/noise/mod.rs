@@ -136,7 +136,9 @@ impl Node for NoiseGen {
             Input::stateful("max", &self.max),
         ];
 
-        if self.ty == NoiseType::Perlin { ins.push(Input::stateful("f", &self.frequency_input)) }
+        if self.ty == NoiseType::Perlin {
+            ins.push(Input::stateful("f", &self.frequency_input))
+        }
 
         ins
     }

@@ -293,10 +293,7 @@ impl RuntimeRemote {
                 self.runtime = Some(runtime);
             }
             RtResponse::Samples(index, samples) => {
-                self.recordings
-                    .entry(index)
-                    .or_default()
-                    .extend(samples);
+                self.recordings.entry(index).or_default().extend(samples);
             }
             RtResponse::Step => {}
         }
