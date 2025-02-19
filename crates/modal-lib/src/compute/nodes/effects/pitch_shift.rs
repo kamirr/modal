@@ -71,7 +71,7 @@ impl Node for PitchShift {
         self.pos += 1;
 
         if self.pos == self.input.len() {
-            self.stretch.process(&self.input, &mut self.output);
+            self.stretch.process(self.input, &mut self.output);
             self.pos = 0;
         }
 
