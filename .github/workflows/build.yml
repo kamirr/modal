@@ -57,6 +57,7 @@ jobs:
         uses: dtolnay/rust-toolchain@nightly
         with:
           targets: ${{ matrix.cross-target }}
+
       - name: Package all targets from bundler.toml
         run: |
           # Building can be sped up by specifying all packages in one go
@@ -77,6 +78,8 @@ jobs:
 
             cargo xtask bundle "${package_args[@]}" --release
           fi
+        env:
+          CXXFLAGS: --std=c++11
 
       - name: Determine build archive name
         run: |
