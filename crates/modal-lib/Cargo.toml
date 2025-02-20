@@ -17,7 +17,7 @@ eframe = { workspace = true }
 egui-curve-edit = { git = "https://github.com/kamirr/egui-curve-edit", features = [
   "serde",
 ] }
-egui-graph-edit = { version = "0.5.1", features = ["persistence"] }
+egui-graph-edit = { workspace = true }
 egui-knobs = { git = "https://github.com/kamirr/egui-knobs" }
 egui_plot = "0.31.0"
 fluidlite = { version = "0.2.1", features = ["bindgen"] }
