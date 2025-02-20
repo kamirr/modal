@@ -132,7 +132,7 @@ impl Twang {
                 pluck: AtomicBool::new(false),
             }),
             pluck_pos_input: Arc::new(PercentageInput::new(40.0)),
-            freq_input: Arc::new(FreqInput::new(220.0)),
+            freq_input: Arc::new(FreqInput::new(220.0).min(40)),
 
             delay_line: RawDelay::new_allpass(4096.0),
             comb_delay: RawDelay::new_linear(4096.0),
