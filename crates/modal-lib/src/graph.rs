@@ -119,42 +119,44 @@ impl NodeDataTrait for SynthNodeData {
         let scope_btn = util::toggle_button("👁Scope", state.show_scope);
         let play_btn = util::toggle_button("👂Play", is_playing);
 
-        let resp = ui.horizontal(|ui| {
-            ui.with_layout(egui::Layout::right_to_left(Align::RIGHT), |ui| {
-                ui.label(param_name);
-                (ui.add(scope_btn), ui.add(play_btn))
-            })
-        });
+        ui.vertical(|ui| {
+            let resp = ui.horizontal(|ui| {
+                ui.with_layout(egui::Layout::right_to_left(Align::RIGHT), |ui| {
+                    ui.label(param_name);
+                    (ui.add(scope_btn), ui.add(play_btn))
+                })
+            });
 
-        if resp.inner.inner.0.clicked() {
-            state.show_scope = !state.show_scope;
-        }
+            if resp.inner.inner.0.clicked() {
+                state.show_scope = !state.show_scope;
+            }
 
-        if resp.inner.inner.1.clicked() {
-            if !is_playing {
-                responses.push(NodeResponse::User(SynthNodeResponse::SetRtPlayback(
+            if resp.inner.inner.1.clicked() {
+                if !is_playing {
+                    responses.push(NodeResponse::User(SynthNodeResponse::SetRtPlayback(
+                        node_id, port,
+                    )));
+                } else {
+                    responses.push(NodeResponse::User(SynthNodeResponse::ClearRtPlayback));
+                }
+            }
+
+            if state.show_scope && state.scope.is_none() {
+                state.scope = Some(Scope::new());
+                responses.push(NodeResponse::User(SynthNodeResponse::StartRecording(
                     node_id, port,
                 )));
-            } else {
-                responses.push(NodeResponse::User(SynthNodeResponse::ClearRtPlayback));
+            } else if !state.show_scope && state.scope.is_some() {
+                state.scope = None;
+                responses.push(NodeResponse::User(SynthNodeResponse::StopRecording(
+                    node_id, port,
+                )));
             }
-        }
 
-        if state.show_scope && state.scope.is_none() {
-            state.scope = Some(Scope::new());
-            responses.push(NodeResponse::User(SynthNodeResponse::StartRecording(
-                node_id, port,
-            )));
-        } else if !state.show_scope && state.scope.is_some() {
-            state.scope = None;
-            responses.push(NodeResponse::User(SynthNodeResponse::StopRecording(
-                node_id, port,
-            )));
-        }
-
-        if let Some(scope) = &mut state.scope {
-            scope.show(ui);
-        }
+            if let Some(scope) = &mut state.scope {
+                scope.show(ui);
+            }
+        });
 
         responses
     }
