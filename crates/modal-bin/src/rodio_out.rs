@@ -1,4 +1,4 @@
-use modal_lib::remote::AudioOut;
+use modal_editor::AudioOut;
 use rodio::{OutputStreamHandle, Sink};
 
 pub struct RodioOut {

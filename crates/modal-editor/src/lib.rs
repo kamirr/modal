@@ -1,118 +1,235 @@
-use std::{
-    collections::HashMap,
-    fs::File,
-    sync::{mpsc::Sender, Arc},
-};
+use std::{collections::HashMap, fs::File, sync::Arc, time::Instant};
 
+use eframe::egui;
 use egui_graph_edit::{InputParamKind, NodeId, NodeResponse};
 use modal_lib::{
-    graph::{self, OutputState, SynthDataType, SynthEditorState, SynthGraphExt, SynthGraphState},
-    remote::{self, RtRequest},
+    compute::nodes::all::source::{jack::JackSourceNew, smf::SmfSourceNew, MidiSourceNew},
+    graph::MidiCollection,
+    remote,
 };
-use nih_plug_egui::egui;
-use rfd::FileDialog;
+
 use runtime::{
     node::{Input, NodeEvent},
     OutputPort, Runtime,
 };
+
+use rfd::FileDialog;
+
+use modal_lib::graph::{
+    self, OutputState, SynthDataType, SynthEditorState, SynthGraphExt, SynthGraphState,
+};
 use serde::{Deserialize, Serialize};
 
-use crate::stream_audio_out::{StreamAudioOut, StreamReader};
+pub use modal_lib::remote::AudioOut;
 
 #[derive(Serialize, Deserialize)]
-pub struct SynthAppState {
+pub struct ModalEditorState {
     pub rt: Runtime,
     pub mapping: Vec<(NodeId, u64)>,
     pub editor_state: SynthEditorState,
     pub graph_state: SynthGraphState,
 }
 
-pub struct SynthApp {
-    state: graph::SynthEditorState,
+pub struct ModalEditor {
     pub user_state: graph::SynthGraphState,
+    pub remote: remote::RuntimeRemote,
+    state: graph::SynthEditorState,
     all_nodes: graph::AllSynthNodeTemplates,
-    remote: remote::RuntimeRemote,
+    prev_frame: Instant,
 }
 
-impl SynthApp {
-    pub fn new(state: Option<SynthAppState>) -> (Self, StreamReader, Sender<RtRequest>) {
-        use modal_lib::compute::nodes::all::*;
+impl ModalEditor {
+    pub fn new(audio_out: Box<dyn AudioOut>) -> Self {
+        pub use modal_lib::compute::nodes::all::*;
 
-        let (audio_out, stream_reader) = StreamAudioOut::new();
+        ModalEditor {
+            state: Default::default(),
+            user_state: Default::default(),
+            all_nodes: graph::AllSynthNodeTemplates::new(vec![
+                Box::new(Basic),
+                Box::new(Effects),
+                Box::new(Filters),
+                Box::new(Instruments),
+                Box::new(Midi),
+                Box::new(Noise),
+            ]),
+            remote: remote::RuntimeRemote::start(audio_out),
+            prev_frame: Instant::now(),
+        }
+    }
 
-        let this = if let Some(SynthAppState {
+    pub fn replace(&mut self, state: ModalEditorState) {
+        let ModalEditorState {
             rt,
             mapping,
             editor_state,
             mut graph_state,
-        }) = state
-        {
-            for (idx, node) in rt.nodes() {
-                let node_id = mapping
+        } = state;
+
+        for (idx, node) in rt.nodes() {
+            let node_id = mapping
+                .iter()
+                .find(|(_, bits)| *bits == idx.to_bits())
+                .unwrap()
+                .0;
+            if let Some(config) = node.config() {
+                graph_state
+                    .node_configs
+                    .insert(node_id, Arc::downgrade(&config));
+            }
+
+            graph_state.node_ui_inputs.insert(node_id, HashMap::new());
+            let inputs = graph_state.node_ui_inputs.get_mut(&node_id).unwrap();
+            for input in node.inputs() {
+                if let Some(default) = input.default_value {
+                    inputs.insert(input.name, default);
+                }
+            }
+        }
+
+        self.remote.replace_runtime(rt, mapping);
+
+        for (node_id, node) in &editor_state.graph.nodes {
+            for (param_name, _out_state) in node.user_data.out_states.borrow().iter() {
+                self.remote.record(
+                    node_id,
+                    editor_state.graph.get_port(node_id, param_name).unwrap(),
+                );
+            }
+        }
+
+        self.remote.play(graph_state.rt_playback);
+        self.state = editor_state;
+        self.user_state = graph_state;
+    }
+
+    fn recalc_inputs(&mut self, node_id: NodeId, inputs: Vec<Input>) {
+        let curr_inputs = self.state.graph.nodes.get(node_id).unwrap().inputs.clone();
+        let input_names: Vec<_> = inputs.iter().map(|input| input.name.clone()).collect();
+
+        // remove inputs that exist but aren't in `inputs` arg
+        for (name, in_id) in &curr_inputs {
+            if !input_names.contains(name) {
+                self.state.graph.remove_input_param(*in_id);
+            }
+        }
+
+        // create inputs that don't exist but are in `inputs` arg
+        let ui_inputs = self.user_state.node_ui_inputs.get_mut(&node_id).unwrap();
+        for input in inputs {
+            if !curr_inputs.iter().any(|(name, _)| name == &input.name) {
+                let data_type = graph::SynthDataType::from_value_kind(input.kind);
+
+                self.state.graph.add_input_param(
+                    node_id,
+                    input.name.clone(),
+                    data_type,
+                    graph::SynthValueType::default_with_type(data_type),
+                    InputParamKind::ConnectionOrConstant,
+                    true,
+                );
+            }
+
+            if let Some(default_value) = input.default_value {
+                ui_inputs.insert(input.name, default_value);
+            }
+        }
+
+        self.state
+            .graph
+            .nodes
+            .get_mut(node_id)
+            .unwrap()
+            .inputs
+            .sort_by_key(|(name, _id)| {
+                input_names
                     .iter()
-                    .find(|(_, bits)| *bits == idx.to_bits())
+                    .enumerate()
+                    .find(|(_, source_name)| *source_name == name)
+                    .unwrap()
+                    .0
+            });
+
+        // recalculate runtime inputs
+        let mut rt_inputs = Vec::new();
+        for in_id in self.state.graph.nodes.get(node_id).unwrap().input_ids() {
+            let src = self
+                .state
+                .graph
+                .connection(in_id)
+                .map(|out| (self.state.graph.get_output(out), out))
+                .map(|(out_params, out)| (out_params.node, out))
+                .and_then(|(node_id, out)| {
+                    self.remote
+                        .id_to_index(node_id)
+                        .map(|idx| (idx, node_id, out))
+                });
+
+            let src = src.map(|(idx, node_id, out_id)| {
+                let port = self
+                    .state
+                    .graph
+                    .nodes
+                    .get(node_id)
+                    .unwrap()
+                    .outputs
+                    .iter()
+                    .enumerate()
+                    .find(|(_i, (_name, id))| out_id == *id)
                     .unwrap()
                     .0;
-                if let Some(config) = node.config() {
-                    graph_state
-                        .node_configs
-                        .insert(node_id, Arc::downgrade(&config));
+
+                OutputPort::new(idx, port)
+            });
+
+            rt_inputs.push(src);
+        }
+        self.remote.set_inputs(node_id, rt_inputs);
+    }
+
+    fn load_midi(&mut self) {
+        if let Some(path) = rfd::FileDialog::new().pick_file() {
+            let new = match SmfSourceNew::new(&path) {
+                Ok(new) => new,
+                Err(e) => {
+                    println!("{}", e);
+                    return;
                 }
+            };
 
-                graph_state.node_ui_inputs.insert(node_id, HashMap::new());
-                let inputs = graph_state.node_ui_inputs.get_mut(&node_id).unwrap();
-                for input in node.inputs() {
-                    if let Some(default) = input.default_value {
-                        inputs.insert(input.name, default);
-                    }
-                }
-            }
+            let file_midi = self
+                .user_state
+                .ctx
+                .midi
+                .entry("File".to_string())
+                .or_insert(MidiCollection::List(Vec::new()));
+            let MidiCollection::List(list) = file_midi else {
+                unreachable!()
+            };
+            list.push(Box::new(new));
+            list.sort_by_key(|smf| smf.name());
+        }
+    }
 
-            let mut remote = remote::RuntimeRemote::from_parts(rt, mapping, Box::new(audio_out));
+    pub fn serializable_state(&mut self) -> impl serde::Serialize + '_ {
+        let rt_state = self.remote.save_state();
+        let editor_state = &self.state;
+        let graph_state = &self.user_state;
 
-            for (node_id, node) in &editor_state.graph.nodes {
-                for (param_name, _out_state) in node.user_data.out_states.borrow().iter() {
-                    remote.record(
-                        node_id,
-                        editor_state.graph.get_port(node_id, param_name).unwrap(),
-                    );
-                }
-            }
+        #[derive(Serialize)]
+        struct SerImpl<'a, 'b> {
+            pub rt: Runtime,
+            pub mapping: Vec<(NodeId, u64)>,
+            pub editor_state: &'a SynthEditorState,
+            pub graph_state: &'b SynthGraphState,
+        }
 
-            remote.play(graph_state.rt_playback);
-
-            SynthApp {
-                state: editor_state,
-                user_state: graph_state,
-                all_nodes: graph::AllSynthNodeTemplates::new(vec![
-                    Box::new(Basic),
-                    Box::new(Effects),
-                    Box::new(Filters),
-                    Box::new(Instruments),
-                    Box::new(Midi),
-                    Box::new(Noise),
-                ]),
-                remote,
-            }
-        } else {
-            SynthApp {
-                state: Default::default(),
-                user_state: Default::default(),
-                all_nodes: graph::AllSynthNodeTemplates::new(vec![
-                    Box::new(Basic),
-                    Box::new(Effects),
-                    Box::new(Filters),
-                    Box::new(Instruments),
-                    Box::new(Midi),
-                    Box::new(Noise),
-                ]),
-                remote: remote::RuntimeRemote::start(Box::new(audio_out)),
-            }
-        };
-
-        let sender = this.remote.tx.clone();
-
-        (this, stream_reader, sender)
+        SerImpl {
+            rt: rt_state.0,
+            mapping: rt_state.1,
+            editor_state,
+            graph_state,
+        }
     }
 
     pub fn update(&mut self, ctx: &egui::Context) {
@@ -148,15 +265,7 @@ impl SynthApp {
                             }
                         };
 
-                        let _state = match serde_json::from_reader::<
-                            _,
-                            (
-                                (Runtime, Vec<(NodeId, u64)>),
-                                SynthEditorState,
-                                SynthGraphState,
-                            ),
-                        >(file)
-                        {
+                        let state = match serde_json::from_reader::<_, ModalEditorState>(file) {
                             Ok(state) => state,
                             Err(e) => {
                                 println!("Failed to deserialize state {}: {}", path.display(), e);
@@ -164,10 +273,17 @@ impl SynthApp {
                             }
                         };
 
-                        //let _ = std::mem::replace(self, Self::new(Some(state)));
-                        todo!()
+                        self.replace(state);
                     }
                 });
+
+                if ui.button("Open Midi").clicked() {
+                    self.load_midi();
+                }
+
+                let fps = 1.0 / self.prev_frame.elapsed().as_secs_f32();
+                self.prev_frame = Instant::now();
+                ui.label(format!("fps: {fps:.2}"));
             });
         });
 
@@ -328,99 +444,26 @@ impl SynthApp {
             }
         }
 
+        let synth_ctx = &mut self.user_state.ctx;
+        if synth_ctx.last_updated_jack.elapsed().as_secs_f32() > 2.0 {
+            synth_ctx.last_updated_jack = Instant::now();
+            let midi_jack = synth_ctx
+                .midi
+                .entry(String::from("Jack"))
+                .or_insert(MidiCollection::List(Vec::new()));
+            *midi_jack = MidiCollection::List(
+                JackSourceNew::all()
+                    .into_iter()
+                    .map(|new| Box::new(new) as Box<dyn MidiSourceNew>)
+                    .collect(),
+            );
+        }
+
         self.remote.wait();
         ctx.request_repaint();
     }
 
-    fn recalc_inputs(&mut self, node_id: NodeId, inputs: Vec<Input>) {
-        let curr_inputs = self.state.graph.nodes.get(node_id).unwrap().inputs.clone();
-        let input_names: Vec<_> = inputs.iter().map(|input| input.name.clone()).collect();
-
-        // remove inputs that exist but aren't in `inputs` arg
-        for (name, in_id) in &curr_inputs {
-            if !input_names.contains(name) {
-                self.state.graph.remove_input_param(*in_id);
-            }
-        }
-
-        // create inputs that don't exist but are in `inputs` arg
-        let ui_inputs = self.user_state.node_ui_inputs.get_mut(&node_id).unwrap();
-        for input in inputs {
-            if !curr_inputs.iter().any(|(name, _)| name == &input.name) {
-                let data_type = graph::SynthDataType::from_value_kind(input.kind);
-
-                self.state.graph.add_input_param(
-                    node_id,
-                    input.name.clone(),
-                    data_type,
-                    graph::SynthValueType::default_with_type(data_type),
-                    InputParamKind::ConnectionOrConstant,
-                    true,
-                );
-            }
-
-            if let Some(default_value) = input.default_value {
-                ui_inputs.insert(input.name, default_value);
-            }
-        }
-
-        self.state
-            .graph
-            .nodes
-            .get_mut(node_id)
-            .unwrap()
-            .inputs
-            .sort_by_key(|(name, _id)| {
-                input_names
-                    .iter()
-                    .enumerate()
-                    .find(|(_, source_name)| *source_name == name)
-                    .unwrap()
-                    .0
-            });
-
-        // recalculate runtime inputs
-        let mut rt_inputs = Vec::new();
-        for in_id in self.state.graph.nodes.get(node_id).unwrap().input_ids() {
-            let src = self
-                .state
-                .graph
-                .connection(in_id)
-                .map(|out| (self.state.graph.get_output(out), out))
-                .map(|(out_params, out)| (out_params.node, out))
-                .and_then(|(node_id, out)| {
-                    self.remote
-                        .id_to_index(node_id)
-                        .map(|idx| (idx, node_id, out))
-                });
-
-            let src = src.map(|(idx, node_id, out_id)| {
-                let port = self
-                    .state
-                    .graph
-                    .nodes
-                    .get(node_id)
-                    .unwrap()
-                    .outputs
-                    .iter()
-                    .enumerate()
-                    .find(|(_i, (_name, id))| out_id == *id)
-                    .unwrap()
-                    .0;
-
-                OutputPort::new(idx, port)
-            });
-
-            rt_inputs.push(src);
-        }
-        self.remote.set_inputs(node_id, rt_inputs);
-    }
-
-    fn serializable_state(&mut self) -> impl serde::Serialize + '_ {
-        let rt_state = self.remote.save_state();
-        let editor_state = &self.state;
-        let user_state = &self.user_state;
-
-        (rt_state, editor_state, user_state)
+    pub fn shutdown(&mut self) {
+        self.remote.shutdown();
     }
 }

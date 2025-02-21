@@ -6,11 +6,6 @@ license = "MIT"
 
 [dependencies]
 eframe = { workspace = true }
-egui-graph-edit = { workspace = true }
-rfd = { workspace = true }
 rodio = "0.17.1"
-serde = { workspace = true }
-serde_json = { workspace = true }
 
-modal-lib = { path = "../modal-lib" }
-runtime = { path = "../runtime" }
+modal-editor = { path = "../modal-editor" }

@@ -3263,10 +3263,18 @@ name = "modal"
 version = "0.1.0"
 dependencies = [
  "eframe",
+ "modal-editor",
+ "rodio",
+]
+
+[[package]]
+name = "modal-editor"
+version = "0.1.0"
+dependencies = [
+ "eframe",
  "egui-graph-edit",
  "modal-lib",
  "rfd",
- "rodio",
  "runtime",
  "serde",
  "serde_json",
@@ -3319,15 +3327,13 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "barrage",
- "egui-graph-edit",
  "midly",
+ "modal-editor",
  "modal-lib",
  "nih_plug",
  "nih_plug_egui",
- "rfd",
  "runtime",
  "serde",
- "serde_json",
  "typetag",
 ]
 

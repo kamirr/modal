@@ -1,0 +1,14 @@
+[package]
+edition = "2021"
+name = "modal-editor"
+version = "0.1.0"
+license = "MIT"
+
+[dependencies]
+eframe = { workspace = true }
+egui-graph-edit = { workspace = true }
+rfd = { workspace = true }
+runtime = { path = "../runtime" }
+modal-lib = { path = "../modal-lib" }
+serde = { workspace = true }
+serde_json = { workspace = true }
