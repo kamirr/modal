@@ -1,12 +1,13 @@
 [workspace]
-resolver = "2"
 members = [
     "crates/modal-lib",
+    "crates/modal-editor",
     "crates/modal-bin",
     "crates/modal-plugin",
     "crates/runtime",
     "xtask",
 ]
+resolver = "2"
 
 [workspace.dependencies]
 anyhow = "1.0.70"

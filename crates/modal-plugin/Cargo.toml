@@ -6,22 +6,19 @@ version = "0.1.0"
 license-file = "LICENSE"
 
 [lib]
-# The `lib` artifact is needed for the standalone target
 crate-type = ["cdylib", "lib"]
 
 [dependencies]
 anyhow = { workspace = true }
-barrage = "0.2.3"
-egui-graph-edit = { workspace = true }
 midly = { workspace = true }
+barrage = "0.2.3"
+modal-editor = { path = "../modal-editor" }
 modal-lib = { path = "../modal-lib" }
 nih_plug = { git = "https://github.com/rbmj/nih-plug", features = [
     "assert_process_allocs",
     "standalone",
 ] }
 nih_plug_egui = { git = "https://github.com/rbmj/nih-plug" }
-rfd = { workspace = true }
 runtime = { path = "../runtime" }
 serde = { workspace = true }
-serde_json = { workspace = true }
 typetag = { workspace = true }

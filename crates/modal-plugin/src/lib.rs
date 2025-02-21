@@ -1,5 +1,4 @@
 mod stream_audio_out;
-mod synth_app;
 
 use std::{
     collections::VecDeque,
@@ -9,6 +8,7 @@ use std::{
 };
 
 use midly::{num::u7, MidiMessage};
+use modal_editor::ModalEditor;
 use modal_lib::{
     compute::nodes::all::source::{MidiSource, MidiSourceNew},
     graph::MidiCollection,
@@ -27,8 +27,7 @@ use nih_plug::{
 use nih_plug_egui::{create_egui_editor, EguiState};
 use runtime::{Value, ValueKind};
 use serde::{Deserialize, Serialize};
-use stream_audio_out::StreamReader;
-use synth_app::SynthApp;
+use stream_audio_out::{StreamAudioOut, StreamReader};
 
 struct DawMidi {
     tx: barrage::Sender<(u8, MidiMessage)>,
@@ -76,7 +75,7 @@ impl MidiSource for DawMidiSource {
 }
 
 pub struct Modal {
-    app: Arc<Mutex<SynthApp>>,
+    app: Arc<Mutex<ModalEditor>>,
     sender: Sender<RtRequest>,
     reader: StreamReader,
     params: Arc<ModalParams>,
@@ -85,7 +84,9 @@ pub struct Modal {
 
 impl Default for Modal {
     fn default() -> Self {
-        let (mut app, reader, sender) = SynthApp::new(None);
+        let (audio_out, reader) = StreamAudioOut::new();
+        let mut app = ModalEditor::new(Box::new(audio_out));
+        let sender = app.remote.tx.clone();
         app.user_state.ctx.midi.insert(
             "Track".to_string(),
             MidiCollection::Single(Box::new(DawMidiStreamNew)),

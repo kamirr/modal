@@ -48,6 +48,7 @@ pub enum RtRequest {
     Play(Option<OutputPort>),
     Record(Index, usize),
     StopRecording(Index, usize),
+    ReplaceRuntime(Runtime),
     CloneRuntime,
     Shutdown,
 }
@@ -185,6 +186,9 @@ impl RuntimeRemote {
                         RtRequest::Shutdown => {
                             break;
                         }
+                        RtRequest::ReplaceRuntime(runtime) => {
+                            rt = runtime;
+                        }
                     }
                 }
 
@@ -275,6 +279,14 @@ impl RuntimeRemote {
     pub fn stop_recording(&mut self, id: NodeId, port: usize) {
         let idx = *self.mapping.get_by_left(&id).unwrap();
         self.tx.send(RtRequest::StopRecording(idx, port)).ok();
+    }
+
+    pub fn replace_runtime(&mut self, rt: Runtime, mapping: Vec<(NodeId, u64)>) {
+        self.mapping = mapping
+            .into_iter()
+            .map(|(id, bits)| (id, Index::from_bits(bits).unwrap()))
+            .collect();
+        self.tx.send(RtRequest::ReplaceRuntime(rt)).ok();
     }
 
     pub fn shutdown(&mut self) {

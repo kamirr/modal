@@ -4,7 +4,7 @@ use std::sync::{
     Arc,
 };
 
-use modal_lib::remote::AudioOut;
+use modal_editor::AudioOut;
 
 pub struct StreamReader {
     rx: Receiver<Vec<f32>>,
