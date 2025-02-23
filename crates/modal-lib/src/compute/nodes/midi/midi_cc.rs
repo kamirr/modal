@@ -18,6 +18,7 @@ use crate::{compute::inputs::midi::MidiInput, serde_atomic_enum, util::enum_comb
 #[atomic_enum]
 #[derive(Serialize, Deserialize, PartialEq, Eq, strum::EnumIter)]
 pub enum MidiCcKind {
+    Modulation,
     FootPedal,
     Volume,
     Expression,
@@ -32,6 +33,7 @@ serde_atomic_enum!(AtomicMidiCcKind);
 impl MidiCcKind {
     pub fn number(self) -> u7 {
         u7::new(match self {
+            MidiCcKind::Modulation => 1,
             MidiCcKind::FootPedal => 4,
             MidiCcKind::Volume => 7,
             MidiCcKind::Expression => 11,
@@ -44,7 +46,8 @@ impl MidiCcKind {
 
     pub fn binary(self) -> bool {
         match self {
-            MidiCcKind::FootPedal
+            MidiCcKind::Modulation
+            | MidiCcKind::FootPedal
             | MidiCcKind::Volume
             | MidiCcKind::Expression
             | MidiCcKind::Effect1
@@ -55,6 +58,7 @@ impl MidiCcKind {
 
     pub fn default(self) -> u7 {
         u7::new(match self {
+            MidiCcKind::Modulation => 0,
             MidiCcKind::FootPedal => 0,
             MidiCcKind::Volume => 127,
             MidiCcKind::Expression => 127,
@@ -72,6 +76,7 @@ impl fmt::Display for MidiCcKind {
             f,
             "{}",
             match self {
+                MidiCcKind::Modulation => "Modulation",
                 MidiCcKind::FootPedal => "Foot Pedal",
                 MidiCcKind::Volume => "Volume",
                 MidiCcKind::Expression => "Expression",

@@ -38,7 +38,7 @@ impl OneNoteState {
                 self.on_ev = true;
             }
             MidiMessage::NoteOff { key, .. } => {
-                if key == &self.key {
+                if key.as_int() == self.key {
                     self.vel = 0;
                 }
             }
@@ -80,8 +80,8 @@ impl Node for OneNote {
     }
 
     fn read(&self, out: &mut [Value]) {
-        out[0] = Value::Float(self.state.key as _);
-        out[1] = Value::Float(110.0 * 2f32.powf((self.state.key as f32 - 57.0) / 12.0));
+        out[0] = Value::Float(440.0 * 2f32.powf(1.0 / 12.0).powi(self.state.key as i32 - 69));
+        out[1] = Value::Float(self.state.vel as _);
         out[2] = Value::Float(if self.state.on_ev { 1.0 } else { 0.0 });
     }
 
