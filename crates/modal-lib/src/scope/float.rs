@@ -13,6 +13,15 @@ pub enum FloatScopeMode {
     Fft,
 }
 
+impl FloatScopeMode {
+    fn name(&self) -> &'static str {
+        match self {
+            FloatScopeMode::TimeSeries => "Time",
+            FloatScopeMode::Fft => "Frequency",
+        }
+    }
+}
+
 struct MyPlanner(FftPlanner<f32>);
 
 impl Default for MyPlanner {
@@ -186,7 +195,7 @@ impl FloatScope {
             .speed(0.01)
             .range(0.01..=120.0);
         ui.horizontal(|ui| {
-            ui.label("memory");
+            ui.label("Memory");
             ui.add(drag);
             ui.label("s");
         });
@@ -200,12 +209,16 @@ impl FloatScope {
             }
         }
 
-        egui::ComboBox::new("scope-combo-box", "")
-            .selected_text(format!("{:?}", self.mode))
-            .show_ui(ui, |ui| {
-                ui.selectable_value(&mut self.mode, FloatScopeMode::TimeSeries, "TimeSeries");
-                ui.selectable_value(&mut self.mode, FloatScopeMode::Fft, "Fft")
-            });
+        ui.horizontal(|ui| {
+            ui.label("Mode");
+            egui::ComboBox::new("scope-combo-box", "")
+                .selected_text(self.mode.name())
+                .show_ui(ui, |ui| {
+                    for mode in [FloatScopeMode::TimeSeries, FloatScopeMode::Fft] {
+                        ui.selectable_value(&mut self.mode, mode, mode.name());
+                    }
+                });
+        });
 
         match self.mode {
             FloatScopeMode::TimeSeries => self.show_timeseries(ui),
