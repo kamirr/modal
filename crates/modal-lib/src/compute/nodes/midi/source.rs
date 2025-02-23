@@ -49,14 +49,14 @@ impl RecoverableMidiSource {
         }
     }
 
-    fn source(&mut self) -> &mut dyn MidiSource {
+    fn source(&mut self) -> Option<&mut dyn MidiSource> {
         if self.source.is_none() {
-            self.source = Some(self.new.new_src().unwrap());
+            self.source = self.new.new_src().ok();
         }
 
         match &mut self.source {
-            Some(src) => src.as_mut(),
-            _ => unreachable!(),
+            Some(src) => Some(src.as_mut()),
+            _ => None,
         }
     }
 }
@@ -78,6 +78,16 @@ struct Inner {
     replacing: bool,
 }
 
+impl Default for Inner {
+    fn default() -> Self {
+        Inner {
+            replace_new: None,
+            name: String::from("Select input"),
+            replacing: false,
+        }
+    }
+}
+
 #[derive(Debug, Serialize, Deserialize)]
 struct MidiInConf {
     #[serde(with = "crate::util::serde_mutex")]
@@ -87,12 +97,12 @@ struct MidiInConf {
 impl MidiInConf {
     fn new() -> Self {
         MidiInConf {
-            inner: Mutex::new(Inner {
-                replace_new: None,
-                name: String::from("Select input"),
-                replacing: false,
-            }),
+            inner: Mutex::new(Inner::default()),
         }
+    }
+
+    fn reset(&self) {
+        *self.inner.lock().unwrap() = Inner::default();
     }
 }
 
@@ -154,9 +164,13 @@ impl Node for MidiIn {
             }
         }
 
-        self.out = self
-            .source
-            .source()
+        let Some(source) = self.source.source() else {
+            self.conf.reset();
+            self.source = RecoverableMidiSource::new();
+            return Default::default();
+        };
+
+        source
             .try_next()
             .map(|(channel, message)| Value::Midi { channel, message })
             .unwrap_or(Value::None);
