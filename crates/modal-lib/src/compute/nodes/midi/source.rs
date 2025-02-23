@@ -170,7 +170,7 @@ impl Node for MidiIn {
             return Default::default();
         };
 
-        source
+        self.out = source
             .try_next()
             .map(|(channel, message)| Value::Midi { channel, message })
             .unwrap_or(Value::None);
