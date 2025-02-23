@@ -3334,6 +3334,7 @@ dependencies = [
  "nih_plug_egui",
  "runtime",
  "serde",
+ "serde_json",
  "typetag",
 ]
 
