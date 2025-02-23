@@ -119,7 +119,7 @@ impl NodeDataTrait for SynthNodeData {
         let scope_btn = util::toggle_button("👁Scope", state.show_scope);
         let play_btn = util::toggle_button("👂Play", is_playing);
 
-        let horizontal_layout = ui.layout().clone();
+        let horizontal_layout = *ui.layout();
         ui.vertical(|ui| {
             let resp = ui.with_layout(horizontal_layout, |ui| {
                 ui.label(param_name);
