@@ -1,9 +1,8 @@
-mod rodio_out;
-
 use eframe::egui::{self, Vec2};
-use modal_editor::{ModalEditor, ModalEditorState};
-
-use rodio_out::RodioOut;
+use modal_lib::{
+    editor::{ModalEditor, ModalEditorState},
+    remote::{rodio_out::RodioOut, RuntimeRemote},
+};
 
 fn main() {
     let options = eframe::NativeOptions {
@@ -34,7 +33,8 @@ impl ModalApp {
             .storage
             .and_then(|storage| eframe::get_value(storage, "synth-app"));
 
-        let mut editor = ModalEditor::new(Box::new(RodioOut::default()));
+        let remote = RuntimeRemote::start(Box::new(RodioOut::default()));
+        let mut editor = ModalEditor::new(remote);
         if let Some(state) = state {
             editor.replace(state);
         }

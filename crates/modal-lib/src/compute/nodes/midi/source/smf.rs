@@ -9,6 +9,7 @@ use std::{
 use anyhow::Result;
 
 use midly::{MetaMessage, MidiMessage, Smf, Timing, TrackEventKind};
+use runtime::ExternInputs;
 use serde::{Deserialize, Serialize};
 
 use crate::compute::nodes::all::source::MidiSourceNew;
@@ -81,7 +82,7 @@ impl SmfSource {
 }
 
 impl MidiSource for SmfSource {
-    fn try_next(&mut self) -> Option<(u8, MidiMessage)> {
+    fn try_next(&mut self, _extern: &ExternInputs) -> Option<(u8, MidiMessage)> {
         let t = Instant::now() - self.t0;
         let tick_f = t.as_secs_f64() / self.tick.as_secs_f64();
         let tick_n = tick_f.round() as u32;

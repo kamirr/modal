@@ -1,26 +1,21 @@
-use std::{collections::HashMap, fs::File, sync::Arc, time::Instant};
-
-use eframe::egui;
-use egui_graph_edit::{InputParamKind, NodeId, NodeResponse};
-use modal_lib::{
+use crate::{
     compute::nodes::all::source::{jack::JackSourceNew, smf::SmfSourceNew, MidiSourceNew},
     graph::MidiCollection,
     remote,
 };
-
+use eframe::egui;
+use egui_graph_edit::{InputParamKind, NodeId, NodeResponse};
 use runtime::{
     node::{Input, NodeEvent},
-    OutputPort, Runtime,
+    OutputPort, Runtime, Value,
 };
+use std::{collections::HashMap, fs::File, sync::Arc, time::Instant};
 
-use rfd::FileDialog;
-
-use modal_lib::graph::{
+use crate::graph::{
     self, OutputState, SynthDataType, SynthEditorState, SynthGraphExt, SynthGraphState,
 };
+use rfd::FileDialog;
 use serde::{Deserialize, Serialize};
-
-pub use modal_lib::remote::AudioOut;
 
 #[derive(Serialize, Deserialize)]
 pub struct ModalEditorState {
@@ -28,6 +23,19 @@ pub struct ModalEditorState {
     pub mapping: Vec<(NodeId, u64)>,
     pub editor_state: SynthEditorState,
     pub graph_state: SynthGraphState,
+}
+
+impl Clone for ModalEditorState {
+    fn clone(&self) -> Self {
+        let json = serde_json::to_value(self).unwrap();
+        serde_json::from_value(json).unwrap()
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum UpdateResult {
+    Ok,
+    TopologyChanged,
 }
 
 pub struct ModalEditor {
@@ -39,8 +47,8 @@ pub struct ModalEditor {
 }
 
 impl ModalEditor {
-    pub fn new(audio_out: Box<dyn AudioOut>) -> Self {
-        pub use modal_lib::compute::nodes::all::*;
+    pub fn new(remote: remote::RuntimeRemote) -> Self {
+        pub use crate::compute::nodes::all::*;
 
         ModalEditor {
             state: Default::default(),
@@ -53,7 +61,7 @@ impl ModalEditor {
                 Box::new(Midi),
                 Box::new(Noise),
             ]),
-            remote: remote::RuntimeRemote::start(audio_out),
+            remote,
             prev_frame: Instant::now(),
         }
     }
@@ -211,6 +219,10 @@ impl ModalEditor {
         }
     }
 
+    pub fn get_runtime(&mut self) -> (Runtime, Vec<(NodeId, u64)>) {
+        self.remote.save_state()
+    }
+
     pub fn serializable_state(&mut self) -> impl serde::Serialize + '_ {
         let rt_state = self.remote.save_state();
         let editor_state = &self.state;
@@ -232,7 +244,29 @@ impl ModalEditor {
         }
     }
 
-    pub fn update(&mut self, ctx: &egui::Context) {
+    pub fn scope_feed(&mut self, out_port: OutputPort, samples: Vec<Value>) {
+        let Some(node_id) = self.remote.index_to_id(out_port.node) else {
+            return;
+        };
+
+        let Some(node) = self.state.graph.nodes.get(node_id) else {
+            return;
+        };
+
+        let Some((name, _out_id)) = node.outputs.get(out_port.port) else {
+            return;
+        };
+
+        if let Some(OutputState {
+            scope: Some(scope), ..
+        }) = node.user_data.out_states.borrow_mut().get_mut(name)
+        {
+            scope.feed(samples.clone());
+        }
+    }
+
+    pub fn update(&mut self, ctx: &egui::Context) -> UpdateResult {
+        let mut result = UpdateResult::Ok;
         egui::TopBottomPanel::top("top").show(ctx, |ui| {
             egui::menu::bar(ui, |ui| {
                 egui::widgets::global_theme_preference_switch(ui);
@@ -274,6 +308,7 @@ impl ModalEditor {
                         };
 
                         self.replace(state);
+                        result = UpdateResult::TopologyChanged;
                     }
                 });
 
@@ -315,10 +350,12 @@ impl ModalEditor {
                     println!("create node {id:?}");
                     let node = self.user_state.nodes.remove(&id).unwrap();
                     self.remote.insert(id, node);
+                    result = UpdateResult::TopologyChanged;
                 }
                 NodeResponse::DeleteNodeFull { node_id, .. } => {
                     println!("remove node {node_id:?}");
                     self.remote.remove(node_id);
+                    result = UpdateResult::TopologyChanged;
                 }
                 NodeResponse::DisconnectEvent { input, .. } => {
                     let Some(in_param) = self.state.graph.try_get_input(input) else {
@@ -335,6 +372,7 @@ impl ModalEditor {
 
                     println!("disconnect from {in_node_id:?}:{in_idx:?}");
                     self.remote.disconnect(in_node_id, in_idx);
+                    result = UpdateResult::TopologyChanged;
                 }
                 NodeResponse::ConnectEventEnded { output, input } => {
                     let out_node_id = self.state.graph.get_output(output).node;
@@ -360,16 +398,19 @@ impl ModalEditor {
                     println!("connect {out_node_id:?}:{out_port} to {in_node_id:?}:{in_idx}");
                     self.remote
                         .connect(out_node_id, out_port, in_node_id, in_idx);
+                    result = UpdateResult::TopologyChanged;
                 }
                 NodeResponse::User(graph::SynthNodeResponse::SetRtPlayback(id, port)) => {
                     println!("set real-time playback {id:?}:{port}");
                     self.user_state.rt_playback = Some((id, port));
                     self.remote.play(Some((id, port)));
+                    result = UpdateResult::TopologyChanged;
                 }
                 NodeResponse::User(graph::SynthNodeResponse::ClearRtPlayback) => {
                     println!("disable real-time playback");
                     self.user_state.rt_playback = None;
                     self.remote.play(None);
+                    result = UpdateResult::TopologyChanged;
                 }
                 NodeResponse::User(graph::SynthNodeResponse::StartRecording(node, port)) => {
                     println!("record {node:?}:{port}");
@@ -404,6 +445,7 @@ impl ModalEditor {
                         None,
                         None,
                     );
+                    result = UpdateResult::TopologyChanged;
                 }
                 _ => {}
             }
@@ -418,30 +460,14 @@ impl ModalEditor {
                 match ev {
                     NodeEvent::RecalcInputs(inputs) => {
                         self.recalc_inputs(node_id, inputs);
+                        result = UpdateResult::TopologyChanged;
                     }
                 }
             }
         }
 
         for (out_port, samples) in self.remote.recordings() {
-            let Some(node_id) = self.remote.index_to_id(out_port.node) else {
-                continue;
-            };
-
-            let Some(node) = self.state.graph.nodes.get(node_id) else {
-                continue;
-            };
-
-            let Some((name, _out_id)) = node.outputs.get(out_port.port) else {
-                continue;
-            };
-
-            if let Some(OutputState {
-                scope: Some(scope), ..
-            }) = node.user_data.out_states.borrow_mut().get_mut(name)
-            {
-                scope.feed(samples.clone());
-            }
+            self.scope_feed(out_port, samples);
         }
 
         let synth_ctx = &mut self.user_state.ctx;
@@ -461,6 +487,8 @@ impl ModalEditor {
 
         self.remote.wait();
         ctx.request_repaint();
+
+        result
     }
 
     pub fn shutdown(&mut self) {

@@ -6,6 +6,6 @@ license = "MIT"
 
 [dependencies]
 eframe = { workspace = true }
-rodio = "0.17.1"
+rodio = { workspace = true }
 
-modal-editor = { path = "../modal-editor" }
+modal-lib = { path = "../modal-lib" }

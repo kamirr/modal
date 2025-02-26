@@ -1,13 +1,19 @@
 use std::{
     any::Any,
+    collections::HashMap,
     fmt::Debug,
-    sync::{Arc, Mutex},
+    sync::{
+        atomic::{AtomicBool, Ordering},
+        Arc, Mutex,
+    },
+    time::{Duration, Instant},
 };
 
 use anyhow::Result;
 
 use dyn_clone::{clone_box, DynClone};
 use eframe::egui;
+use extern_::ExternSourceNew;
 use midly::MidiMessage;
 use serde::{Deserialize, Serialize};
 
@@ -19,12 +25,13 @@ use runtime::{
 
 use self::null::NullSourceNew;
 
+mod extern_;
 pub mod jack;
 mod null;
 pub mod smf;
 
 pub trait MidiSource: Debug + Send {
-    fn try_next(&mut self) -> Option<(u8, MidiMessage)>;
+    fn try_next(&mut self, extern_inputs: &ExternInputs) -> Option<(u8, MidiMessage)>;
     fn reset(&mut self);
 }
 
@@ -76,6 +83,9 @@ struct Inner {
     replace_new: Option<Box<dyn MidiSourceNew>>,
     name: String,
     replacing: bool,
+    extern_inputs: HashMap<String, u64>,
+    #[serde(skip, default = "Instant::now")]
+    request_ts: Instant,
 }
 
 impl Default for Inner {
@@ -84,20 +94,23 @@ impl Default for Inner {
             replace_new: None,
             name: String::from("Select input"),
             replacing: false,
+            extern_inputs: HashMap::default(),
+            request_ts: Instant::now(),
         }
     }
 }
 
 #[derive(Debug, Serialize, Deserialize)]
 struct MidiInConf {
-    #[serde(with = "crate::util::serde_mutex")]
     inner: Mutex<Inner>,
+    request_extern_update: AtomicBool,
 }
 
 impl MidiInConf {
     fn new() -> Self {
         MidiInConf {
             inner: Mutex::new(Inner::default()),
+            request_extern_update: AtomicBool::new(true),
         }
     }
 
@@ -110,6 +123,11 @@ impl NodeConfig for MidiInConf {
     fn show(&self, ui: &mut egui::Ui, data: &dyn Any) {
         let mut inner = self.inner.lock().unwrap();
         let ctx = data.downcast_ref::<SynthCtx>().unwrap();
+
+        if inner.request_ts.elapsed() > Duration::from_millis(500) {
+            inner.request_ts = Instant::now();
+            self.request_extern_update.store(true, Ordering::Relaxed);
+        }
 
         ui.menu_button(inner.name.clone(), |ui| {
             let mut any_shown = false;
@@ -139,6 +157,19 @@ impl NodeConfig for MidiInConf {
                     }
                 }
             }
+            for (extern_name, idx) in inner.extern_inputs.clone() {
+                ui.menu_button("Extern", |ui| {
+                    if ui.button(&extern_name).clicked() {
+                        inner.name = extern_name.to_string();
+                        inner.replace_new = Some(Box::new(ExternSourceNew {
+                            name: extern_name,
+                            idx: idx,
+                        }));
+                        ui.close_menu();
+                    }
+                });
+                any_shown = true;
+            }
 
             if !any_shown {
                 ui.label("No MIDI sources found");
@@ -156,11 +187,22 @@ pub struct MidiIn {
 
 #[typetag::serde]
 impl Node for MidiIn {
-    fn feed(&mut self, _inputs: &ExternInputs, _data: &[Value]) -> Vec<NodeEvent> {
+    fn feed(&mut self, inputs: &ExternInputs, _data: &[Value]) -> Vec<NodeEvent> {
         if let Ok(mut conf) = self.conf.inner.try_lock() {
             if let Some(new) = conf.replace_new.take() {
                 self.source.new = new;
                 self.source.source = None;
+            }
+
+            if self.conf.request_extern_update.load(Ordering::Relaxed) {
+                conf.extern_inputs = inputs
+                    .list()
+                    .filter_map(|(name, vk)| (vk == ValueKind::Midi).then(|| name.clone()))
+                    .map(|name| {
+                        let idx = inputs.get(&name).unwrap();
+                        (name, idx.to_bits())
+                    })
+                    .collect();
             }
         }
 
@@ -171,7 +213,7 @@ impl Node for MidiIn {
         };
 
         self.out = source
-            .try_next()
+            .try_next(inputs)
             .map(|(channel, message)| Value::Midi { channel, message })
             .unwrap_or(Value::None);
 

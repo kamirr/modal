@@ -1,3 +1,4 @@
+use runtime::ExternInputs;
 use serde::{Deserialize, Serialize};
 
 use anyhow::Result;
@@ -8,7 +9,7 @@ use super::{MidiSource, MidiSourceNew};
 struct NullSource;
 
 impl MidiSource for NullSource {
-    fn try_next(&mut self) -> Option<(u8, midly::MidiMessage)> {
+    fn try_next(&mut self, _extern: &ExternInputs) -> Option<(u8, midly::MidiMessage)> {
         None
     }
 

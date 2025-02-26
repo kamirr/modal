@@ -1,5 +1,3 @@
-mod stream_audio_out;
-
 use std::{
     collections::VecDeque,
     fmt::Debug,
@@ -8,11 +6,14 @@ use std::{
 };
 
 use midly::{num::u7, MidiMessage};
-use modal_editor::ModalEditor;
 use modal_lib::{
     compute::nodes::all::source::{MidiSource, MidiSourceNew},
+    editor::ModalEditor,
     graph::MidiCollection,
-    remote::{ExternInput, RtRequest},
+    remote::{
+        stream_audio_out::{StreamAudioOut, StreamReader},
+        ExternInput, RtRequest, RuntimeRemote,
+    },
 };
 use nih_plug::{
     midi::{MidiConfig, NoteEvent},
@@ -25,9 +26,8 @@ use nih_plug::{
     },
 };
 use nih_plug_egui::{create_egui_editor, EguiState};
-use runtime::{Value, ValueKind};
+use runtime::{ExternInputs, Value, ValueKind};
 use serde::{Deserialize, Serialize};
-use stream_audio_out::{StreamAudioOut, StreamReader};
 
 struct DawMidi {
     tx: barrage::Sender<(u8, MidiMessage)>,
@@ -67,7 +67,7 @@ impl Debug for DawMidiSource {
 }
 
 impl MidiSource for DawMidiSource {
-    fn try_next(&mut self) -> Option<(u8, MidiMessage)> {
+    fn try_next(&mut self, _extern: &ExternInputs) -> Option<(u8, MidiMessage)> {
         self.0.try_recv().unwrap().map(|msg| dbg!(msg))
     }
 
@@ -85,7 +85,8 @@ pub struct Modal {
 impl Default for Modal {
     fn default() -> Self {
         let (audio_out, reader) = StreamAudioOut::new();
-        let mut app = ModalEditor::new(Box::new(audio_out));
+        let remote = RuntimeRemote::start(Box::new(audio_out));
+        let mut app = ModalEditor::new(remote);
         let sender = app.remote.tx.clone();
         app.user_state.ctx.midi.insert(
             "Track".to_string(),

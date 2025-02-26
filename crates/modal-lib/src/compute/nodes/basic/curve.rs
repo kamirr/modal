@@ -4,10 +4,10 @@ use std::sync::{
 };
 
 use crate::compute::inputs::{
-    gate::GateInput,
+    gate::{GateInput, GateInputState},
     real::RealInput,
     time::TimeInput,
-    trigger::{TriggerInput, TriggerMode},
+    trigger::{TriggerInput, TriggerInputState, TriggerMode},
 };
 use eframe::{
     egui,
@@ -127,11 +127,14 @@ pub struct Curve {
     config: Arc<CurveConfig>,
 
     trigger: Arc<TriggerInput>,
+    trigger_state: TriggerInputState,
     length: Arc<TimeInput>,
     min: Arc<RealInput>,
     max: Arc<RealInput>,
     repeat: Arc<GateInput>,
+    repeat_state: GateInputState,
     resettable: Arc<GateInput>,
+    resettable_state: GateInputState,
 
     status: CurveStatus,
     t: f32,
@@ -150,11 +153,14 @@ impl Curve {
             config: Arc::new(CurveConfig::new()),
 
             trigger: Arc::new(TriggerInput::new(TriggerMode::Up, 0.5)),
+            trigger_state: TriggerInputState::default(),
             length: Arc::new(TimeInput::new(44100.0)),
             min: Arc::new(RealInput::new(-1.0)),
             max: Arc::new(RealInput::new(1.0)),
             repeat: Arc::new(GateInput::new(0.5)),
+            repeat_state: GateInputState::default(),
             resettable: Arc::new(GateInput::new(0.5)),
+            resettable_state: GateInputState::default(),
 
             status: CurveStatus::Done,
             t: 0.0,
@@ -166,12 +172,12 @@ impl Curve {
 #[typetag::serde]
 impl Node for Curve {
     fn feed(&mut self, _inputs: &ExternInputs, data: &[Value]) -> Vec<NodeEvent> {
-        let trigger = self.trigger.trigger(&data[0]);
+        let trigger = self.trigger.trigger(&mut self.trigger_state, &data[0]);
         let length = self.length.get_samples(&data[1]);
         let min = self.min.get_f32(&data[2]);
         let max = self.max.get_f32(&data[3]);
-        let repeat = self.repeat.gate(&data[4]);
-        let resettable = self.resettable.gate(&data[5]);
+        let repeat = self.repeat.gate(&mut self.repeat_state, &data[4]);
+        let resettable = self.resettable.gate(&mut self.resettable_state, &data[5]);
         if trigger && (self.status == CurveStatus::Done || resettable) {
             self.status = CurveStatus::Playing;
             self.t = 0.0;

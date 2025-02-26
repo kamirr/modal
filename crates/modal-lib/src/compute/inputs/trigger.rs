@@ -1,6 +1,5 @@
 use std::sync::atomic::{AtomicBool, Ordering};
 
-use atomic_float::AtomicF32;
 use serde::{Deserialize, Serialize};
 
 use crate::{serde_atomic_enum, util::enum_combo_box};
@@ -24,9 +23,19 @@ pub struct TriggerInput {
     mode: AtomicTriggerMode,
     level: RealInput,
     beat: BeatInput,
-    prev: AtomicF32,
     need_update: AtomicBool,
     force_trigger: AtomicBool,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct TriggerInputState {
+    prev: f32,
+}
+
+impl Default for TriggerInputState {
+    fn default() -> Self {
+        TriggerInputState { prev: 0.0 }
+    }
 }
 
 impl TriggerInput {
@@ -35,19 +44,15 @@ impl TriggerInput {
             mode: AtomicTriggerMode::new(mode),
             level: RealInput::new(level),
             beat: BeatInput::new(true),
-            prev: AtomicF32::new(0.0),
             need_update: AtomicBool::new(false),
             force_trigger: AtomicBool::new(false),
         }
     }
 
-    pub fn trigger(&self, recv: &Value) -> bool {
-        let (prev, curr) = (
-            self.prev.load(Ordering::Acquire),
-            recv.as_float().unwrap_or_default(),
-        );
+    pub fn trigger(&self, state: &mut TriggerInputState, recv: &Value) -> bool {
+        let (prev, curr) = (state.prev, recv.as_float().unwrap_or_default());
 
-        self.prev.store(curr, Ordering::Release);
+        state.prev = curr;
 
         let do_trigger = match self.mode.load(Ordering::Relaxed) {
             TriggerMode::Up => {
@@ -106,14 +111,11 @@ impl InputUi for TriggerInput {
             };
         }
 
-        if mode != old_mode {
-            self.need_update.store(true, Ordering::Relaxed);
-        }
-
+        self.need_update.store(mode != old_mode, Ordering::Relaxed);
         self.mode.store(mode, Ordering::Release);
     }
 
     fn needs_deep_update(&self) -> bool {
-        self.need_update.swap(false, Ordering::Relaxed)
+        self.need_update.load(Ordering::Relaxed)
     }
 }

@@ -7,11 +7,12 @@ use runtime::{
     ExternInputs, Value,
 };
 
-use crate::compute::inputs::gate::GateInput;
+use crate::compute::inputs::gate::{GateInput, GateInputState};
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Gate {
     gate: Arc<GateInput>,
+    gate_state: GateInputState,
     out: f32,
 }
 
@@ -25,6 +26,7 @@ impl Gate {
     pub fn new() -> Self {
         Gate {
             gate: Arc::new(GateInput::new(0.5)),
+            gate_state: GateInputState::default(),
             out: 0.0,
         }
     }
@@ -33,7 +35,11 @@ impl Gate {
 #[typetag::serde]
 impl Node for Gate {
     fn feed(&mut self, _inputs: &ExternInputs, data: &[Value]) -> Vec<NodeEvent> {
-        self.out = if self.gate.gate(&data[0]) { 1.0 } else { 0.0 };
+        self.out = if self.gate.gate(&mut self.gate_state, &data[0]) {
+            1.0
+        } else {
+            0.0
+        };
 
         Default::default()
     }
