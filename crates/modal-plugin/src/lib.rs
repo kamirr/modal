@@ -8,7 +8,7 @@ use std::{
 use midly::{num::u7, MidiMessage};
 use modal_lib::{
     compute::nodes::all::source::{MidiSource, MidiSourceNew},
-    editor::ModalEditor,
+    editor::{GraphEditor, ModalApp},
     graph::MidiCollection,
     remote::{
         stream_audio_out::{StreamAudioOut, StreamReader},
@@ -75,7 +75,7 @@ impl MidiSource for DawMidiSource {
 }
 
 pub struct Modal {
-    app: Arc<Mutex<ModalEditor>>,
+    app: Arc<Mutex<ModalApp>>,
     sender: Sender<RtRequest>,
     reader: StreamReader,
     params: Arc<ModalParams>,
@@ -86,9 +86,9 @@ impl Default for Modal {
     fn default() -> Self {
         let (audio_out, reader) = StreamAudioOut::new();
         let remote = RuntimeRemote::start(Box::new(audio_out));
-        let mut app = ModalEditor::new(remote);
-        let sender = app.remote.tx.clone();
-        app.user_state.ctx.midi.insert(
+        let mut editor = GraphEditor::new(remote);
+        let sender = editor.remote.tx.clone();
+        editor.user_state.ctx.midi.insert(
             "Track".to_string(),
             MidiCollection::Single(Box::new(DawMidiStreamNew)),
         );
@@ -99,7 +99,7 @@ impl Default for Modal {
             })
             .ok();
         Modal {
-            app: Arc::new(Mutex::new(app)),
+            app: Arc::new(Mutex::new(ModalApp::new(editor))),
             sender,
             reader,
             params: Arc::new(ModalParams::default()),
@@ -154,7 +154,7 @@ impl Plugin for Modal {
             (),
             move |_, _| {},
             move |egui_ctx, _setter, _state| {
-                app.lock().unwrap().update(egui_ctx);
+                app.lock().unwrap().main_app(egui_ctx);
             },
         )
     }

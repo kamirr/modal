@@ -6,7 +6,7 @@ use std::{
     },
 };
 
-use eframe::egui::{self, DragValue};
+use eframe::egui::DragValue;
 use runtime::{
     node::{Input, Node, NodeConfig, NodeEvent},
     ExternInputs, OutputPort, Runtime, Value, ValueKind,
@@ -16,18 +16,18 @@ use thunderdome::Index;
 
 use crate::{
     compute::inputs::midi::MidiInput,
-    editor::{ModalEditor, ModalEditorState, UpdateResult},
+    editor::{GraphEditor, GraphEditorState, SharedEditorData},
+    graph::SynthCtx,
     remote::{
         stream_audio_out::{StreamAudioOut, StreamReader},
         ExternInput, RtRequest, RuntimeRemote,
     },
-    util::toggle_button,
 };
 
 enum LazyEditor {
-    Pending(Option<ModalEditorState>),
+    Pending(Option<GraphEditorState>),
     Ready {
-        editor: ModalEditor,
+        editor: Arc<SharedEditorData>,
         reader: Option<StreamReader>,
     },
 }
@@ -45,12 +45,12 @@ impl LazyEditor {
                         kind: ValueKind::Midi,
                     })
                     .ok();
-                let mut editor = ModalEditor::new(remote);
+                let mut editor = GraphEditor::new(remote);
                 if let Some(state) = state {
                     editor.replace(state.clone());
                 }
                 *self = LazyEditor::Ready {
-                    editor,
+                    editor: Arc::new(SharedEditorData::new(editor)),
                     reader: Some(reader),
                 };
             }
@@ -61,11 +61,13 @@ impl LazyEditor {
     fn serializable_state(&mut self) -> Box<dyn erased_serde::Serialize + '_> {
         match self {
             LazyEditor::Pending(state) => Box::new(state.clone()),
-            LazyEditor::Ready { editor, .. } => Box::new(editor.serializable_state()),
+            LazyEditor::Ready { editor, .. } => {
+                Box::new(editor.editor.lock().unwrap().serializable_state())
+            }
         }
     }
 
-    fn editor(&mut self) -> &mut ModalEditor {
+    fn editor(&mut self) -> &Arc<SharedEditorData> {
         self.initialize();
 
         match self {
@@ -86,9 +88,9 @@ impl LazyEditor {
 
 struct PolyphonicInstrumentConf {
     editor: Mutex<LazyEditor>,
-    show_editor: AtomicBool,
+    editor_notified: AtomicBool,
     voices: AtomicU8,
-    topology_changed: AtomicBool,
+    topology_changed: Mutex<Option<Arc<AtomicBool>>>,
 }
 
 #[derive(Serialize)]
@@ -97,14 +99,12 @@ where
     EDITOR: Serialize,
 {
     editor: EDITOR,
-    show_editor: bool,
     voices: u8,
 }
 
 #[derive(Deserialize)]
 struct PolyphonicInstrumentConfDeserialize {
-    editor: ModalEditorState,
-    show_editor: bool,
+    editor: GraphEditorState,
     voices: u8,
 }
 
@@ -112,7 +112,6 @@ impl Debug for PolyphonicInstrumentConf {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("PolyphonicInstrumentConf")
             .field("editor", &"hidden")
-            .field("show_editor", &self.show_editor)
             .field("voices", &self.voices)
             .finish()
     }
@@ -126,7 +125,6 @@ impl Serialize for PolyphonicInstrumentConf {
         let mut guard = self.editor.lock().unwrap();
         let state = PolyphonicInstrumentConfSerialize {
             editor: guard.serializable_state(),
-            show_editor: self.show_editor.load(Ordering::Relaxed),
             voices: self.voices.load(Ordering::Relaxed),
         };
 
@@ -142,17 +140,24 @@ impl<'de> Deserialize<'de> for PolyphonicInstrumentConf {
         PolyphonicInstrumentConfDeserialize::deserialize(deserializer).map(|state| {
             PolyphonicInstrumentConf {
                 editor: Mutex::new(LazyEditor::Pending(Some(state.editor))),
-                show_editor: AtomicBool::new(state.show_editor),
+                editor_notified: AtomicBool::new(false),
                 voices: AtomicU8::new(state.voices),
-                topology_changed: AtomicBool::new(true),
+                topology_changed: Mutex::new(None),
             }
         })
     }
 }
 
 impl NodeConfig for PolyphonicInstrumentConf {
-    fn show(&self, ui: &mut eframe::egui::Ui, _data: &dyn std::any::Any) {
+    fn show(&self, ui: &mut eframe::egui::Ui, data: &dyn std::any::Any) {
         let mut voices = self.voices.load(Ordering::Relaxed);
+
+        let mut topology_changed_guard = self.topology_changed.lock().unwrap();
+        if topology_changed_guard.is_none() {
+            *topology_changed_guard = Some(Arc::clone(
+                &self.editor.lock().unwrap().editor().topology_changed,
+            ));
+        }
 
         ui.horizontal(|ui| {
             ui.label("voices");
@@ -164,34 +169,18 @@ impl NodeConfig for PolyphonicInstrumentConf {
             }
         });
 
-        let mut show_editor = self.show_editor.load(Ordering::Relaxed);
-        if ui.add(toggle_button("Show Editor", show_editor)).clicked() {
-            show_editor = !show_editor;
-            self.show_editor.store(show_editor, Ordering::Relaxed);
+        if !self.editor_notified.swap(true, Ordering::SeqCst) {
+            println!("append editor");
+            data.downcast_ref::<SynthCtx>()
+                .unwrap()
+                .new_editors
+                .lock()
+                .unwrap()
+                .push((
+                    "Subassembly".into(),
+                    Arc::clone(self.editor.lock().unwrap().editor()),
+                ));
         }
-
-        if !show_editor {
-            return;
-        }
-
-        ui.ctx().show_viewport_immediate(
-            egui::ViewportId::from_hash_of("deferred_viewport"),
-            egui::ViewportBuilder::default()
-                .with_title("Modal - Subassembly")
-                .with_inner_size([1020.0, 780.0]),
-            |ctx, _class| {
-                let mut guard = self.editor.lock().unwrap();
-                let result = guard.editor().update(ctx);
-                if result == UpdateResult::TopologyChanged {
-                    self.topology_changed.store(true, Ordering::Relaxed);
-                }
-
-                if ctx.input(|i| i.viewport().close_requested()) {
-                    // Tell parent to close us.
-                    self.show_editor.store(false, Ordering::Relaxed);
-                }
-            },
-        );
     }
 }
 
@@ -326,14 +315,22 @@ impl Node for PolyphonicInstrument {
 
         // Do the actual work
         let voice_count = self.conf.voices.load(Ordering::Relaxed) as usize;
-        if self.runtimes.len() != voice_count
-            || self.conf.topology_changed.swap(false, Ordering::Relaxed)
-        {
+        let topology_changed = || {
+            self.conf
+                .topology_changed
+                .lock()
+                .unwrap()
+                .as_ref()
+                .map(|arc| arc.swap(false, Ordering::Relaxed))
+                .unwrap_or_default()
+        };
+        if self.runtimes.len() != voice_count || topology_changed() {
             println!("rebuild voices - begin");
             let (play_node, (base_rt, mapping)) = {
-                let mut editor_guard = self.conf.editor.lock().unwrap();
-                let play_node = editor_guard.editor().user_state.rt_playback;
-                let (base_rt, mapping) = editor_guard.editor().get_runtime();
+                let mut lazy_editor_guard = self.conf.editor.lock().unwrap();
+                let mut editor_guard = lazy_editor_guard.editor().editor.lock().unwrap();
+                let play_node = editor_guard.user_state.rt_playback;
+                let (base_rt, mapping) = editor_guard.get_runtime();
 
                 (play_node, (base_rt, mapping))
             };
@@ -408,9 +405,9 @@ pub fn polyphonic() -> Box<dyn Node> {
     Box::new(PolyphonicInstrument {
         conf: Arc::new(PolyphonicInstrumentConf {
             editor: Mutex::new(LazyEditor::Pending(None)),
-            show_editor: AtomicBool::new(false),
+            editor_notified: AtomicBool::new(false),
             voices: AtomicU8::new(4),
-            topology_changed: AtomicBool::new(true),
+            topology_changed: Mutex::new(None),
         }),
         template_reader: None,
         template_reader_queue: 0,

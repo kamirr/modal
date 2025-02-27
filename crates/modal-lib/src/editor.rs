@@ -9,7 +9,15 @@ use runtime::{
     node::{Input, NodeEvent},
     OutputPort, Runtime, Value,
 };
-use std::{collections::HashMap, fs::File, sync::Arc, time::Instant};
+use std::{
+    collections::HashMap,
+    fs::File,
+    sync::{
+        atomic::{AtomicBool, Ordering},
+        Arc, Mutex,
+    },
+    time::Instant,
+};
 
 use crate::graph::{
     self, OutputState, SynthDataType, SynthEditorState, SynthGraphExt, SynthGraphState,
@@ -18,14 +26,14 @@ use rfd::FileDialog;
 use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize)]
-pub struct ModalEditorState {
+pub struct GraphEditorState {
     pub rt: Runtime,
     pub mapping: Vec<(NodeId, u64)>,
     pub editor_state: SynthEditorState,
     pub graph_state: SynthGraphState,
 }
 
-impl Clone for ModalEditorState {
+impl Clone for GraphEditorState {
     fn clone(&self) -> Self {
         let json = serde_json::to_value(self).unwrap();
         serde_json::from_value(json).unwrap()
@@ -38,19 +46,167 @@ pub enum UpdateResult {
     TopologyChanged,
 }
 
-pub struct ModalEditor {
+pub struct SharedEditorData {
+    pub editor: Mutex<GraphEditor>,
+    pub topology_changed: Arc<AtomicBool>,
+}
+
+impl SharedEditorData {
+    pub fn new(editor: GraphEditor) -> Self {
+        SharedEditorData {
+            editor: Mutex::new(editor),
+            topology_changed: Arc::new(AtomicBool::new(false)),
+        }
+    }
+}
+
+pub struct ModalApp {
+    editors: Vec<(String, Arc<SharedEditorData>)>,
+    active_editor: usize,
+    prev_frame: Instant,
+}
+
+impl ModalApp {
+    pub fn new(editor: GraphEditor) -> Self {
+        ModalApp {
+            editors: vec![("Modal".to_string(), Arc::new(SharedEditorData::new(editor)))],
+            active_editor: 0,
+            prev_frame: Instant::now(),
+        }
+    }
+
+    pub fn main_app(&mut self, ctx: &egui::Context) {
+        if Arc::strong_count(&self.editors[self.active_editor].1) == 1 && self.active_editor != 0 {
+            self.editors.remove(self.active_editor);
+            self.active_editor = 0;
+        }
+        let active_editor_index = self.active_editor;
+        let mut active_editor_guard = self.editors[active_editor_index].1.editor.lock().unwrap();
+
+        egui::TopBottomPanel::top("top").show(ctx, |ui| {
+            egui::menu::bar(ui, |ui| {
+                egui::widgets::global_theme_preference_switch(ui);
+
+                egui::menu::menu_button(ui, "File", |ui| {
+                    if ui.button("Save").clicked() {
+                        let chosen_path =
+                            FileDialog::new().add_filter("json", &["json"]).save_file();
+
+                        let Some(path) = chosen_path else { return };
+
+                        let state = active_editor_guard.serializable_state();
+                        match File::create(&path) {
+                            Ok(file) => serde_json::to_writer(file, &state).unwrap(),
+                            Err(e) => println!("Failed to open file {}: {}", path.display(), e),
+                        }
+                    }
+
+                    if ui.button("Load").clicked() {
+                        let chosen_path =
+                            FileDialog::new().add_filter("json", &["json"]).pick_file();
+
+                        let Some(path) = chosen_path else { return };
+
+                        let file = match File::open(&path) {
+                            Ok(file) => file,
+                            Err(e) => {
+                                println!("Failed to open file {}: {}", path.display(), e);
+                                return;
+                            }
+                        };
+
+                        let state = match serde_json::from_reader::<_, GraphEditorState>(file) {
+                            Ok(state) => state,
+                            Err(e) => {
+                                println!("Failed to deserialize state {}: {}", path.display(), e);
+                                return;
+                            }
+                        };
+
+                        active_editor_guard.replace(state);
+                    }
+                });
+
+                ui.menu_button("Assembly", |ui| {
+                    for (i, (name, _editor)) in self.editors.iter().enumerate() {
+                        if ui.button(name).clicked() {
+                            self.active_editor = i;
+                            ui.close_menu();
+                        }
+                    }
+                });
+
+                if ui.button("Open Midi").clicked() {
+                    active_editor_guard.load_midi();
+                }
+
+                let fps = 1.0 / self.prev_frame.elapsed().as_secs_f32();
+                self.prev_frame = Instant::now();
+                ui.label(format!("fps: {fps:.2}"));
+            });
+        });
+
+        let result = egui::CentralPanel::default()
+            .show(ctx, |ui| active_editor_guard.update(ui))
+            .inner;
+
+        if result == UpdateResult::TopologyChanged {
+            println!("editor emitted TopologyChanged");
+            self.editors[active_editor_index]
+                .1
+                .topology_changed
+                .store(true, Ordering::Relaxed);
+        }
+
+        drop(active_editor_guard);
+
+        let mut new_editors = Vec::new();
+
+        for (_name, editor) in &self.editors {
+            let editor_guard = editor.editor.lock().unwrap();
+            let mut new_editors_guard = editor_guard.user_state.ctx.new_editors.lock().unwrap();
+            for entry in new_editors_guard.drain(..) {
+                new_editors.push(entry);
+            }
+        }
+
+        for entry in new_editors {
+            println!("Adding editor {}", entry.0);
+            self.editors.push(entry);
+            self.active_editor = self.editors.len() - 1;
+        }
+
+        ctx.request_repaint();
+    }
+
+    pub fn serializable_state(&mut self) -> impl serde::Serialize + '_ {
+        self.editors[0]
+            .1
+            .editor
+            .lock()
+            .unwrap()
+            .serializable_state()
+    }
+
+    pub fn on_exit(&mut self) {
+        for (_name, editor) in &mut self.editors {
+            editor.editor.lock().unwrap().shutdown();
+        }
+    }
+}
+
+pub struct GraphEditor {
     pub user_state: graph::SynthGraphState,
     pub remote: remote::RuntimeRemote,
     state: graph::SynthEditorState,
     all_nodes: graph::AllSynthNodeTemplates,
-    prev_frame: Instant,
 }
 
-impl ModalEditor {
+impl GraphEditor {
     pub fn new(remote: remote::RuntimeRemote) -> Self {
         pub use crate::compute::nodes::all::*;
 
-        ModalEditor {
+        GraphEditor {
             state: Default::default(),
             user_state: Default::default(),
             all_nodes: graph::AllSynthNodeTemplates::new(vec![
@@ -62,12 +218,11 @@ impl ModalEditor {
                 Box::new(Noise),
             ]),
             remote,
-            prev_frame: Instant::now(),
         }
     }
 
-    pub fn replace(&mut self, state: ModalEditorState) {
-        let ModalEditorState {
+    pub fn replace(&mut self, state: GraphEditorState) {
+        let GraphEditorState {
             rt,
             mapping,
             editor_state,
@@ -223,24 +378,16 @@ impl ModalEditor {
         self.remote.save_state()
     }
 
-    pub fn serializable_state(&mut self) -> impl serde::Serialize + '_ {
+    pub fn serializable_state(&mut self) -> GraphEditorState {
         let rt_state = self.remote.save_state();
-        let editor_state = &self.state;
-        let graph_state = &self.user_state;
 
-        #[derive(Serialize)]
-        struct SerImpl<'a, 'b> {
-            pub rt: Runtime,
-            pub mapping: Vec<(NodeId, u64)>,
-            pub editor_state: &'a SynthEditorState,
-            pub graph_state: &'b SynthGraphState,
-        }
-
-        SerImpl {
+        GraphEditorState {
             rt: rt_state.0,
             mapping: rt_state.1,
-            editor_state,
-            graph_state,
+            editor_state: serde_json::from_value(serde_json::to_value(&self.state).unwrap())
+                .unwrap(),
+            graph_state: serde_json::from_value(serde_json::to_value(&self.user_state).unwrap())
+                .unwrap(),
         }
     }
 
@@ -265,66 +412,11 @@ impl ModalEditor {
         }
     }
 
-    pub fn update(&mut self, ctx: &egui::Context) -> UpdateResult {
+    pub fn update(&mut self, ui: &mut egui::Ui) -> UpdateResult {
         let mut result = UpdateResult::Ok;
-        egui::TopBottomPanel::top("top").show(ctx, |ui| {
-            egui::menu::bar(ui, |ui| {
-                egui::widgets::global_theme_preference_switch(ui);
-
-                egui::menu::menu_button(ui, "File", |ui| {
-                    if ui.button("Save").clicked() {
-                        let chosen_path =
-                            FileDialog::new().add_filter("json", &["json"]).save_file();
-
-                        let Some(path) = chosen_path else { return };
-
-                        let state = self.serializable_state();
-                        match File::create(&path) {
-                            Ok(file) => serde_json::to_writer(file, &state).unwrap(),
-                            Err(e) => println!("Failed to open file {}: {}", path.display(), e),
-                        }
-                    }
-
-                    if ui.button("Load").clicked() {
-                        let chosen_path =
-                            FileDialog::new().add_filter("json", &["json"]).pick_file();
-
-                        let Some(path) = chosen_path else { return };
-
-                        let file = match File::open(&path) {
-                            Ok(file) => file,
-                            Err(e) => {
-                                println!("Failed to open file {}: {}", path.display(), e);
-                                return;
-                            }
-                        };
-
-                        let state = match serde_json::from_reader::<_, ModalEditorState>(file) {
-                            Ok(state) => state,
-                            Err(e) => {
-                                println!("Failed to deserialize state {}: {}", path.display(), e);
-                                return;
-                            }
-                        };
-
-                        self.replace(state);
-                        result = UpdateResult::TopologyChanged;
-                    }
-                });
-
-                if ui.button("Open Midi").clicked() {
-                    self.load_midi();
-                }
-
-                let fps = 1.0 / self.prev_frame.elapsed().as_secs_f32();
-                self.prev_frame = Instant::now();
-                ui.label(format!("fps: {fps:.2}"));
-            });
-        });
-
         let mut prepend_responses = Vec::new();
 
-        if ctx.input(|state| state.key_pressed(egui::Key::Delete)) {
+        if ui.ctx().input(|state| state.key_pressed(egui::Key::Delete)) {
             prepend_responses.extend(
                 self.state
                     .selected_nodes
@@ -334,16 +426,13 @@ impl ModalEditor {
             );
         }
 
-        let graph_response = egui::CentralPanel::default()
-            .show(ctx, |ui| {
-                self.state.draw_graph_editor(
-                    ui,
-                    &self.all_nodes,
-                    &mut self.user_state,
-                    prepend_responses,
-                )
-            })
-            .inner;
+        let graph_response = self.state.draw_graph_editor(
+            ui,
+            &self.all_nodes,
+            &mut self.user_state,
+            prepend_responses,
+        );
+
         for node_response in graph_response.node_responses {
             match node_response {
                 NodeResponse::CreatedNode(id) => {
@@ -486,7 +575,6 @@ impl ModalEditor {
         }
 
         self.remote.wait();
-        ctx.request_repaint();
 
         result
     }
