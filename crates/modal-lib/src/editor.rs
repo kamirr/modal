@@ -162,8 +162,12 @@ impl ModalApp {
 
         let mut new_editors = Vec::new();
 
-        for (_name, editor) in &self.editors {
-            let editor_guard = editor.editor.lock().unwrap();
+        for (idx, (_name, editor)) in self.editors.iter().enumerate() {
+            let mut editor_guard = editor.editor.lock().unwrap();
+            if idx != active_editor_index {
+                editor_guard.update_background();
+            }
+
             let mut new_editors_guard = editor_guard.user_state.ctx.new_editors.lock().unwrap();
             for entry in new_editors_guard.drain(..) {
                 new_editors.push(entry);
@@ -540,6 +544,18 @@ impl GraphEditor {
             }
         }
 
+        self.process_background(&mut result);
+
+        result
+    }
+
+    pub fn update_background(&mut self) -> UpdateResult {
+        let mut result = UpdateResult::Ok;
+        self.process_background(&mut result);
+        result
+    }
+
+    fn process_background(&mut self, result: &mut UpdateResult) {
         for (idx, evs) in self.remote.events() {
             let Some(node_id) = self.remote.index_to_id(idx) else {
                 continue;
@@ -549,7 +565,7 @@ impl GraphEditor {
                 match ev {
                     NodeEvent::RecalcInputs(inputs) => {
                         self.recalc_inputs(node_id, inputs);
-                        result = UpdateResult::TopologyChanged;
+                        *result = UpdateResult::TopologyChanged;
                     }
                 }
             }
@@ -575,8 +591,6 @@ impl GraphEditor {
         }
 
         self.remote.wait();
-
-        result
     }
 
     pub fn shutdown(&mut self) {

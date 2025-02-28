@@ -23,8 +23,6 @@ use runtime::{
     ExternInputs, Output, Value, ValueKind,
 };
 
-use self::null::NullSourceNew;
-
 mod extern_;
 pub mod jack;
 mod null;
@@ -43,7 +41,7 @@ pub trait MidiSourceNew: Debug + DynClone + Send + Sync {
 
 #[derive(Debug, Serialize, Deserialize)]
 struct RecoverableMidiSource {
-    new: Box<dyn MidiSourceNew>,
+    new: Option<Box<dyn MidiSourceNew>>,
     #[serde(skip)]
     source: Option<Box<dyn MidiSource>>,
 }
@@ -51,14 +49,16 @@ struct RecoverableMidiSource {
 impl RecoverableMidiSource {
     fn new() -> Self {
         RecoverableMidiSource {
-            new: Box::new(NullSourceNew),
+            new: None,
             source: None,
         }
     }
 
     fn source(&mut self) -> Option<&mut dyn MidiSource> {
         if self.source.is_none() {
-            self.source = self.new.new_src().ok();
+            if let Some(constructor) = &self.new {
+                self.source = constructor.new_src().ok();
+            }
         }
 
         match &mut self.source {
@@ -71,7 +71,7 @@ impl RecoverableMidiSource {
 impl Clone for RecoverableMidiSource {
     fn clone(&self) -> Self {
         RecoverableMidiSource {
-            new: clone_box(&*self.new),
+            new: self.new.as_ref().map(|new| clone_box(&**new)),
             source: None,
         }
     }
@@ -163,7 +163,7 @@ impl NodeConfig for MidiInConf {
                         inner.name = extern_name.to_string();
                         inner.replace_new = Some(Box::new(ExternSourceNew {
                             name: extern_name,
-                            idx: idx,
+                            idx,
                         }));
                         ui.close_menu();
                     }
@@ -190,14 +190,15 @@ impl Node for MidiIn {
     fn feed(&mut self, inputs: &ExternInputs, _data: &[Value]) -> Vec<NodeEvent> {
         if let Ok(mut conf) = self.conf.inner.try_lock() {
             if let Some(new) = conf.replace_new.take() {
-                self.source.new = new;
+                self.source.new = Some(new);
                 self.source.source = None;
             }
 
             if self.conf.request_extern_update.load(Ordering::Relaxed) {
                 conf.extern_inputs = inputs
                     .list()
-                    .filter_map(|(name, vk)| (vk == ValueKind::Midi).then(|| name.clone()))
+                    .filter(|&(_name, vk)| (vk == ValueKind::Midi))
+                    .map(|(name, _vk)| name.clone())
                     .map(|name| {
                         let idx = inputs.get(&name).unwrap();
                         (name, idx.to_bits())
@@ -206,16 +207,20 @@ impl Node for MidiIn {
             }
         }
 
-        let Some(source) = self.source.source() else {
-            self.conf.reset();
-            self.source = RecoverableMidiSource::new();
-            return Default::default();
-        };
-
-        self.out = source
-            .try_next(inputs)
-            .map(|(channel, message)| Value::Midi { channel, message })
-            .unwrap_or(Value::None);
+        if self.source.new.is_some() {
+            if let Some(source) = self.source.source() {
+                self.out = source
+                    .try_next(inputs)
+                    .map(|(channel, message)| Value::Midi { channel, message })
+                    .unwrap_or(Value::None);
+            } else {
+                self.conf.reset();
+                self.source = RecoverableMidiSource::new();
+                self.out = Value::Disconnected;
+            };
+        } else {
+            self.out = Value::Disconnected;
+        }
 
         Default::default()
     }

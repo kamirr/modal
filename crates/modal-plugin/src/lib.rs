@@ -68,7 +68,7 @@ impl Debug for DawMidiSource {
 
 impl MidiSource for DawMidiSource {
     fn try_next(&mut self, _extern: &ExternInputs) -> Option<(u8, MidiMessage)> {
-        self.0.try_recv().unwrap().map(|msg| dbg!(msg))
+        self.0.try_recv().unwrap()
     }
 
     fn reset(&mut self) {}
@@ -165,7 +165,7 @@ impl Plugin for Modal {
         _aux: &mut AuxiliaryBuffers,
         context: &mut impl ProcessContext<Self>,
     ) -> ProcessStatus {
-        if let Some(ev) = context.next_event() {
+        while let Some(ev) = context.next_event() {
             let mut midi_msg = None;
             match ev {
                 NoteEvent::NoteOn {
@@ -196,9 +196,8 @@ impl Plugin for Modal {
                         },
                     ))
                 }
-
                 other => {
-                    println!("Unsupported event: {other:?}");
+                    println!("Ignored {other:#?}");
                 }
             }
 

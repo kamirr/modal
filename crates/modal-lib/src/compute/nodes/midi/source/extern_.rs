@@ -12,14 +12,13 @@ impl MidiSource for ExternSource {
     fn try_next(&mut self, inputs: &ExternInputs) -> Option<(u8, MidiMessage)> {
         inputs
             .read(self.0)
-            .map(|v| {
+            .and_then(|v| {
                 if let Value::Midi { channel, message } = v {
                     Some((channel, message))
                 } else {
                     None
                 }
             })
-            .flatten()
     }
 
     fn reset(&mut self) {}

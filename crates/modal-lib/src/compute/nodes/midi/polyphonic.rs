@@ -24,6 +24,7 @@ use crate::{
     },
 };
 
+#[allow(clippy::large_enum_variant)]
 enum LazyEditor {
     Pending(Option<GraphEditorState>),
     Ready {
