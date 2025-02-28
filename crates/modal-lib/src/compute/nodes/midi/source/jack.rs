@@ -1,6 +1,7 @@
 use anyhow::{anyhow, Result};
 use jack::{ClientOptions, PortFlags, PortSpec};
 use midly::{live::LiveEvent, Arena, MidiMessage, TrackEventKind};
+use runtime::ExternInputs;
 use serde::{Deserialize, Serialize};
 use std::{
     any::Any,
@@ -17,7 +18,7 @@ pub struct JackSource {
 }
 
 impl MidiSource for JackSource {
-    fn try_next(&mut self) -> Option<(u8, MidiMessage)> {
+    fn try_next(&mut self, _extern: &ExternInputs) -> Option<(u8, MidiMessage)> {
         self.midi_rx.try_recv().ok()
     }
 

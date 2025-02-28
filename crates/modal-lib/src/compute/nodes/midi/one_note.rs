@@ -81,7 +81,7 @@ impl Node for OneNote {
 
     fn read(&self, out: &mut [Value]) {
         out[0] = Value::Float(440.0 * 2f32.powf(1.0 / 12.0).powi(self.state.key as i32 - 69));
-        out[1] = Value::Float(self.state.vel as _);
+        out[1] = Value::Float(self.state.vel as f32 / 127.0);
         out[2] = Value::Float(if self.state.on_ev { 1.0 } else { 0.0 });
     }
 

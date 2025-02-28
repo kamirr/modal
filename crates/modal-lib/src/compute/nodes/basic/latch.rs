@@ -7,11 +7,12 @@ use runtime::{
     ExternInputs, Value, ValueKind,
 };
 
-use crate::compute::inputs::trigger::{TriggerInput, TriggerMode};
+use crate::compute::inputs::trigger::{TriggerInput, TriggerInputState, TriggerMode};
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Latch {
     trigger: Arc<TriggerInput>,
+    trigger_state: TriggerInputState,
     out: f32,
 }
 
@@ -25,6 +26,7 @@ impl Latch {
     pub fn new() -> Self {
         Latch {
             trigger: Arc::new(TriggerInput::new(TriggerMode::Up, 0.5)),
+            trigger_state: TriggerInputState::default(),
             out: 0.0,
         }
     }
@@ -33,7 +35,7 @@ impl Latch {
 #[typetag::serde]
 impl Node for Latch {
     fn feed(&mut self, _inputs: &ExternInputs, data: &[Value]) -> Vec<NodeEvent> {
-        if self.trigger.trigger(&data[0]) {
+        if self.trigger.trigger(&mut self.trigger_state, &data[0]) {
             self.out = data[1].as_float().unwrap_or_default();
         }
 

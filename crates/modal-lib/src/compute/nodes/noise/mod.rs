@@ -8,6 +8,7 @@ use rand_chacha::ChaCha12Rng;
 use serde::{Deserialize, Serialize};
 
 use crate::{
+    compute::inputs::trigger::TriggerInputState,
     serde_atomic_enum,
     util::{enum_combo_box, perlin::Perlin1D},
 };
@@ -59,7 +60,9 @@ impl NodeConfig for NoiseGenConfig {
 pub struct NoiseGen {
     config: Arc<NoiseGenConfig>,
     latch: Arc<TriggerInput>,
+    latch_state: TriggerInputState,
     reset: Arc<TriggerInput>,
+    reset_state: TriggerInputState,
     min: Arc<RealInput>,
     max: Arc<RealInput>,
     frequency_input: Arc<FreqInput>,
@@ -79,10 +82,10 @@ impl Node for NoiseGen {
         let latch = if data[0].disconnected() {
             true
         } else {
-            self.latch.trigger(&data[0])
+            self.latch.trigger(&mut self.latch_state, &data[0])
         };
 
-        let reset = self.reset.trigger(&data[1]);
+        let reset = self.reset.trigger(&mut self.reset_state, &data[1]);
         if reset {
             self.rng = ChaCha12Rng::from_seed([0xFE; 32]);
             self.t = 0;
@@ -150,7 +153,9 @@ fn noise_gen() -> Box<dyn Node> {
             ty: AtomicNoiseType::new(NoiseType::Uniform),
         }),
         latch: Arc::new(TriggerInput::new(TriggerMode::Up, 0.5)),
+        latch_state: TriggerInputState::default(),
         reset: Arc::new(TriggerInput::new(TriggerMode::Up, 0.5)),
+        reset_state: TriggerInputState::default(),
         min: Arc::new(RealInput::new(-1.0)),
         max: Arc::new(RealInput::new(1.0)),
         frequency_input: Arc::new(FreqInput::new(440.0)),

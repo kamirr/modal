@@ -2,7 +2,7 @@ use std::{
     borrow::Cow,
     cell::RefCell,
     collections::HashMap,
-    sync::{Arc, Weak},
+    sync::{Arc, Mutex, Weak},
     time::Instant,
 };
 
@@ -11,7 +11,7 @@ use egui_graph_edit::{
     NodeResponse, NodeTemplateIter, NodeTemplateTrait, UserResponseTrait, WidgetValueTrait,
 };
 
-use eframe::egui;
+use eframe::egui::{self};
 use runtime::{
     node::{InputUi, Node, NodeConfig},
     ValueKind,
@@ -20,6 +20,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     compute::nodes::{all::source::MidiSourceNew, NodeList},
+    editor::SharedEditorData,
     scope::Scope,
     util::{self, toggle_button},
 };
@@ -446,9 +447,10 @@ pub enum MidiCollection {
 #[derive(Serialize, Deserialize)]
 pub struct SynthCtx {
     pub midi: HashMap<String, MidiCollection>,
-    #[serde(skip)]
-    #[serde(default = "Instant::now")]
+    #[serde(skip, default = "Instant::now")]
     pub last_updated_jack: Instant,
+    #[serde(skip, default)]
+    pub new_editors: Mutex<Vec<(String, Arc<SharedEditorData>)>>,
 }
 
 impl Default for SynthCtx {
@@ -456,6 +458,7 @@ impl Default for SynthCtx {
         SynthCtx {
             midi: HashMap::new(),
             last_updated_jack: Instant::now(),
+            new_editors: Mutex::new(Vec::new()),
         }
     }
 }

@@ -1,9 +1,8 @@
-mod rodio_out;
-
 use eframe::egui::{self, Vec2};
-use modal_editor::{ModalEditor, ModalEditorState};
-
-use rodio_out::RodioOut;
+use modal_lib::{
+    editor::{GraphEditor, GraphEditorState, ModalApp},
+    remote::{rodio_out::RodioOut, RuntimeRemote},
+};
 
 fn main() {
     let options = eframe::NativeOptions {
@@ -16,44 +15,47 @@ fn main() {
     eframe::run_native(
         "Modal",
         options,
-        Box::new(|cc| Ok(Box::new(ModalApp::with_context(cc)))),
+        Box::new(|cc| Ok(Box::new(ModalStandalone::with_context(cc)))),
     )
     .unwrap();
 }
 
-struct ModalApp {
-    editor: ModalEditor,
+struct ModalStandalone {
+    app: ModalApp,
 }
 
-impl ModalApp {
+impl ModalStandalone {
     fn with_context(cc: &eframe::CreationContext) -> Self {
         cc.egui_ctx
             .all_styles_mut(|style| style.interaction.selectable_labels = false);
 
-        let state: Option<ModalEditorState> = cc
+        let state: Option<GraphEditorState> = cc
             .storage
             .and_then(|storage| eframe::get_value(storage, "synth-app"));
 
-        let mut editor = ModalEditor::new(Box::new(RodioOut::default()));
+        let remote = RuntimeRemote::start(Box::new(RodioOut::default()));
+        let mut editor = GraphEditor::new(remote);
         if let Some(state) = state {
             editor.replace(state);
         }
 
-        ModalApp { editor }
+        ModalStandalone {
+            app: ModalApp::new(editor),
+        }
     }
 }
 
-impl eframe::App for ModalApp {
+impl eframe::App for ModalStandalone {
     fn save(&mut self, storage: &mut dyn eframe::Storage) {
-        eframe::set_value(storage, "synth-app", &self.editor.serializable_state());
+        eframe::set_value(storage, "synth-app", &self.app.serializable_state());
         println!("state saved");
     }
 
     fn on_exit(&mut self, _gl: Option<&eframe::glow::Context>) {
-        self.editor.shutdown();
+        self.app.on_exit();
     }
 
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
-        self.editor.update(ctx);
+        self.app.main_app(ctx);
     }
 }

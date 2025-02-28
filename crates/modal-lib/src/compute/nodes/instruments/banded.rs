@@ -6,7 +6,7 @@ use crate::compute::{
     inputs::{
         freq::FreqInput,
         positive::PositiveInput,
-        trigger::{TriggerInput, TriggerMode},
+        trigger::{TriggerInput, TriggerInputState, TriggerMode},
     },
     nodes::all::{
         biquad::{Biquad, BiquadTy},
@@ -63,6 +63,7 @@ impl Default for BowTable {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Banded {
     pluck: Arc<TriggerInput>,
+    pluck_state: TriggerInputState,
     bow_pressure: Arc<PositiveInput>,
     freq: Arc<FreqInput>,
 
@@ -85,6 +86,7 @@ impl Banded {
 
         Banded {
             pluck: Arc::new(TriggerInput::new(TriggerMode::Beat, 0.0)),
+            pluck_state: TriggerInputState::default(),
             bow_pressure: Arc::new(PositiveInput::new(0.0)),
             freq: Arc::new(FreqInput::new(DEFAULT_FREQ)),
 
@@ -144,7 +146,7 @@ impl Node for Banded {
         bow_input *= self.bow_table.compute(bow_input);
         bow_input /= self.modes.len() as f32;
 
-        if self.pluck.trigger(&data[0]) {
+        if self.pluck.trigger(&mut self.pluck_state, &data[0]) {
             self.pluck(0.5)
         };
 

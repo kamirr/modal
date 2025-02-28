@@ -20,6 +20,7 @@ egui-curve-edit = { git = "https://github.com/kamirr/egui-curve-edit", features 
 egui-graph-edit = { workspace = true }
 egui-knobs = { git = "https://github.com/kamirr/egui-knobs" }
 egui_plot = "0.31.0"
+erased-serde = "0.4"
 fluidlite = { version = "0.2.1", features = ["bindgen"] }
 image = "0.24.6"
 itertools = "0.10.5"
@@ -34,10 +35,13 @@ pid = "4.0.0"
 rand = { version = "0.8.5", features = ["serde"] }
 rand_chacha = { version = "0.3.1", features = ["serde1"] }
 rand_distr = "0.4.3"
+rfd = { workspace = true }
+rodio = { workspace = true }
 rubato = "0.16.0"
 rustfft = "6.1.0"
 serde = { workspace = true }
 serde-big-array = "0.5.1"
+serde_json = { workspace = true }
 signalsmith-stretch = "0.1.1"
 strum = { workspace = true }
 thunderdome = { workspace = true }

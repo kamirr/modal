@@ -12,7 +12,7 @@ use runtime::{
     ExternInputs, Value, ValueKind,
 };
 
-use crate::compute::inputs::gate::GateInput;
+use crate::compute::inputs::gate::{GateInput, GateInputState};
 
 #[derive(Debug, Serialize, Deserialize)]
 struct AdsrConfig {
@@ -66,6 +66,7 @@ enum AdsrState {
 pub struct Adsr {
     config: Arc<AdsrConfig>,
     gate: Arc<GateInput>,
+    gate_state: GateInputState,
     state: AdsrState,
     attack_start_gain: f32,
     release_start_gain: f32,
@@ -90,6 +91,7 @@ impl Adsr {
                 release: AtomicF32::new(0.5),
             }),
             gate: Arc::new(GateInput::new(0.5)),
+            gate_state: GateInputState::default(),
             state: AdsrState::Release,
             attack_start_gain: 0.0,
             release_start_gain: 0.0,
@@ -103,7 +105,7 @@ impl Adsr {
 #[typetag::serde]
 impl Node for Adsr {
     fn feed(&mut self, _inputs: &ExternInputs, data: &[Value]) -> Vec<NodeEvent> {
-        let _ = self.gate.gate(&data[0]);
+        let _ = self.gate.gate(&mut self.gate_state, &data[0]);
         let sig = data[1].as_float().unwrap_or(0.0);
 
         let conf_attack = self.config.attack.load(Ordering::Relaxed);

@@ -1,5 +1,3 @@
-mod stream_audio_out;
-
 use std::{
     collections::VecDeque,
     fmt::Debug,
@@ -8,11 +6,14 @@ use std::{
 };
 
 use midly::{num::u7, MidiMessage};
-use modal_editor::ModalEditor;
 use modal_lib::{
     compute::nodes::all::source::{MidiSource, MidiSourceNew},
+    editor::{GraphEditor, ModalApp},
     graph::MidiCollection,
-    remote::{ExternInput, RtRequest},
+    remote::{
+        stream_audio_out::{StreamAudioOut, StreamReader},
+        ExternInput, RtRequest, RuntimeRemote,
+    },
 };
 use nih_plug::{
     midi::{MidiConfig, NoteEvent},
@@ -25,9 +26,8 @@ use nih_plug::{
     },
 };
 use nih_plug_egui::{create_egui_editor, EguiState};
-use runtime::{Value, ValueKind};
+use runtime::{ExternInputs, Value, ValueKind};
 use serde::{Deserialize, Serialize};
-use stream_audio_out::{StreamAudioOut, StreamReader};
 
 struct DawMidi {
     tx: barrage::Sender<(u8, MidiMessage)>,
@@ -67,15 +67,15 @@ impl Debug for DawMidiSource {
 }
 
 impl MidiSource for DawMidiSource {
-    fn try_next(&mut self) -> Option<(u8, MidiMessage)> {
-        self.0.try_recv().unwrap().map(|msg| dbg!(msg))
+    fn try_next(&mut self, _extern: &ExternInputs) -> Option<(u8, MidiMessage)> {
+        self.0.try_recv().unwrap()
     }
 
     fn reset(&mut self) {}
 }
 
 pub struct Modal {
-    app: Arc<Mutex<ModalEditor>>,
+    app: Arc<Mutex<ModalApp>>,
     sender: Sender<RtRequest>,
     reader: StreamReader,
     params: Arc<ModalParams>,
@@ -85,9 +85,10 @@ pub struct Modal {
 impl Default for Modal {
     fn default() -> Self {
         let (audio_out, reader) = StreamAudioOut::new();
-        let mut app = ModalEditor::new(Box::new(audio_out));
-        let sender = app.remote.tx.clone();
-        app.user_state.ctx.midi.insert(
+        let remote = RuntimeRemote::start(Box::new(audio_out));
+        let mut editor = GraphEditor::new(remote);
+        let sender = editor.remote.tx.clone();
+        editor.user_state.ctx.midi.insert(
             "Track".to_string(),
             MidiCollection::Single(Box::new(DawMidiStreamNew)),
         );
@@ -98,7 +99,7 @@ impl Default for Modal {
             })
             .ok();
         Modal {
-            app: Arc::new(Mutex::new(app)),
+            app: Arc::new(Mutex::new(ModalApp::new(editor))),
             sender,
             reader,
             params: Arc::new(ModalParams::default()),
@@ -153,7 +154,7 @@ impl Plugin for Modal {
             (),
             move |_, _| {},
             move |egui_ctx, _setter, _state| {
-                app.lock().unwrap().update(egui_ctx);
+                app.lock().unwrap().main_app(egui_ctx);
             },
         )
     }
@@ -164,7 +165,7 @@ impl Plugin for Modal {
         _aux: &mut AuxiliaryBuffers,
         context: &mut impl ProcessContext<Self>,
     ) -> ProcessStatus {
-        if let Some(ev) = context.next_event() {
+        while let Some(ev) = context.next_event() {
             let mut midi_msg = None;
             match ev {
                 NoteEvent::NoteOn {
@@ -195,9 +196,8 @@ impl Plugin for Modal {
                         },
                     ))
                 }
-
                 other => {
-                    println!("Unsupported event: {other:?}");
+                    println!("Ignored {other:#?}");
                 }
             }
 
