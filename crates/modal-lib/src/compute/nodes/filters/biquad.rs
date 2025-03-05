@@ -6,7 +6,7 @@ use num_complex::Complex32;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    compute::inputs::{freq::FreqInput, positive::PositiveInput},
+    compute::inputs::{freq::FreqInput, gain::GainInput, positive::PositiveInput},
     serde_atomic_enum,
     util::{enum_combo_box, toggle_button},
 };
@@ -194,6 +194,7 @@ pub struct Biquad {
     f0: Arc<FreqInput>,
     q: Arc<PositiveInput>,
     bw: Arc<PositiveInput>,
+    gain: Arc<GainInput>,
     param_ty: ParamTy,
     in_hist: [f32; 3],
     out_hist: [f32; 2],
@@ -207,6 +208,7 @@ impl Biquad {
             f0: Arc::new(FreqInput::new(freq)),
             q: Arc::new(PositiveInput::new(0.707)),
             bw: Arc::new(PositiveInput::new(1.0)),
+            gain: Arc::new(GainInput::unit()),
             param_ty: ParamTy::Q,
             in_hist: [0.0; 3],
             out_hist: [0.0; 2],
@@ -279,7 +281,10 @@ impl Biquad {
 #[typetag::serde]
 impl Node for Biquad {
     fn feed(&mut self, _inputs: &ExternInputs, data: &[Value]) -> Vec<NodeEvent> {
-        self.next(data[0].as_float().unwrap_or_default(), &data[1], &data[2]);
+        let sig = data[0].as_float().unwrap_or_default();
+        let gain = self.gain.get_multiplier(&data[3]);
+        // BiQuad gain can be applied to the input
+        self.next(sig * gain, &data[1], &data[2]);
 
         let new_param_ty = self.config.param_ty.load(Ordering::Relaxed);
         if self.param_ty != new_param_ty {
@@ -306,6 +311,7 @@ impl Node for Biquad {
                 ParamTy::Q => Input::stateful("Q", &self.q),
                 ParamTy::Bw => Input::stateful("BW", &self.bw),
             },
+            Input::stateful("gain", &self.gain),
         ]
     }
 }

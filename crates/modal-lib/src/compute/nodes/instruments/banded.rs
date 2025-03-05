@@ -5,6 +5,7 @@ use serde::{Deserialize, Serialize};
 use crate::compute::{
     inputs::{
         freq::FreqInput,
+        gain::GainInput,
         positive::PositiveInput,
         trigger::{TriggerInput, TriggerMode},
     },
@@ -65,6 +66,7 @@ pub struct Banded {
     pluck: Arc<TriggerInput>,
     bow_pressure: Arc<PositiveInput>,
     freq: Arc<FreqInput>,
+    gain: Arc<GainInput>,
 
     bow_vel: f32,
     bow_table: BowTable,
@@ -87,6 +89,7 @@ impl Banded {
             pluck: Arc::new(TriggerInput::new(TriggerMode::Beat, 0.0)),
             bow_pressure: Arc::new(PositiveInput::new(0.0)),
             freq: Arc::new(FreqInput::new(DEFAULT_FREQ)),
+            gain: Arc::new(GainInput::unit()),
 
             bow_vel: 0.0,
             bow_table: BowTable {
@@ -130,6 +133,8 @@ impl Node for Banded {
             Mode::set_frequency(self.modes.as_mut_slice(), freq);
         }
 
+        let gain = self.gain.get_multiplier(&data[3]);
+
         self.bow_vel *= self.integration_const;
         self.bow_vel += self.base_gain
             * self
@@ -167,7 +172,8 @@ impl Node for Banded {
             mode.delay.push(filt_out);
 
             acc + filt_out
-        }) * 4.0;
+        }) * gain
+            * 4.0;
 
         Vec::default()
     }
@@ -181,6 +187,7 @@ impl Node for Banded {
             Input::stateful("pluck", &self.pluck),
             Input::stateful("bow", &self.bow_pressure),
             Input::stateful("freq", &self.freq),
+            Input::stateful("gain", &self.gain),
         ]
     }
 }
