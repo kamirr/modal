@@ -1,6 +1,7 @@
 pub mod angle;
 pub mod beat;
 pub mod freq;
+pub mod gain;
 pub mod gate;
 pub mod midi;
 pub mod percentage;
