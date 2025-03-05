@@ -9,7 +9,7 @@ use std::{
 use serde::{Deserialize, Serialize};
 
 use crate::compute::{
-    inputs::{freq::FreqInput, percentage::PercentageInput},
+    inputs::{freq::FreqInput, gain::GainInput, percentage::PercentageInput},
     nodes::all::delay::{RawDelay, ResizeStrategy},
 };
 use runtime::{
@@ -114,6 +114,7 @@ pub struct Twang {
     config: Arc<TwangConfig>,
     pluck_pos_input: Arc<PercentageInput>,
     freq_input: Arc<FreqInput>,
+    gain_input: Arc<GainInput>,
 
     delay_line: RawDelay,
     comb_delay: RawDelay,
@@ -133,6 +134,7 @@ impl Twang {
             }),
             pluck_pos_input: Arc::new(PercentageInput::new(40.0)),
             freq_input: Arc::new(FreqInput::new(220.0).min(40)),
+            gain_input: Arc::new(GainInput::unit()),
 
             delay_line: RawDelay::new_allpass(4096.0),
             comb_delay: RawDelay::new_linear(4096.0),
@@ -168,7 +170,7 @@ impl Twang {
         self.loop_filt.gain = gain;
     }
 
-    fn tick(&mut self, input: f32) {
+    fn tick(&mut self, input: f32, gain: f32) {
         let filt_out = self.loop_filt.tick(self.delay_line.last_out());
         self.delay_line.push(input + filt_out);
 
@@ -176,16 +178,18 @@ impl Twang {
 
         self.comb_delay.push(self.out);
         self.out -= self.comb_delay.last_out();
-        self.out *= 0.5;
+        self.out *= 0.5 * gain;
     }
 }
 
 #[typetag::serde]
 impl Node for Twang {
     fn feed(&mut self, _inputs: &ExternInputs, data: &[Value]) -> Vec<NodeEvent> {
+        let gain = self.gain_input.get_multiplier(&data[3]);
+
         if self.config.pluck.fetch_and(false, Ordering::Relaxed) {
             for r in RANDOM.iter() {
-                self.tick(*r);
+                self.tick(*r, gain);
             }
         }
 
@@ -196,7 +200,9 @@ impl Node for Twang {
             self.set_frequency(new_freq);
         }
 
-        self.tick(data[0].as_float().unwrap_or_default());
+        let input = data[0].as_float().unwrap_or_default();
+
+        self.tick(input, gain);
 
         Vec::default()
     }
@@ -210,6 +216,7 @@ impl Node for Twang {
             Input::new("sig", ValueKind::Float),
             Input::stateful("freq", &self.freq_input),
             Input::stateful("pluck at", &self.pluck_pos_input),
+            Input::stateful("gain", &self.gain_input),
         ]
     }
 

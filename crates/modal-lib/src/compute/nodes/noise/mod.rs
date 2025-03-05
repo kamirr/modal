@@ -1,6 +1,9 @@
 use std::{
     any::Any,
-    sync::{atomic::Ordering, Arc},
+    sync::{
+        atomic::{AtomicBool, Ordering},
+        Arc,
+    },
 };
 
 use rand::{Rng, SeedableRng};
@@ -8,6 +11,7 @@ use rand_chacha::ChaCha12Rng;
 use serde::{Deserialize, Serialize};
 
 use crate::{
+    compute::inputs::gain::GainInput,
     compute::inputs::trigger::TriggerInputState,
     serde_atomic_enum,
     util::{enum_combo_box, perlin::Perlin1D},
@@ -38,21 +42,29 @@ impl Eq for NoiseType {}
 #[derive(Debug, Serialize, Deserialize)]
 struct NoiseGenConfig {
     ty: AtomicNoiseType,
+    manual_range: AtomicBool,
 }
 
 impl NoiseGenConfig {
     fn noise_type(&self) -> NoiseType {
         self.ty.load(Ordering::Relaxed)
     }
+
+    fn manual_range(&self) -> bool {
+        self.manual_range.load(Ordering::Relaxed)
+    }
 }
 
 impl NodeConfig for NoiseGenConfig {
     fn show(&self, ui: &mut eframe::egui::Ui, _data: &dyn Any) {
-        let mut ty = self.ty.load(Ordering::Acquire);
+        let mut manual_range = self.manual_range.load(Ordering::Relaxed);
+        let mut ty = self.ty.load(Ordering::Relaxed);
 
+        ui.checkbox(&mut manual_range, "Manual range");
         enum_combo_box(ui, &mut ty);
 
-        self.ty.store(ty, Ordering::Release);
+        self.manual_range.store(manual_range, Ordering::Relaxed);
+        self.ty.store(ty, Ordering::Relaxed);
     }
 }
 
@@ -63,10 +75,12 @@ pub struct NoiseGen {
     latch_state: TriggerInputState,
     reset: Arc<TriggerInput>,
     reset_state: TriggerInputState,
+    gain: Arc<GainInput>,
     min: Arc<RealInput>,
     max: Arc<RealInput>,
     frequency_input: Arc<FreqInput>,
 
+    manual_range: bool,
     ty: NoiseType,
     perlin_noise: Perlin1D,
     out: f32,
@@ -91,19 +105,29 @@ impl Node for NoiseGen {
             self.t = 0;
         }
 
-        let min = self.min.get_f32(&data[2]);
-        let max = self.max.get_f32(&data[3]);
         let ty = self.config.noise_type();
+        let manual_range = self.config.manual_range();
 
-        let emit = ty != self.ty;
+        let emit = ty != self.ty || manual_range != self.manual_range;
         self.ty = ty;
+        self.manual_range = manual_range;
+
+        let (min, max) = if self.manual_range && data.len() >= 4 {
+            let min = self.min.get_f32(&data[2]);
+            let max = self.max.get_f32(&data[3]);
+            (min, max)
+        } else {
+            let gain = self.gain.get_multiplier(&data[2]);
+            (-gain, gain)
+        };
 
         let m1_to_p1 = match ty {
             NoiseType::Uniform => self.rng.gen_range(-1.0..=1.0),
             NoiseType::Perlin => {
-                let frequency = self
-                    .frequency_input
-                    .get_f32(data.get(4).unwrap_or(&Value::None));
+                let frequency = self.frequency_input.get_f32(
+                    data.get(if self.manual_range { 4 } else { 3 })
+                        .unwrap_or(&Value::None),
+                );
                 self.t += 1;
                 let perlin_arg = self.t as f32 / 44100.0 * frequency;
 
@@ -135,9 +159,14 @@ impl Node for NoiseGen {
         let mut ins = vec![
             Input::stateful("latch", &self.latch),
             Input::stateful("reset", &self.reset),
-            Input::stateful("min", &self.min),
-            Input::stateful("max", &self.max),
         ];
+
+        if self.manual_range {
+            ins.push(Input::stateful("min", &self.min));
+            ins.push(Input::stateful("max", &self.max));
+        } else {
+            ins.push(Input::stateful("gain", &self.gain));
+        }
 
         if self.ty == NoiseType::Perlin {
             ins.push(Input::stateful("f", &self.frequency_input))
@@ -151,14 +180,17 @@ fn noise_gen() -> Box<dyn Node> {
     Box::new(NoiseGen {
         config: Arc::new(NoiseGenConfig {
             ty: AtomicNoiseType::new(NoiseType::Uniform),
+            manual_range: AtomicBool::new(false),
         }),
         latch: Arc::new(TriggerInput::new(TriggerMode::Up, 0.5)),
         latch_state: TriggerInputState::default(),
         reset: Arc::new(TriggerInput::new(TriggerMode::Up, 0.5)),
         reset_state: TriggerInputState::default(),
+        gain: Arc::new(GainInput::unit()),
         min: Arc::new(RealInput::new(-1.0)),
         max: Arc::new(RealInput::new(1.0)),
         frequency_input: Arc::new(FreqInput::new(440.0)),
+        manual_range: false,
         ty: NoiseType::Uniform,
         perlin_noise: Perlin1D::new(),
         out: 0.0,

@@ -11,6 +11,7 @@ use crate::compute::inputs::{
     angle::AngleInput,
     beat::{BeatInput, BeatResponse},
     freq::FreqInput,
+    gain::GainInput,
     real::RealInput,
     wave::WaveInput,
 };
@@ -47,6 +48,7 @@ struct Oscillator {
     beat: Arc<BeatInput>,
     phase: Arc<AngleInput>,
     wave: Arc<WaveInput>,
+    gain: Arc<GainInput>,
     min: Arc<RealInput>,
     max: Arc<RealInput>,
     t: f32,
@@ -79,17 +81,21 @@ impl Node for Oscillator {
 
         let phase_0_2 = self.phase.radians(&data[2]) / PI;
 
-        let min = self.min.get_f32(data.get(3).unwrap_or(&Value::Float(-1.0)));
-        let max = self.max.get_f32(data.get(4).unwrap_or(&Value::Float(1.0)));
-
         let step = self.hz * Self::hz_to_dt() * 2.0;
         self.t = (self.t + step) % 2.0;
 
         let adjusted_t = (self.t + phase_0_2) % 2.0;
 
-        self.out = (WaveScale::new(wave.clamp(0.0, 0.99)).sample(adjusted_t) / 2.0 + 0.5)
-            * (max - min)
-            + min;
+        self.out = if data.len() == 5 {
+            let min = self.min.get_f32(&data[3]);
+            let max = self.max.get_f32(&data[4]);
+
+            (WaveScale::new(wave.clamp(0.0, 0.99)).sample(adjusted_t) / 2.0 + 0.5) * (max - min)
+                + min
+        } else {
+            let gain = self.gain.get_multiplier(&data[3]);
+            WaveScale::new(wave.clamp(0.0, 0.99)).sample(adjusted_t) * gain
+        };
 
         let manual_range = self.config.manual_range.load(Ordering::Relaxed);
         let bpm_sync = self.config.bpm_sync.load(Ordering::Relaxed);
@@ -129,6 +135,8 @@ impl Node for Oscillator {
                 Input::stateful("min", &self.min),
                 Input::stateful("max", &self.max),
             ])
+        } else {
+            inputs.push(Input::stateful("gain", &self.gain));
         }
 
         inputs
@@ -144,6 +152,7 @@ pub fn oscillator() -> Box<dyn Node> {
         freq: Arc::new(FreqInput::new(440.0)),
         beat: Arc::new(BeatInput::new(false)),
         wave: Arc::new(WaveInput::new(0.0)),
+        gain: Arc::new(GainInput::unit()),
         phase: Arc::new(AngleInput::new(0.0)),
         min: Arc::new(RealInput::new(-1.0)),
         max: Arc::new(RealInput::new(1.0)),
