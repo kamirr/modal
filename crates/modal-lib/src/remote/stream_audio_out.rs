@@ -4,8 +4,9 @@ use std::sync::{
     Arc,
 };
 
-use modal_editor::AudioOut;
+use super::AudioOut;
 
+#[derive(Debug)]
 pub struct StreamReader {
     rx: Receiver<Vec<f32>>,
     enqueued: Arc<AtomicU32>,
@@ -43,9 +44,9 @@ impl AudioOut for StreamAudioOut {
         self.enqueued.load(Ordering::Relaxed) as usize
     }
 
-    fn feed(&mut self, samples: &[f32]) {
+    fn feed(&mut self, samples: &[f32]) -> bool {
         self.enqueued.fetch_add(1, Ordering::Relaxed);
-        self.tx.send(samples.to_vec()).unwrap();
+        self.tx.send(samples.to_vec()).is_ok()
     }
 
     fn start(&mut self) {}

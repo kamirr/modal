@@ -11,7 +11,7 @@ use runtime::{
     ExternInputs, Value,
 };
 
-use crate::compute::inputs::trigger::{TriggerInput, TriggerMode};
+use crate::compute::inputs::trigger::{TriggerInput, TriggerInputState, TriggerMode};
 
 #[derive(Debug, Serialize, Deserialize)]
 struct AnyConfig {
@@ -26,22 +26,23 @@ impl NodeConfig for AnyConfig {
         ui.horizontal(|ui| {
             ui.label("inputs");
 
-            if ui
-                .add(DragValue::new(&mut ins).range(0..=u32::MAX))
-                .lost_focus()
-            {
+            let response = ui.add(DragValue::new(&mut ins).range(0..=u32::MAX));
+
+            if response.changed() {
                 self.ins.store(ins, Ordering::Release);
             }
-        });
 
-        self.new_ins.store(ins, Ordering::Release);
+            if response.lost_focus() {
+                self.new_ins.store(ins, Ordering::Release);
+            }
+        });
     }
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Any {
     config: Arc<AnyConfig>,
-    defaults: Vec<Arc<TriggerInput>>,
+    defaults: Vec<(Arc<TriggerInput>, TriggerInputState)>,
     ins: u32,
     out: f32,
 }
@@ -54,7 +55,12 @@ impl Any {
                 ins: AtomicU32::new(ins),
             }),
             defaults: (0..ins)
-                .map(|_| Arc::new(TriggerInput::new(TriggerMode::Change, 0.5)))
+                .map(|_| {
+                    (
+                        Arc::new(TriggerInput::new(TriggerMode::Change, 0.5)),
+                        TriggerInputState::default(),
+                    )
+                })
                 .collect(),
             ins,
             out: 0.0,
@@ -67,17 +73,20 @@ impl Node for Any {
     fn feed(&mut self, _inputs: &ExternInputs, data: &[Value]) -> Vec<NodeEvent> {
         let emit = data
             .iter()
-            .zip(self.defaults.iter())
-            .any(|(sample, default)| default.trigger(sample));
+            .zip(self.defaults.iter_mut())
+            .any(|(sample, (trigger, trigger_state))| trigger.trigger(trigger_state, sample));
         self.out = if emit { 1.0 } else { 0.0 };
 
-        let new_ins = self.config.ins.load(Ordering::Relaxed);
+        let new_ins = self.config.new_ins.load(Ordering::Relaxed);
         let emit_ev = new_ins != self.ins;
         self.ins = new_ins;
 
         if self.ins as usize != self.defaults.len() {
             self.defaults.resize_with(self.ins as usize, || {
-                Arc::new(TriggerInput::new(TriggerMode::Up, 0.5))
+                (
+                    Arc::new(TriggerInput::new(TriggerMode::Up, 0.5)),
+                    TriggerInputState::default(),
+                )
             });
         }
 
@@ -98,7 +107,7 @@ impl Node for Any {
 
     fn inputs(&self) -> Vec<Input> {
         (0..self.ins)
-            .map(|i| Input::stateful(format!("sig {i}"), &self.defaults[i as usize]))
+            .map(|i| Input::stateful(format!("sig {i}"), &self.defaults[i as usize].0))
             .collect()
     }
 }

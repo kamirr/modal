@@ -29,15 +29,16 @@ impl NodeConfig for MixConfig {
         ui.horizontal(|ui| {
             ui.label("inputs");
 
-            if ui
-                .add(DragValue::new(&mut ins).range(0..=u32::MAX))
-                .lost_focus()
-            {
+            let response = ui.add(DragValue::new(&mut ins).range(0..=u32::MAX));
+
+            if response.changed() {
                 self.ins.store(ins, Ordering::Release);
             }
-        });
 
-        self.new_ins.store(ins, Ordering::Release);
+            if response.lost_focus() {
+                self.new_ins.store(ins, Ordering::Release);
+            }
+        });
     }
 }
 
@@ -77,7 +78,7 @@ impl Node for Mix {
             .sum::<f32>()
             / self.weights.len() as f32;
 
-        let new_ins = self.config.ins.load(Ordering::Relaxed);
+        let new_ins = self.config.new_ins.load(Ordering::Relaxed);
         let emit_ev = new_ins != self.ins;
         self.ins = new_ins;
 
