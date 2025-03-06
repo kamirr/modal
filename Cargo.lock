@@ -1978,6 +1978,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "egui_json_tree"
+version = "0.11.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6fa2b69bdb6ab8214e1e1e7507c83a8302515035ff1d3a1b27cedfdbf6f86b0a"
+dependencies = [
+ "egui",
+ "serde_json",
+]
+
+[[package]]
 name = "egui_plot"
 version = "0.31.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3058,7 +3068,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4979f22fdb869068da03c9f7528f8297c6fd2606bc3a4affe42e6a823fdb8da4"
 dependencies = [
  "cfg-if",
- "windows-targets 0.48.5",
+ "windows-targets 0.52.6",
 ]
 
 [[package]]
@@ -3281,6 +3291,7 @@ dependencies = [
  "egui-curve-edit",
  "egui-graph-edit",
  "egui-knobs",
+ "egui_json_tree",
  "egui_plot",
  "erased-serde",
  "fluidlite",
@@ -3324,6 +3335,7 @@ dependencies = [
  "nih_plug_egui",
  "runtime",
  "serde",
+ "serde_json",
  "typetag",
 ]
 

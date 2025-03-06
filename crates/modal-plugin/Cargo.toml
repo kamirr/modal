@@ -20,4 +20,5 @@ nih_plug = { git = "https://github.com/robbert-vdh/nih-plug", features = [
 nih_plug_egui = { git = "https://github.com/robbert-vdh/nih-plug" }
 runtime = { path = "../runtime" }
 serde = { workspace = true }
+serde_json = { workspace = true }
 typetag = { workspace = true }

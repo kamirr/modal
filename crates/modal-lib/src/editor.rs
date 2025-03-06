@@ -3,8 +3,9 @@ use crate::{
     graph::MidiCollection,
     remote,
 };
-use eframe::egui;
+use eframe::egui::{self, Color32};
 use egui_graph_edit::{InputParamKind, NodeId, NodeResponse};
+use egui_json_tree::{DefaultExpand, JsonTree, JsonTreeStyle, JsonTreeVisuals, ToggleButtonsState};
 use runtime::{
     node::{Input, NodeEvent},
     OutputPort, Runtime, Value,
@@ -64,6 +65,8 @@ pub struct ModalApp {
     editors: Vec<(String, Arc<SharedEditorData>)>,
     active_editor: usize,
     prev_frame: Instant,
+    pub debug_data: serde_json::Map<String, serde_json::Value>,
+    debug_window: bool,
 }
 
 impl ModalApp {
@@ -72,6 +75,8 @@ impl ModalApp {
             editors: vec![("Modal".to_string(), Arc::new(SharedEditorData::new(editor)))],
             active_editor: 0,
             prev_frame: Instant::now(),
+            debug_data: serde_json::Map::new(),
+            debug_window: false,
         }
     }
 
@@ -127,6 +132,15 @@ impl ModalApp {
                     }
                 });
 
+                egui::menu::menu_button(ui, "View", |ui| {
+                    if ui
+                        .add(crate::util::toggle_button("Debug", self.debug_window))
+                        .clicked()
+                    {
+                        self.debug_window = !self.debug_window;
+                    }
+                });
+
                 ui.menu_button("Assembly", |ui| {
                     for (i, (name, _editor)) in self.editors.iter().enumerate() {
                         if ui.button(name).clicked() {
@@ -147,7 +161,31 @@ impl ModalApp {
         });
 
         let result = egui::CentralPanel::default()
-            .show(ctx, |ui| active_editor_guard.update(ui))
+            .show(ctx, |ui| {
+                let res = active_editor_guard.update(ui);
+
+                if self.debug_window {
+                    egui::Window::new("Debug").show(ui.ctx(), |ui| {
+                        JsonTree::new(
+                            "debug-json-tree",
+                            &serde_json::Value::Object(self.debug_data.clone()),
+                        )
+                        .style(
+                            JsonTreeStyle::new()
+                                .abbreviate_root(true)
+                                .toggle_buttons_state(ToggleButtonsState::VisibleDisabled)
+                                .visuals(JsonTreeVisuals {
+                                    bool_color: Color32::YELLOW,
+                                    ..Default::default()
+                                }),
+                        )
+                        .default_expand(DefaultExpand::All)
+                        .show(ui);
+                    });
+                }
+
+                res
+            })
             .inner;
 
         if result == UpdateResult::TopologyChanged {

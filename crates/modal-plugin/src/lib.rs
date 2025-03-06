@@ -159,6 +159,30 @@ impl Plugin for Modal {
         )
     }
 
+    fn initialize(
+        &mut self,
+        audio_io_layout: &AudioIOLayout,
+        buffer_config: &nih_plug::prelude::BufferConfig,
+        _context: &mut impl nih_plug::prelude::InitContext<Self>,
+    ) -> bool {
+        let mut guard = self.app.lock().unwrap();
+        guard.debug_data.insert(
+            "Output Channels".to_string(),
+            audio_io_layout
+                .main_output_channels
+                .map(|i| serde_json::Value::Number(serde_json::Number::from(i.get())))
+                .unwrap_or(serde_json::Value::Null),
+        );
+        guard.debug_data.insert(
+            "Sample Rate".to_string(),
+            serde_json::Number::from_f64(buffer_config.sample_rate as f64)
+                .map(serde_json::Value::Number)
+                .unwrap_or(serde_json::Value::Null),
+        );
+
+        true
+    }
+
     fn process(
         &mut self,
         buffer: &mut Buffer,
