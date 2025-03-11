@@ -245,7 +245,7 @@ impl ModalApp {
                     .iter()
                     .enumerate()
                     .find_map(|(i, (_name, candidate_editor))| {
-                        Arc::ptr_eq(&editor, &candidate_editor).then_some(i)
+                        Arc::ptr_eq(&editor, candidate_editor).then_some(i)
                     });
             if let Some(editor_index) = editor_index {
                 self.active_editor = editor_index;
