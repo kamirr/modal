@@ -20,7 +20,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     compute::nodes::{all::source::MidiSourceNew, NodeList},
-    editor::SharedEditorData,
+    editor::{ManagedEditor, SharedEditorData},
     scope::Scope,
     util::{self, toggle_button},
 };
@@ -450,7 +450,7 @@ pub struct SynthCtx {
     #[serde(skip, default = "Instant::now")]
     pub last_updated_jack: Instant,
     #[serde(skip, default)]
-    pub new_editors: Mutex<Vec<(String, Arc<SharedEditorData>)>>,
+    pub new_editors: Mutex<Vec<ManagedEditor>>,
     #[serde(skip, default)]
     pub visit_editor: Mutex<Option<Arc<SharedEditorData>>>,
 }

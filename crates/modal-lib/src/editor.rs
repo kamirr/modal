@@ -61,8 +61,22 @@ impl SharedEditorData {
     }
 }
 
+pub struct ManagedEditor {
+    name: String,
+    handle: Arc<SharedEditorData>,
+}
+
+impl ManagedEditor {
+    pub fn new(name: impl Into<String>, handle: Arc<SharedEditorData>) -> Self {
+        ManagedEditor {
+            name: name.into(),
+            handle,
+        }
+    }
+}
+
 pub struct ModalApp {
-    editors: Vec<(String, Arc<SharedEditorData>)>,
+    editors: Vec<ManagedEditor>,
     active_editor: usize,
     prev_frame: Instant,
     pub debug_data: serde_json::Map<String, serde_json::Value>,
@@ -72,7 +86,10 @@ pub struct ModalApp {
 impl ModalApp {
     pub fn new(editor: GraphEditor) -> Self {
         ModalApp {
-            editors: vec![("Modal".to_string(), Arc::new(SharedEditorData::new(editor)))],
+            editors: vec![ManagedEditor::new(
+                "Modal",
+                Arc::new(SharedEditorData::new(editor)),
+            )],
             active_editor: 0,
             prev_frame: Instant::now(),
             debug_data: serde_json::Map::new(),
@@ -87,7 +104,7 @@ impl ModalApp {
             let retain = if i == 0 {
                 true
             } else {
-                Arc::strong_count(&editor.1) > 1
+                Arc::strong_count(&editor.handle) > 1
             };
 
             if !retain && i <= self.active_editor {
@@ -99,7 +116,11 @@ impl ModalApp {
         });
 
         let active_editor_index = self.active_editor;
-        let mut active_editor_guard = self.editors[active_editor_index].1.editor.lock().unwrap();
+        let mut active_editor_guard = self.editors[active_editor_index]
+            .handle
+            .editor
+            .lock()
+            .unwrap();
 
         egui::TopBottomPanel::top("top").show(ctx, |ui| {
             egui::menu::bar(ui, |ui| {
@@ -155,7 +176,7 @@ impl ModalApp {
                 });
 
                 ui.menu_button("Assembly", |ui| {
-                    for (i, (name, _editor)) in self.editors.iter().enumerate() {
+                    for (i, ManagedEditor { name, .. }) in self.editors.iter().enumerate() {
                         let button = Button::new(name).wrap_mode(TextWrapMode::Extend);
                         if ui.add(button).clicked() {
                             self.active_editor = i;
@@ -205,7 +226,7 @@ impl ModalApp {
         if result == UpdateResult::TopologyChanged {
             println!("editor emitted TopologyChanged");
             self.editors[active_editor_index]
-                .1
+                .handle
                 .topology_changed
                 .store(true, Ordering::Relaxed);
         }
@@ -215,8 +236,8 @@ impl ModalApp {
         let mut new_editors = Vec::new();
         let mut visit_editor = None;
 
-        for (idx, (_name, editor)) in self.editors.iter().enumerate() {
-            let mut editor_guard = editor.editor.lock().unwrap();
+        for (idx, ManagedEditor { handle, .. }) in self.editors.iter().enumerate() {
+            let mut editor_guard = handle.editor.lock().unwrap();
             if idx != active_editor_index {
                 editor_guard.update_background();
             }
@@ -235,18 +256,16 @@ impl ModalApp {
         }
 
         for entry in new_editors {
-            println!("Adding editor {}", entry.0);
+            println!("Adding editor {}", entry.name);
             self.editors.push(entry);
         }
 
         if let Some(editor) = visit_editor {
-            let editor_index =
-                self.editors
-                    .iter()
-                    .enumerate()
-                    .find_map(|(i, (_name, candidate_editor))| {
-                        Arc::ptr_eq(&editor, candidate_editor).then_some(i)
-                    });
+            let editor_index = self
+                .editors
+                .iter()
+                .enumerate()
+                .find_map(|(i, managed)| Arc::ptr_eq(&editor, &managed.handle).then_some(i));
             if let Some(editor_index) = editor_index {
                 self.active_editor = editor_index;
             } else {
@@ -259,7 +278,7 @@ impl ModalApp {
 
     pub fn serializable_state(&mut self) -> impl serde::Serialize + '_ {
         self.editors[0]
-            .1
+            .handle
             .editor
             .lock()
             .unwrap()
@@ -267,8 +286,8 @@ impl ModalApp {
     }
 
     pub fn on_exit(&mut self) {
-        for (_name, editor) in &mut self.editors {
-            editor.editor.lock().unwrap().shutdown();
+        for editor in &mut self.editors {
+            editor.handle.editor.lock().unwrap().shutdown();
         }
     }
 }

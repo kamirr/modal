@@ -16,7 +16,7 @@ use thunderdome::Index;
 
 use crate::{
     compute::inputs::midi::MidiInput,
-    editor::{GraphEditor, GraphEditorState, SharedEditorData},
+    editor::{GraphEditor, GraphEditorState, ManagedEditor, SharedEditorData},
     graph::SynthCtx,
     remote::{
         stream_audio_out::{StreamAudioOut, StreamReader},
@@ -189,7 +189,7 @@ impl NodeConfig for PolyphonicInstrumentConf {
                 .new_editors
                 .lock()
                 .unwrap()
-                .push(("Subassembly".into(), editor));
+                .push(ManagedEditor::new("Subassembly", editor));
         }
     }
 }
