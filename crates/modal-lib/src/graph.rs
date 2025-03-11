@@ -451,6 +451,8 @@ pub struct SynthCtx {
     pub last_updated_jack: Instant,
     #[serde(skip, default)]
     pub new_editors: Mutex<Vec<(String, Arc<SharedEditorData>)>>,
+    #[serde(skip, default)]
+    pub visit_editor: Mutex<Option<Arc<SharedEditorData>>>,
 }
 
 impl Default for SynthCtx {
@@ -459,6 +461,7 @@ impl Default for SynthCtx {
             midi: HashMap::new(),
             last_updated_jack: Instant::now(),
             new_editors: Mutex::new(Vec::new()),
+            visit_editor: Mutex::new(None),
         }
     }
 }

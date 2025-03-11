@@ -3,7 +3,7 @@ use crate::{
     graph::MidiCollection,
     remote,
 };
-use eframe::egui::{self, Color32};
+use eframe::egui::{self, Button, Color32, TextWrapMode};
 use egui_graph_edit::{InputParamKind, NodeId, NodeResponse};
 use egui_json_tree::{DefaultExpand, JsonTree, JsonTreeStyle, JsonTreeVisuals, ToggleButtonsState};
 use runtime::{
@@ -81,10 +81,23 @@ impl ModalApp {
     }
 
     pub fn main_app(&mut self, ctx: &egui::Context) {
-        if Arc::strong_count(&self.editors[self.active_editor].1) == 1 && self.active_editor != 0 {
-            self.editors.remove(self.active_editor);
-            self.active_editor = 0;
-        }
+        // Remove dropped editors and adjust active editor index
+        let mut i = 0;
+        self.editors.retain(|editor| {
+            let retain = if i == 0 {
+                true
+            } else {
+                Arc::strong_count(&editor.1) > 1
+            };
+
+            if !retain && i <= self.active_editor {
+                self.active_editor -= 1;
+            }
+
+            i += 1;
+            retain
+        });
+
         let active_editor_index = self.active_editor;
         let mut active_editor_guard = self.editors[active_editor_index].1.editor.lock().unwrap();
 
@@ -143,7 +156,8 @@ impl ModalApp {
 
                 ui.menu_button("Assembly", |ui| {
                     for (i, (name, _editor)) in self.editors.iter().enumerate() {
-                        if ui.button(name).clicked() {
+                        let button = Button::new(name).wrap_mode(TextWrapMode::Extend);
+                        if ui.add(button).clicked() {
                             self.active_editor = i;
                             ui.close_menu();
                         }
@@ -199,6 +213,7 @@ impl ModalApp {
         drop(active_editor_guard);
 
         let mut new_editors = Vec::new();
+        let mut visit_editor = None;
 
         for (idx, (_name, editor)) in self.editors.iter().enumerate() {
             let mut editor_guard = editor.editor.lock().unwrap();
@@ -210,12 +225,33 @@ impl ModalApp {
             for entry in new_editors_guard.drain(..) {
                 new_editors.push(entry);
             }
+            drop(new_editors_guard);
+
+            let mut visit_editor_guard = editor_guard.user_state.ctx.visit_editor.lock().unwrap();
+            if let Some(editor) = visit_editor_guard.take() {
+                visit_editor = Some(editor);
+            }
+            drop(visit_editor_guard);
         }
 
         for entry in new_editors {
             println!("Adding editor {}", entry.0);
             self.editors.push(entry);
-            self.active_editor = self.editors.len() - 1;
+        }
+
+        if let Some(editor) = visit_editor {
+            let editor_index =
+                self.editors
+                    .iter()
+                    .enumerate()
+                    .find_map(|(i, (_name, candidate_editor))| {
+                        Arc::ptr_eq(&editor, &candidate_editor).then_some(i)
+                    });
+            if let Some(editor_index) = editor_index {
+                self.active_editor = editor_index;
+            } else {
+                println!("Attempted to activate non-existent editor");
+            }
         }
 
         ctx.request_repaint();

@@ -170,17 +170,26 @@ impl NodeConfig for PolyphonicInstrumentConf {
             }
         });
 
+        if ui.button("Edit Assembly").clicked() {
+            println!("set active editor");
+            let editor = Arc::clone(self.editor.lock().unwrap().editor());
+            *data
+                .downcast_ref::<SynthCtx>()
+                .unwrap()
+                .visit_editor
+                .lock()
+                .unwrap() = Some(editor);
+        }
+
         if !self.editor_notified.swap(true, Ordering::SeqCst) {
             println!("append editor");
+            let editor = Arc::clone(self.editor.lock().unwrap().editor());
             data.downcast_ref::<SynthCtx>()
                 .unwrap()
                 .new_editors
                 .lock()
                 .unwrap()
-                .push((
-                    "Subassembly".into(),
-                    Arc::clone(self.editor.lock().unwrap().editor()),
-                ));
+                .push(("Subassembly".into(), editor));
         }
     }
 }
