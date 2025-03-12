@@ -1,6 +1,5 @@
 use std::sync::atomic::{AtomicBool, Ordering};
 
-use atomic_float::AtomicF32;
 use runtime::{node::InputUi, Value, ValueKind};
 use serde::{Deserialize, Serialize};
 
@@ -23,7 +22,17 @@ pub struct GateInput {
     threshold: RealInput,
     default: AtomicBool,
     edge: AtomicEdge,
-    prev: AtomicF32,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct GateInputState {
+    prev: f32,
+}
+
+impl Default for GateInputState {
+    fn default() -> Self {
+        GateInputState { prev: 0.0 }
+    }
 }
 
 impl GateInput {
@@ -32,7 +41,6 @@ impl GateInput {
             threshold: RealInput::new(threshold),
             default: AtomicBool::new(false),
             edge: AtomicEdge::new(Edge::None),
-            prev: AtomicF32::new(0.0),
         }
     }
 
@@ -44,8 +52,7 @@ impl GateInput {
         self.edge.load(Ordering::Relaxed) == Edge::Negative
     }
 
-    pub fn gate(&self, recv: &Value) -> bool {
-        let prev = self.prev.load(Ordering::Acquire);
+    pub fn gate(&self, state: &mut GateInputState, recv: &Value) -> bool {
         let default = self.default.load(Ordering::Acquire);
         let threshold = self.threshold.get_f32(&Value::None);
 
@@ -55,16 +62,16 @@ impl GateInput {
             threshold - 1.0
         });
 
-        let edge = if curr >= threshold && prev < threshold {
+        let edge = if curr >= threshold && state.prev < threshold {
             Edge::Positive
-        } else if curr < threshold && prev >= threshold {
+        } else if curr < threshold && state.prev >= threshold {
             Edge::Negative
         } else {
             Edge::None
         };
 
         self.edge.store(edge, Ordering::Relaxed);
-        self.prev.store(curr, Ordering::Release);
+        state.prev = curr;
 
         curr >= threshold
     }

@@ -1,7 +1,6 @@
 [workspace]
 members = [
     "crates/modal-lib",
-    "crates/modal-editor",
     "crates/modal-bin",
     "crates/modal-plugin",
     "crates/runtime",
@@ -16,6 +15,7 @@ eframe = { version = "=0.31.0", features = ["persistence"] }
 egui-graph-edit = { version = "0.6.0", features = ["persistence"] }
 midly = "0.5.3"
 rfd = "0.11.3"
+rodio = "0.17.1"
 serde = { version = "1.0.160", features = ["derive", "rc"] }
 serde_json = "1.0.96"
 strum = { version = "0.24.1", features = ["derive"] }

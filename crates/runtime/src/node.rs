@@ -10,6 +10,7 @@ use super::{Output, Value, ValueKind};
 pub trait NodeConfig: Send + Sync {
     fn show(&self, ui: &mut egui::Ui, data: &dyn Any);
     fn show_short(&self, _ui: &mut egui::Ui, _data: &dyn Any) {}
+    fn background_task(&self, _data: &dyn Any) {}
 }
 
 pub trait InputUi: Send + Sync {

@@ -134,7 +134,7 @@ impl BlowHole {
     pub fn set_vent(&mut self, value: f32) {
         let new = self.rh_gain * value.clamp(0.0, 1.0);
         if new != self.vent.gain {
-            self.vent.gain = dbg!(new);
+            self.vent.gain = new;
         }
     }
 

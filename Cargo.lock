@@ -300,10 +300,10 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "34ac096ce696dc2fcabef30516bb13c0a68a11d30131d3df6f04711467681b04"
 
 [[package]]
-name = "anymap"
-version = "1.0.0-beta.2"
+name = "anymap3"
+version = "1.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8f1f8f5a6f3d50d89e3797d7593a50f96bb2aaa20ca0cc7be1fb673232c91d72"
+checksum = "170433209e817da6aae2c51aa0dd443009a613425dd041ebfb2492d1c4c11a25"
 
 [[package]]
 name = "approx"
@@ -1079,8 +1079,8 @@ dependencies = [
 
 [[package]]
 name = "clap-sys"
-version = "0.3.0"
-source = "git+https://github.com/robbert-vdh/clap-sys.git?branch=feature%2Fcstr-macro#523a5f8a8dd021ec99e7d6e0c0ebe7741a3da9d4"
+version = "0.5.0"
+source = "git+https://github.com/micahrj/clap-sys.git?rev=25d7f53fdb6363ad63fbd80049cb7a42a97ac156#25d7f53fdb6363ad63fbd80049cb7a42a97ac156"
 
 [[package]]
 name = "clap_builder"
@@ -1873,7 +1873,7 @@ dependencies = [
 [[package]]
 name = "egui-baseview"
 version = "0.5.0"
-source = "git+https://github.com/BillyDM/egui-baseview.git#ec70c3fe6b2f070dcacbc22924431edbe24bd1c0"
+source = "git+https://github.com/BillyDM/egui-baseview.git?rev=ec70c3fe6b2f070dcacbc22924431edbe24bd1c0#ec70c3fe6b2f070dcacbc22924431edbe24bd1c0"
 dependencies = [
  "baseview 0.1.0 (git+https://github.com/RustAudio/baseview.git?rev=9a0b42c09d712777b2edb4c5e0cb6baf21e988f0)",
  "copypasta",
@@ -1912,7 +1912,7 @@ dependencies = [
 [[package]]
 name = "egui-knobs"
 version = "0.1.0"
-source = "git+https://github.com/kamirr/egui-knobs#cb85246f4b48efaf5172bad5bc37344717a1cdd7"
+source = "git+https://github.com/kamirr/egui-knobs#b36c6f518a0f98daab387a1c302c8bd04ab14c64"
 dependencies = [
  "egui",
  "image 0.24.9",
@@ -1975,6 +1975,16 @@ dependencies = [
  "wasm-bindgen",
  "web-sys",
  "winit",
+]
+
+[[package]]
+name = "egui_json_tree"
+version = "0.11.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6fa2b69bdb6ab8214e1e1e7507c83a8302515035ff1d3a1b27cedfdbf6f86b0a"
+dependencies = [
+ "egui",
+ "serde_json",
 ]
 
 [[package]]
@@ -3263,21 +3273,8 @@ name = "modal"
 version = "0.1.0"
 dependencies = [
  "eframe",
- "modal-editor",
- "rodio",
-]
-
-[[package]]
-name = "modal-editor"
-version = "0.1.0"
-dependencies = [
- "eframe",
- "egui-graph-edit",
  "modal-lib",
- "rfd",
- "runtime",
- "serde",
- "serde_json",
+ "rodio",
 ]
 
 [[package]]
@@ -3294,7 +3291,9 @@ dependencies = [
  "egui-curve-edit",
  "egui-graph-edit",
  "egui-knobs",
+ "egui_json_tree",
  "egui_plot",
+ "erased-serde",
  "fluidlite",
  "image 0.24.9",
  "itertools 0.10.5",
@@ -3309,11 +3308,14 @@ dependencies = [
  "rand 0.8.5",
  "rand_chacha 0.3.1",
  "rand_distr",
+ "rfd",
+ "rodio",
  "rubato",
  "runtime",
  "rustfft",
  "serde",
  "serde-big-array",
+ "serde_json",
  "signalsmith-stretch",
  "strum 0.24.1",
  "thunderdome",
@@ -3328,12 +3330,12 @@ dependencies = [
  "anyhow",
  "barrage",
  "midly",
- "modal-editor",
  "modal-lib",
  "nih_plug",
  "nih_plug_egui",
  "runtime",
  "serde",
+ "serde_json",
  "typetag",
 ]
 
@@ -3429,10 +3431,10 @@ dependencies = [
 [[package]]
 name = "nih_plug"
 version = "0.0.0"
-source = "git+https://github.com/rbmj/nih-plug#f699d33c65f96856d1ac6d76ab8e97da34ae7699"
+source = "git+https://github.com/robbert-vdh/nih-plug#287f4b3d315411e7caceb1b925c1919fd8398256"
 dependencies = [
  "anyhow",
- "anymap",
+ "anymap3",
  "assert_no_alloc",
  "atomic_float 0.1.0",
  "atomic_refcell",
@@ -3466,7 +3468,7 @@ dependencies = [
 [[package]]
 name = "nih_plug_derive"
 version = "0.1.0"
-source = "git+https://github.com/rbmj/nih-plug#f699d33c65f96856d1ac6d76ab8e97da34ae7699"
+source = "git+https://github.com/robbert-vdh/nih-plug#287f4b3d315411e7caceb1b925c1919fd8398256"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -3476,7 +3478,7 @@ dependencies = [
 [[package]]
 name = "nih_plug_egui"
 version = "0.0.0"
-source = "git+https://github.com/rbmj/nih-plug#f699d33c65f96856d1ac6d76ab8e97da34ae7699"
+source = "git+https://github.com/robbert-vdh/nih-plug#287f4b3d315411e7caceb1b925c1919fd8398256"
 dependencies = [
  "baseview 0.1.0 (git+https://github.com/RustAudio/baseview.git?rev=9a0b42c09d712777b2edb4c5e0cb6baf21e988f0)",
  "crossbeam",
@@ -3490,7 +3492,7 @@ dependencies = [
 [[package]]
 name = "nih_plug_xtask"
 version = "0.1.0"
-source = "git+https://github.com/robbert-vdh/nih-plug.git#d4be40eb5bf60579a5f9dec1d8e558a2807a3eb8"
+source = "git+https://github.com/robbert-vdh/nih-plug#d4be40eb5bf60579a5f9dec1d8e558a2807a3eb8"
 dependencies = [
  "anyhow",
  "cargo_metadata",
