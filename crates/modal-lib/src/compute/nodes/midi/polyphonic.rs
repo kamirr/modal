@@ -180,7 +180,9 @@ impl NodeConfig for PolyphonicInstrumentConf {
                 .lock()
                 .unwrap() = Some(editor);
         }
+    }
 
+    fn background_task(&self, data: &dyn std::any::Any) {
         if !self.editor_notified.swap(true, Ordering::SeqCst) {
             println!("append editor");
             let editor = Arc::clone(self.editor.lock().unwrap().editor());

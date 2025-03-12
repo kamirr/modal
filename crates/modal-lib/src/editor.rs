@@ -690,6 +690,12 @@ impl GraphEditor {
     }
 
     fn process_background(&mut self, result: &mut UpdateResult) {
+        for (_idx, config) in self.user_state.node_configs.iter() {
+            if let Some(config) = config.upgrade() {
+                config.background_task(&self.user_state.ctx);
+            }
+        }
+
         for (idx, evs) in self.remote.events() {
             let Some(node_id) = self.remote.index_to_id(idx) else {
                 continue;
