@@ -101,6 +101,19 @@ impl ModalApp {
         }
     }
 
+    pub fn replace(&mut self, state: GraphEditorState) {
+        let root = self.editors.root();
+        self.editors
+            .get(root)
+            .editor
+            .handle
+            .editor
+            .lock()
+            .unwrap()
+            .replace(state);
+        self.active_editor = root;
+    }
+
     pub fn main_app(&mut self, ctx: &egui::Context) {
         // Mark dangling nodes and all their children as to_remove
         let mut to_remove = HashSet::new();

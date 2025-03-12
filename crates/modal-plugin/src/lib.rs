@@ -1,5 +1,5 @@
 use std::{
-    collections::VecDeque,
+    collections::{BTreeMap, VecDeque},
     fmt::Debug,
     num::NonZeroU32,
     sync::{mpsc::Sender, Arc, LazyLock, Mutex},
@@ -8,7 +8,7 @@ use std::{
 use midly::{num::u7, MidiMessage};
 use modal_lib::{
     compute::nodes::all::source::{MidiSource, MidiSourceNew},
-    editor::{GraphEditor, ModalApp},
+    editor::{GraphEditor, GraphEditorState, ModalApp},
     graph::MidiCollection,
     remote::{
         stream_audio_out::{StreamAudioOut, StreamReader},
@@ -18,7 +18,7 @@ use modal_lib::{
 use nih_plug::{
     midi::{MidiConfig, NoteEvent},
     nih_export_clap, nih_export_vst3,
-    params::Params,
+    params::{persist::PersistentField, Params},
     plugin::Plugin,
     prelude::{
         AsyncExecutor, AudioIOLayout, AuxiliaryBuffers, Buffer, ClapFeature, ClapPlugin, Editor,
@@ -98,29 +98,58 @@ impl Default for Modal {
                 kind: ValueKind::Float,
             })
             .ok();
+        let app = Arc::new(Mutex::new(ModalApp::new(editor)));
+        let params = Arc::new(ModalParams::new(
+            app.clone(),
+            EguiState::from_size(1280, 720),
+        ));
         Modal {
-            app: Arc::new(Mutex::new(ModalApp::new(editor))),
+            app,
             sender,
             reader,
-            params: Arc::new(ModalParams::default()),
+            params,
             samples: VecDeque::default(),
         }
     }
 }
 
-#[derive(Params)]
 pub struct ModalParams {
-    /// The editor state, saved together with the parameter state so the custom scaling can be
-    /// restored.
-    #[persist = "editor-state"]
-    editor_state: Arc<EguiState>,
+    app: Arc<Mutex<ModalApp>>,
+    egui_state: Arc<EguiState>,
 }
 
-impl Default for ModalParams {
-    fn default() -> Self {
-        Self {
-            editor_state: EguiState::from_size(1280, 720),
-        }
+impl ModalParams {
+    pub fn new(app: Arc<Mutex<ModalApp>>, egui_state: Arc<EguiState>) -> Self {
+        ModalParams { app, egui_state }
+    }
+}
+
+unsafe impl Params for ModalParams {
+    fn param_map(&self) -> Vec<(String, nih_plug::prelude::ParamPtr, String)> {
+        vec![]
+    }
+
+    fn serialize_fields(&self) -> BTreeMap<String, String> {
+        let mut state = BTreeMap::new();
+        state.insert(
+            "egui-state".to_string(),
+            serde_json::to_string(self.egui_state.as_ref()).unwrap(),
+        );
+        state.insert(
+            "editor-state".to_string(),
+            serde_json::to_string(&self.app.lock().unwrap().serializable_state()).unwrap(),
+        );
+
+        state
+    }
+
+    fn deserialize_fields(&self, serialized: &BTreeMap<String, String>) {
+        let egui_state: EguiState = serde_json::from_str(&serialized["egui-state"]).unwrap();
+        let app_state: GraphEditorState =
+            serde_json::from_str(&serialized["editor-state"]).unwrap();
+
+        self.egui_state.set(egui_state);
+        self.app.lock().unwrap().replace(app_state);
     }
 }
 
@@ -150,7 +179,7 @@ impl Plugin for Modal {
     fn editor(&mut self, _executor: AsyncExecutor<Self>) -> Option<Box<dyn Editor>> {
         let app = Arc::clone(&self.app);
         create_egui_editor(
-            self.params.editor_state.clone(),
+            self.params.egui_state.clone(),
             (),
             move |_, _| {},
             move |egui_ctx, _setter, _state| {
