@@ -206,6 +206,17 @@ impl RawDelay {
         self.last_out
     }
 
+    pub fn get(&self, sample: f32) -> f32 {
+        if sample.ceil() >= self.len() {
+            return self.last_out;
+        }
+
+        let low = self.data[sample.floor() as usize];
+        let high = self.data[sample.ceil() as usize];
+
+        low + (high - low) * sample.fract()
+    }
+
     pub fn clear(&mut self) {
         self.data.iter_mut().for_each(|s| *s = 0.0);
         self.last_out = 0.0;

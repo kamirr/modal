@@ -2,6 +2,7 @@ use super::NodeList;
 use runtime::node::Node;
 
 pub mod bits;
+pub mod buffer_repeat;
 pub mod chorus;
 pub mod clip;
 pub mod glide;
@@ -16,6 +17,11 @@ impl NodeList for Effects {
     fn all(&self) -> Vec<(Box<dyn Node>, String, Vec<String>)> {
         vec![
             (bits::bits(), "Bits".into(), vec!["Effect".into()]),
+            (
+                buffer_repeat::buffer_repeat(),
+                "Buffer Repeat".into(),
+                vec!["Effect".into()],
+            ),
             (chorus::chorus(), "Chorus".into(), vec!["Effect".into()]),
             (clip::clip(), "Clip".into(), vec!["Effect".into()]),
             (glide::glide(), "Glide".into(), vec!["Effect".into()]),
