@@ -1,3 +1,5 @@
+pub mod tree;
+
 use crate::{
     compute::nodes::all::source::{jack::JackSourceNew, smf::SmfSourceNew, MidiSourceNew},
     graph::MidiCollection,
@@ -6,7 +8,6 @@ use crate::{
 use eframe::egui::{self, Button, Color32, TextWrapMode};
 use egui_graph_edit::{InputParamKind, NodeId, NodeResponse};
 use egui_json_tree::{DefaultExpand, JsonTree, JsonTreeStyle, JsonTreeVisuals, ToggleButtonsState};
-use id_tree::Tree;
 use runtime::{
     node::{Input, NodeEvent},
     OutputPort, Runtime, Value,
@@ -20,6 +21,7 @@ use std::{
     },
     time::Instant,
 };
+use tree::{EditorIndex, EditorTree};
 
 use crate::graph::{
     self, OutputState, SynthDataType, SynthEditorState, SynthGraphExt, SynthGraphState,
@@ -78,8 +80,8 @@ impl ManagedEditor {
 
 pub struct ModalApp {
     // TODO: move away from id_tree
-    editors: Tree<ManagedEditor>,
-    active_editor: id_tree::NodeId,
+    editors: EditorTree,
+    active_editor: EditorIndex,
     prev_frame: Instant,
     pub debug_data: serde_json::Map<String, serde_json::Value>,
     debug_window: bool,
@@ -88,16 +90,11 @@ pub struct ModalApp {
 impl ModalApp {
     pub fn new(editor: GraphEditor) -> Self {
         let root_editor = ManagedEditor::new("Modal", Arc::new(SharedEditorData::new(editor)));
-        let mut editors = Tree::new();
-        let root = editors
-            .insert(
-                id_tree::Node::new(root_editor),
-                id_tree::InsertBehavior::AsRoot,
-            )
-            .unwrap();
+        let editors = EditorTree::new(root_editor);
+        let active_editor = editors.root();
         ModalApp {
             editors,
-            active_editor: root,
+            active_editor,
             prev_frame: Instant::now(),
             debug_data: serde_json::Map::new(),
             debug_window: false,
@@ -107,46 +104,31 @@ impl ModalApp {
     pub fn main_app(&mut self, ctx: &egui::Context) {
         // Mark dangling nodes and all their children as to_remove
         let mut to_remove = HashSet::new();
-        let root = self.editors.root_node_id().unwrap();
-        let all_ids = self
-            .editors
-            .traverse_pre_order_ids(root)
-            .unwrap()
-            .collect::<Vec<_>>();
-        for editor_id in all_ids {
-            let editor_node = self.editors.get(&editor_id).unwrap();
-            if editor_node.parent().is_some() && Arc::strong_count(&editor_node.data().handle) == 1
+        for (editor_index, editor_node) in self.editors.iter() {
+            if editor_node.parent().is_some() && Arc::strong_count(&editor_node.editor.handle) == 1
             {
-                for id_to_remove in self.editors.traverse_pre_order_ids(&editor_id).unwrap() {
-                    to_remove.insert(id_to_remove.clone());
-                }
+                self.editors
+                    .traverse_from(editor_index, &mut |remove_id, _| {
+                        to_remove.insert(remove_id);
+                    });
             }
         }
 
         // Move active editor up the tree until it is not queued for removal
         while to_remove.contains(&self.active_editor) {
-            let parent = self
-                .editors
-                .get(&self.active_editor)
-                .unwrap()
-                .parent()
-                .unwrap()
-                .clone();
+            let parent = self.editors.get(self.active_editor).parent().unwrap();
             self.active_editor = parent;
         }
 
         for id_to_remove in to_remove {
-            self.editors
-                .remove_node(id_to_remove, id_tree::RemoveBehavior::DropChildren)
-                .unwrap();
+            self.editors.remove(id_to_remove);
         }
 
         let active_editor_id = self.active_editor.clone();
         let mut active_editor_guard = self
             .editors
-            .get(&active_editor_id)
-            .unwrap()
-            .data()
+            .get(active_editor_id)
+            .editor
             .handle
             .editor
             .lock()
@@ -207,21 +189,21 @@ impl ModalApp {
 
                 ui.menu_button("Assembly", |ui| {
                     fn show(
-                        editors: &Tree<ManagedEditor>,
-                        active_editor: &mut id_tree::NodeId,
+                        editors: &EditorTree,
+                        active_editor: &mut EditorIndex,
                         ui: &mut egui::Ui,
-                        node_id: &id_tree::NodeId,
+                        node_id: &EditorIndex,
                     ) {
-                        let node = editors.get(node_id).unwrap();
+                        let node = editors.get(*node_id);
                         if node.children().is_empty() {
                             let button =
-                                Button::new(&node.data().name).wrap_mode(TextWrapMode::Extend);
+                                Button::new(&node.editor.name).wrap_mode(TextWrapMode::Extend);
                             if ui.add(button).clicked() {
                                 *active_editor = node_id.clone();
                             }
                         } else {
                             let self_clicked = ui
-                                .menu_button(&node.data().name, |ui| {
+                                .menu_button(&node.editor.name, |ui| {
                                     for child_id in node.children() {
                                         show(editors, &mut *active_editor, &mut *ui, child_id);
                                     }
@@ -239,7 +221,7 @@ impl ModalApp {
                         &self.editors,
                         &mut self.active_editor,
                         &mut *ui,
-                        self.editors.root_node_id().unwrap(),
+                        &self.editors.root(),
                     );
                 });
 
@@ -284,9 +266,8 @@ impl ModalApp {
         if result == UpdateResult::TopologyChanged {
             println!("editor emitted TopologyChanged");
             self.editors
-                .get(&self.active_editor)
-                .unwrap()
-                .data()
+                .get(self.active_editor)
+                .editor
                 .handle
                 .topology_changed
                 .store(true, Ordering::Relaxed);
@@ -297,15 +278,8 @@ impl ModalApp {
         let mut new_editors = Vec::new();
         let mut visit_editor = None;
 
-        let root = self.editors.root_node_id().unwrap().clone();
-        for editor_node_id in self
-            .editors
-            .traverse_pre_order_ids(&root)
-            .unwrap()
-            .collect::<Vec<_>>()
-        {
-            let editor_node = self.editors.get_mut(&editor_node_id).unwrap();
-            let mut editor_guard = editor_node.data().handle.editor.lock().unwrap();
+        for (editor_node_id, editor_node) in self.editors.iter_mut() {
+            let mut editor_guard = editor_node.editor.handle.editor.lock().unwrap();
 
             if editor_node_id != self.active_editor {
                 editor_guard.update_background();
@@ -324,20 +298,14 @@ impl ModalApp {
             drop(visit_editor_guard);
         }
 
-        for (parent, entry) in new_editors {
-            println!("Adding editor {}", entry.name);
-            self.editors
-                .insert(
-                    id_tree::Node::new(entry),
-                    id_tree::InsertBehavior::UnderNode(&parent),
-                )
-                .unwrap();
+        for (parent, editor) in new_editors {
+            println!("Adding editor {}", editor.name);
+            self.editors.insert(parent, editor);
         }
 
         if let Some(editor) = visit_editor {
-            for editor_node_id in self.editors.traverse_pre_order_ids(&root).unwrap() {
-                let editor_node = self.editors.get(&editor_node_id).unwrap();
-                if Arc::ptr_eq(&editor_node.data().handle, &editor) {
+            for (editor_node_id, editor_node) in self.editors.iter() {
+                if Arc::ptr_eq(&editor_node.editor.handle, &editor) {
                     self.active_editor = editor_node_id;
                 }
             }
@@ -347,11 +315,10 @@ impl ModalApp {
     }
 
     pub fn serializable_state(&mut self) -> impl serde::Serialize + '_ {
-        let root = self.editors.root_node_id().unwrap();
+        let root = self.editors.root();
         self.editors
             .get(root)
-            .unwrap()
-            .data()
+            .editor
             .handle
             .editor
             .lock()
@@ -360,22 +327,8 @@ impl ModalApp {
     }
 
     pub fn on_exit(&mut self) {
-        let root = self.editors.root_node_id().unwrap();
-        for node_id in self
-            .editors
-            .traverse_pre_order_ids(root)
-            .unwrap()
-            .collect::<Vec<_>>()
-        {
-            self.editors
-                .get_mut(&node_id)
-                .unwrap()
-                .data()
-                .handle
-                .editor
-                .lock()
-                .unwrap()
-                .shutdown();
+        for (_, node) in self.editors.iter_mut() {
+            node.editor.handle.editor.lock().unwrap().shutdown();
         }
     }
 }

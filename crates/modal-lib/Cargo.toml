@@ -50,4 +50,3 @@ typetag = { workspace = true }
 wav = "1.0.0"
 
 runtime = { path = "../runtime" }
-id_tree = { version = "1.8.0", features = ["serde", "serde_support"] }
