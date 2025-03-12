@@ -124,7 +124,7 @@ impl ModalApp {
             self.editors.remove(id_to_remove);
         }
 
-        let active_editor_id = self.active_editor.clone();
+        let active_editor_id = self.active_editor;
         let mut active_editor_guard = self
             .editors
             .get(active_editor_id)
@@ -199,7 +199,7 @@ impl ModalApp {
                             let button =
                                 Button::new(&node.editor.name).wrap_mode(TextWrapMode::Extend);
                             if ui.add(button).clicked() {
-                                *active_editor = node_id.clone();
+                                *active_editor = *node_id;
                             }
                         } else {
                             let self_clicked = ui
@@ -212,7 +212,7 @@ impl ModalApp {
                                 .clicked();
 
                             if self_clicked {
-                                *active_editor = node_id.clone();
+                                *active_editor = *node_id;
                             }
                         }
                     }
@@ -287,7 +287,7 @@ impl ModalApp {
 
             let mut new_editors_guard = editor_guard.user_state.ctx.new_editors.lock().unwrap();
             for entry in new_editors_guard.drain(..) {
-                new_editors.push((editor_node_id.clone(), entry));
+                new_editors.push((editor_node_id, entry));
             }
             drop(new_editors_guard);
 
