@@ -1,4 +1,4 @@
-use modal_editor::AudioOut;
+use super::AudioOut;
 use rodio::{OutputStreamHandle, Sink};
 
 pub struct RodioOut {
@@ -21,9 +21,10 @@ impl Default for RodioOut {
 }
 
 impl AudioOut for RodioOut {
-    fn feed(&mut self, samples: &[f32]) {
+    fn feed(&mut self, samples: &[f32]) -> bool {
         let source = rodio::buffer::SamplesBuffer::new(1, 44100, samples.to_vec());
         self.sink.append(source);
+        true
     }
 
     fn queue_len(&self) -> usize {

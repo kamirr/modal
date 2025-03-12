@@ -2,7 +2,7 @@ use std::{
     borrow::Cow,
     cell::RefCell,
     collections::HashMap,
-    sync::{Arc, Weak},
+    sync::{Arc, Mutex, Weak},
     time::Instant,
 };
 
@@ -11,7 +11,7 @@ use egui_graph_edit::{
     NodeResponse, NodeTemplateIter, NodeTemplateTrait, UserResponseTrait, WidgetValueTrait,
 };
 
-use eframe::{egui, emath::Align};
+use eframe::egui::{self};
 use runtime::{
     node::{InputUi, Node, NodeConfig},
     ValueKind,
@@ -20,6 +20,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     compute::nodes::{all::source::MidiSourceNew, NodeList},
+    editor::{ManagedEditor, SharedEditorData},
     scope::Scope,
     util::{self, toggle_button},
 };
@@ -119,19 +120,18 @@ impl NodeDataTrait for SynthNodeData {
         let scope_btn = util::toggle_button("👁Scope", state.show_scope);
         let play_btn = util::toggle_button("👂Play", is_playing);
 
+        let horizontal_layout = *ui.layout();
         ui.vertical(|ui| {
-            let resp = ui.horizontal(|ui| {
-                ui.with_layout(egui::Layout::right_to_left(Align::RIGHT), |ui| {
-                    ui.label(param_name);
-                    (ui.add(scope_btn), ui.add(play_btn))
-                })
+            let resp = ui.with_layout(horizontal_layout, |ui| {
+                ui.label(param_name);
+                (ui.add(scope_btn), ui.add(play_btn))
             });
 
-            if resp.inner.inner.0.clicked() {
+            if resp.inner.0.clicked() {
                 state.show_scope = !state.show_scope;
             }
 
-            if resp.inner.inner.1.clicked() {
+            if resp.inner.1.clicked() {
                 if !is_playing {
                     responses.push(NodeResponse::User(SynthNodeResponse::SetRtPlayback(
                         node_id, port,
@@ -447,9 +447,12 @@ pub enum MidiCollection {
 #[derive(Serialize, Deserialize)]
 pub struct SynthCtx {
     pub midi: HashMap<String, MidiCollection>,
-    #[serde(skip)]
-    #[serde(default = "Instant::now")]
+    #[serde(skip, default = "Instant::now")]
     pub last_updated_jack: Instant,
+    #[serde(skip, default)]
+    pub new_editors: Mutex<Vec<ManagedEditor>>,
+    #[serde(skip, default)]
+    pub visit_editor: Mutex<Option<Arc<SharedEditorData>>>,
 }
 
 impl Default for SynthCtx {
@@ -457,6 +460,8 @@ impl Default for SynthCtx {
         SynthCtx {
             midi: HashMap::new(),
             last_updated_jack: Instant::now(),
+            new_editors: Mutex::new(Vec::new()),
+            visit_editor: Mutex::new(None),
         }
     }
 }

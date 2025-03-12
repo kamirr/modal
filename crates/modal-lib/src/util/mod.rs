@@ -193,6 +193,7 @@ pub fn enum_combo_box<
     e: &mut E,
 ) {
     eframe::egui::ComboBox::from_id_salt(e.type_id())
+        .width(0.0)
         .selected_text(format!("{e}"))
         .show_ui(ui, |ui| {
             for variant in E::iter() {
@@ -263,7 +264,6 @@ pub fn toggle_button(label: &str, state: bool) -> eframe::egui::Button {
 }
 
 pub fn load_image_from_path(bytes: &[u8]) -> eframe::egui::ColorImage {
-    dbg!(bytes.len());
     let image = image::io::Reader::with_format(std::io::Cursor::new(bytes), ImageFormat::Png)
         .decode()
         .unwrap();

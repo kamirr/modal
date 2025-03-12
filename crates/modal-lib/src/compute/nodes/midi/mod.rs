@@ -4,6 +4,7 @@ use runtime::node::Node;
 pub mod fluidlite;
 pub mod midi_cc;
 pub mod one_note;
+pub mod polyphonic;
 pub mod source;
 
 pub struct Midi;
@@ -20,6 +21,11 @@ impl NodeList for Midi {
             (
                 one_note::one_note(),
                 "One Note Instrument".into(),
+                vec!["Midi".into()],
+            ),
+            (
+                polyphonic::polyphonic(),
+                "Polyphonic Instrument".into(),
                 vec!["Midi".into()],
             ),
             (source::midi_in(), "Midi In".into(), vec!["Midi".into()]),

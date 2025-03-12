@@ -4,6 +4,7 @@ use rand::Rng;
 use runtime::ExternInputs;
 use serde::{Deserialize, Serialize};
 
+use crate::compute::inputs::gain::GainInput;
 use crate::compute::inputs::{percentage::PercentageInput, real::RealInput};
 use crate::compute::nodes::all::{delay::RawDelay, one_zero::OneZero, pole_zero::RawPoleZero};
 use runtime::{
@@ -33,6 +34,7 @@ pub struct BlowHole {
     pressure: Arc<RealInput>,
     noise: Arc<RealInput>,
     vibrato: Arc<RealInput>,
+    gain: Arc<GainInput>,
 
     vent_in: Arc<PercentageInput>,
     tonehole_in: Arc<PercentageInput>,
@@ -90,6 +92,7 @@ impl BlowHole {
             pressure: Arc::new(RealInput::new(0.55)),
             noise: Arc::new(RealInput::new(0.0)),
             vibrato: Arc::new(RealInput::new(0.0)),
+            gain: Arc::new(GainInput::unit()),
 
             vent_in: Arc::new(PercentageInput::new(50.0)),
             tonehole_in: Arc::new(PercentageInput::new(0.0)),
@@ -131,7 +134,7 @@ impl BlowHole {
     pub fn set_vent(&mut self, value: f32) {
         let new = self.rh_gain * value.clamp(0.0, 1.0);
         if new != self.vent.gain {
-            self.vent.gain = dbg!(new);
+            self.vent.gain = new;
         }
     }
 
@@ -166,6 +169,8 @@ impl Node for BlowHole {
         self.set_vent(self.vent_in.get_f32(&data[3]));
         self.set_tonehole(self.tonehole_in.get_f32(&data[4]));
 
+        let gain = self.gain.get_multiplier(&data[5]);
+
         // Calculate the differential pressure = reflected - mouthpiece pressures
         let p_diff = self.delays[0].last_out() - pressure;
 
@@ -176,7 +181,7 @@ impl Node for BlowHole {
         self.vent.feed(pa + pb);
 
         self.delays[0].push(self.vent.read() + pb);
-        self.out = self.delays[0].last_out();
+        self.out = self.delays[0].last_out() * gain;
 
         // Do three-port junction scattering (under tonehole)
         let pa2 = pa + self.vent.read();
@@ -204,6 +209,7 @@ impl Node for BlowHole {
             Input::stateful("vibrato", &self.vibrato),
             Input::stateful("vent", &self.vent_in),
             Input::stateful("tonehole", &self.tonehole_in),
+            Input::stateful("gain", &self.gain),
         ]
     }
 }

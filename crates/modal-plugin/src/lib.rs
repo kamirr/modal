@@ -1,5 +1,3 @@
-mod stream_audio_out;
-
 use std::{
     collections::{BTreeMap, VecDeque},
     fmt::Debug,
@@ -8,11 +6,14 @@ use std::{
 };
 
 use midly::{num::u7, MidiMessage};
-use modal_editor::{ModalEditor, ModalEditorState};
 use modal_lib::{
     compute::nodes::all::source::{MidiSource, MidiSourceNew},
+    editor::{GraphEditor, GraphEditorState, ModalApp},
     graph::MidiCollection,
-    remote::{ExternInput, RtRequest},
+    remote::{
+        stream_audio_out::{StreamAudioOut, StreamReader},
+        ExternInput, RtRequest, RuntimeRemote,
+    },
 };
 use nih_plug::{
     midi::{MidiConfig, NoteEvent},
@@ -25,9 +26,8 @@ use nih_plug::{
     },
 };
 use nih_plug_egui::{create_egui_editor, EguiState};
-use runtime::{Value, ValueKind};
+use runtime::{ExternInputs, Value, ValueKind};
 use serde::{Deserialize, Serialize};
-use stream_audio_out::{StreamAudioOut, StreamReader};
 
 struct DawMidi {
     tx: barrage::Sender<(u8, MidiMessage)>,
@@ -67,15 +67,15 @@ impl Debug for DawMidiSource {
 }
 
 impl MidiSource for DawMidiSource {
-    fn try_next(&mut self) -> Option<(u8, MidiMessage)> {
-        self.0.try_recv().unwrap().map(|msg| dbg!(msg))
+    fn try_next(&mut self, _extern: &ExternInputs) -> Option<(u8, MidiMessage)> {
+        self.0.try_recv().unwrap()
     }
 
     fn reset(&mut self) {}
 }
 
 pub struct Modal {
-    app: Arc<Mutex<ModalEditor>>,
+    app: Arc<Mutex<ModalApp>>,
     sender: Sender<RtRequest>,
     reader: StreamReader,
     params: Arc<ModalParams>,
@@ -85,9 +85,10 @@ pub struct Modal {
 impl Default for Modal {
     fn default() -> Self {
         let (audio_out, reader) = StreamAudioOut::new();
-        let mut app = ModalEditor::new(Box::new(audio_out));
-        let sender = app.remote.tx.clone();
-        app.user_state.ctx.midi.insert(
+        let remote = RuntimeRemote::start(Box::new(audio_out));
+        let mut editor = GraphEditor::new(remote);
+        let sender = editor.remote.tx.clone();
+        editor.user_state.ctx.midi.insert(
             "Track".to_string(),
             MidiCollection::Single(Box::new(DawMidiStreamNew)),
         );
@@ -97,7 +98,7 @@ impl Default for Modal {
                 kind: ValueKind::Float,
             })
             .ok();
-        let app = Arc::new(Mutex::new(app));
+        let app = Arc::new(Mutex::new(ModalApp::new(editor)));
         let params = Arc::new(ModalParams::new(
             app.clone(),
             EguiState::from_size(1280, 720),
@@ -113,12 +114,12 @@ impl Default for Modal {
 }
 
 pub struct ModalParams {
-    app: Arc<Mutex<ModalEditor>>,
+    app: Arc<Mutex<ModalApp>>,
     egui_state: Arc<EguiState>,
 }
 
 impl ModalParams {
-    pub fn new(app: Arc<Mutex<ModalEditor>>, egui_state: Arc<EguiState>) -> Self {
+    pub fn new(app: Arc<Mutex<ModalApp>>, egui_state: Arc<EguiState>) -> Self {
         ModalParams { app, egui_state }
     }
 }
@@ -144,7 +145,7 @@ unsafe impl Params for ModalParams {
 
     fn deserialize_fields(&self, serialized: &BTreeMap<String, String>) {
         let egui_state: EguiState = serde_json::from_str(&serialized["egui-state"]).unwrap();
-        let app_state: ModalEditorState =
+        let app_state: GraphEditorState =
             serde_json::from_str(&serialized["editor-state"]).unwrap();
 
         self.egui_state.set(egui_state);
@@ -182,9 +183,33 @@ impl Plugin for Modal {
             (),
             move |_, _| {},
             move |egui_ctx, _setter, _state| {
-                app.lock().unwrap().update(egui_ctx);
+                app.lock().unwrap().main_app(egui_ctx);
             },
         )
+    }
+
+    fn initialize(
+        &mut self,
+        audio_io_layout: &AudioIOLayout,
+        buffer_config: &nih_plug::prelude::BufferConfig,
+        _context: &mut impl nih_plug::prelude::InitContext<Self>,
+    ) -> bool {
+        let mut guard = self.app.lock().unwrap();
+        guard.debug_data.insert(
+            "Output Channels".to_string(),
+            audio_io_layout
+                .main_output_channels
+                .map(|i| serde_json::Value::Number(serde_json::Number::from(i.get())))
+                .unwrap_or(serde_json::Value::Null),
+        );
+        guard.debug_data.insert(
+            "Sample Rate".to_string(),
+            serde_json::Number::from_f64(buffer_config.sample_rate as f64)
+                .map(serde_json::Value::Number)
+                .unwrap_or(serde_json::Value::Null),
+        );
+
+        true
     }
 
     fn process(
@@ -193,7 +218,7 @@ impl Plugin for Modal {
         _aux: &mut AuxiliaryBuffers,
         context: &mut impl ProcessContext<Self>,
     ) -> ProcessStatus {
-        if let Some(ev) = context.next_event() {
+        while let Some(ev) = context.next_event() {
             let mut midi_msg = None;
             match ev {
                 NoteEvent::NoteOn {
@@ -224,9 +249,8 @@ impl Plugin for Modal {
                         },
                     ))
                 }
-
                 other => {
-                    println!("Unsupported event: {other:?}");
+                    println!("Ignored {other:#?}");
                 }
             }
 

@@ -12,13 +12,12 @@ crate-type = ["cdylib", "lib"]
 anyhow = { workspace = true }
 midly = { workspace = true }
 barrage = "0.2.3"
-modal-editor = { path = "../modal-editor" }
 modal-lib = { path = "../modal-lib" }
-nih_plug = { git = "https://github.com/rbmj/nih-plug", features = [
+nih_plug = { git = "https://github.com/robbert-vdh/nih-plug", features = [
     "assert_process_allocs",
     "standalone",
 ] }
-nih_plug_egui = { git = "https://github.com/rbmj/nih-plug" }
+nih_plug_egui = { git = "https://github.com/robbert-vdh/nih-plug" }
 runtime = { path = "../runtime" }
 serde = { workspace = true }
 serde_json = { workspace = true }

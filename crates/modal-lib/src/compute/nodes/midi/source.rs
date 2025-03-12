@@ -1,13 +1,19 @@
 use std::{
     any::Any,
+    collections::HashMap,
     fmt::Debug,
-    sync::{Arc, Mutex},
+    sync::{
+        atomic::{AtomicBool, Ordering},
+        Arc, Mutex,
+    },
+    time::{Duration, Instant},
 };
 
 use anyhow::Result;
 
 use dyn_clone::{clone_box, DynClone};
 use eframe::egui;
+use extern_::ExternSourceNew;
 use midly::MidiMessage;
 use serde::{Deserialize, Serialize};
 
@@ -17,14 +23,13 @@ use runtime::{
     ExternInputs, Output, Value, ValueKind,
 };
 
-use self::null::NullSourceNew;
-
+mod extern_;
 pub mod jack;
 mod null;
 pub mod smf;
 
 pub trait MidiSource: Debug + Send {
-    fn try_next(&mut self) -> Option<(u8, MidiMessage)>;
+    fn try_next(&mut self, extern_inputs: &ExternInputs) -> Option<(u8, MidiMessage)>;
     fn reset(&mut self);
 }
 
@@ -36,7 +41,7 @@ pub trait MidiSourceNew: Debug + DynClone + Send + Sync {
 
 #[derive(Debug, Serialize, Deserialize)]
 struct RecoverableMidiSource {
-    new: Box<dyn MidiSourceNew>,
+    new: Option<Box<dyn MidiSourceNew>>,
     #[serde(skip)]
     source: Option<Box<dyn MidiSource>>,
 }
@@ -44,19 +49,21 @@ struct RecoverableMidiSource {
 impl RecoverableMidiSource {
     fn new() -> Self {
         RecoverableMidiSource {
-            new: Box::new(NullSourceNew),
+            new: None,
             source: None,
         }
     }
 
-    fn source(&mut self) -> &mut dyn MidiSource {
+    fn source(&mut self) -> Option<&mut dyn MidiSource> {
         if self.source.is_none() {
-            self.source = Some(self.new.new_src().unwrap());
+            if let Some(constructor) = &self.new {
+                self.source = constructor.new_src().ok();
+            }
         }
 
         match &mut self.source {
-            Some(src) => src.as_mut(),
-            _ => unreachable!(),
+            Some(src) => Some(src.as_mut()),
+            _ => None,
         }
     }
 }
@@ -64,7 +71,7 @@ impl RecoverableMidiSource {
 impl Clone for RecoverableMidiSource {
     fn clone(&self) -> Self {
         RecoverableMidiSource {
-            new: clone_box(&*self.new),
+            new: self.new.as_ref().map(|new| clone_box(&**new)),
             source: None,
         }
     }
@@ -76,23 +83,39 @@ struct Inner {
     replace_new: Option<Box<dyn MidiSourceNew>>,
     name: String,
     replacing: bool,
+    extern_inputs: HashMap<String, u64>,
+    #[serde(skip, default = "Instant::now")]
+    request_ts: Instant,
+}
+
+impl Default for Inner {
+    fn default() -> Self {
+        Inner {
+            replace_new: None,
+            name: String::from("Select input"),
+            replacing: false,
+            extern_inputs: HashMap::default(),
+            request_ts: Instant::now(),
+        }
+    }
 }
 
 #[derive(Debug, Serialize, Deserialize)]
 struct MidiInConf {
-    #[serde(with = "crate::util::serde_mutex")]
     inner: Mutex<Inner>,
+    request_extern_update: AtomicBool,
 }
 
 impl MidiInConf {
     fn new() -> Self {
         MidiInConf {
-            inner: Mutex::new(Inner {
-                replace_new: None,
-                name: String::from("Select input"),
-                replacing: false,
-            }),
+            inner: Mutex::new(Inner::default()),
+            request_extern_update: AtomicBool::new(true),
         }
+    }
+
+    fn reset(&self) {
+        *self.inner.lock().unwrap() = Inner::default();
     }
 }
 
@@ -100,6 +123,11 @@ impl NodeConfig for MidiInConf {
     fn show(&self, ui: &mut egui::Ui, data: &dyn Any) {
         let mut inner = self.inner.lock().unwrap();
         let ctx = data.downcast_ref::<SynthCtx>().unwrap();
+
+        if inner.request_ts.elapsed() > Duration::from_millis(500) {
+            inner.request_ts = Instant::now();
+            self.request_extern_update.store(true, Ordering::Relaxed);
+        }
 
         ui.menu_button(inner.name.clone(), |ui| {
             let mut any_shown = false;
@@ -129,6 +157,19 @@ impl NodeConfig for MidiInConf {
                     }
                 }
             }
+            for (extern_name, idx) in inner.extern_inputs.clone() {
+                ui.menu_button("Extern", |ui| {
+                    if ui.button(&extern_name).clicked() {
+                        inner.name = extern_name.to_string();
+                        inner.replace_new = Some(Box::new(ExternSourceNew {
+                            name: extern_name,
+                            idx,
+                        }));
+                        ui.close_menu();
+                    }
+                });
+                any_shown = true;
+            }
 
             if !any_shown {
                 ui.label("No MIDI sources found");
@@ -146,20 +187,40 @@ pub struct MidiIn {
 
 #[typetag::serde]
 impl Node for MidiIn {
-    fn feed(&mut self, _inputs: &ExternInputs, _data: &[Value]) -> Vec<NodeEvent> {
+    fn feed(&mut self, inputs: &ExternInputs, _data: &[Value]) -> Vec<NodeEvent> {
         if let Ok(mut conf) = self.conf.inner.try_lock() {
             if let Some(new) = conf.replace_new.take() {
-                self.source.new = new;
+                self.source.new = Some(new);
                 self.source.source = None;
+            }
+
+            if self.conf.request_extern_update.load(Ordering::Relaxed) {
+                conf.extern_inputs = inputs
+                    .list()
+                    .filter(|&(_name, vk)| (vk == ValueKind::Midi))
+                    .map(|(name, _vk)| name.clone())
+                    .map(|name| {
+                        let idx = inputs.get(&name).unwrap();
+                        (name, idx.to_bits())
+                    })
+                    .collect();
             }
         }
 
-        self.out = self
-            .source
-            .source()
-            .try_next()
-            .map(|(channel, message)| Value::Midi { channel, message })
-            .unwrap_or(Value::None);
+        if self.source.new.is_some() {
+            if let Some(source) = self.source.source() {
+                self.out = source
+                    .try_next(inputs)
+                    .map(|(channel, message)| Value::Midi { channel, message })
+                    .unwrap_or(Value::None);
+            } else {
+                self.conf.reset();
+                self.source = RecoverableMidiSource::new();
+                self.out = Value::Disconnected;
+            };
+        } else {
+            self.out = Value::Disconnected;
+        }
 
         Default::default()
     }

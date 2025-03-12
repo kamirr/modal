@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use serde::{Deserialize, Serialize};
 
-use crate::compute::inputs::real::RealInput;
+use crate::compute::inputs::gain::GainInput;
 use runtime::{
     node::{Input, Node, NodeEvent},
     ExternInputs, Value, ValueKind,
@@ -10,7 +10,7 @@ use runtime::{
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 struct Gain {
-    s1: Arc<RealInput>,
+    s1: Arc<GainInput>,
     out: f32,
 }
 
@@ -18,7 +18,7 @@ struct Gain {
 impl Node for Gain {
     fn feed(&mut self, _inputs: &ExternInputs, data: &[Value]) -> Vec<NodeEvent> {
         let s0 = data[0].as_float().unwrap_or(0.0);
-        let s1 = self.s1.get_f32(&data[1]);
+        let s1 = self.s1.get_multiplier(&data[1]);
 
         self.out = s0 * s1;
 
@@ -39,7 +39,7 @@ impl Node for Gain {
 
 pub fn gain() -> Box<dyn Node> {
     Box::new(Gain {
-        s1: Arc::new(RealInput::new(1.0)),
+        s1: Arc::new(GainInput::unit()),
         out: 0.0,
     })
 }

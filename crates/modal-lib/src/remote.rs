@@ -1,3 +1,6 @@
+pub mod rodio_out;
+pub mod stream_audio_out;
+
 use std::{
     collections::HashMap,
     sync::mpsc::{channel, Receiver, Sender, TryRecvError},
@@ -18,6 +21,7 @@ use runtime::{
 #[derive(Clone, Debug, Display, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum ExternInput {
     TrackAudio,
+    Midi,
 }
 
 #[derive(Debug)]
@@ -63,7 +67,8 @@ pub enum RtResponse {
 
 pub trait AudioOut: Send {
     fn queue_len(&self) -> usize;
-    fn feed(&mut self, samples: &[f32]);
+    #[must_use]
+    fn feed(&mut self, samples: &[f32]) -> bool;
     fn start(&mut self);
 }
 
@@ -78,13 +83,27 @@ pub struct RuntimeRemote {
 }
 
 impl RuntimeRemote {
-    pub fn from_parts(
-        mut rt: Runtime,
-        mapping: Vec<(NodeId, u64)>,
-        mut audio_out: Box<dyn AudioOut>,
-    ) -> Self {
+    pub fn new() -> (Self, Sender<RtResponse>, Receiver<RtRequest>) {
         let (cmd_tx, cmd_rx) = channel();
         let (resp_tx, resp_rx) = channel();
+        let this = RuntimeRemote {
+            tx: cmd_tx,
+            rx: resp_rx,
+            must_wait: false,
+            mapping: BiHashMap::new(),
+            recordings: HashMap::new(),
+            node_events: Vec::new(),
+            runtime: None,
+        };
+
+        (this, resp_tx, cmd_rx)
+    }
+
+    pub fn start(mut audio_out: Box<dyn AudioOut>) -> Self {
+        println!("Runtime init");
+
+        let (this, resp_tx, cmd_rx) = RuntimeRemote::new();
+        let mut rt = Runtime::new();
 
         let mut extern_input_indices = HashMap::new();
 
@@ -92,46 +111,54 @@ impl RuntimeRemote {
         let buf_size = 512;
         let mut buf = vec![0.0; buf_size];
 
-        while audio_out.queue_len() as f32 * buf_size as f32 / 44100.0 < 0.1 {
-            audio_out.feed(&buf);
+        while audio_out.queue_len() as f32 * buf_size as f32 / 44100.0 < 0.01 {
+            let _ = audio_out.feed(&buf);
         }
         audio_out.start();
 
         let mut recording = HashMap::<OutputPort, Vec<Value>>::new();
 
         std::thread::spawn(move || {
+            println!("Runtime thread started");
+
             'outer: loop {
-                while audio_out.queue_len() as f32 * buf_size as f32 / 44100.0 > 0.08 {
+                let emit_output = audio_out.queue_len() as f32 * buf_size as f32 / 44100.0 < 0.08;
+                if !emit_output {
                     std::thread::sleep(Duration::from_millis(10));
                 }
 
-                while audio_out.queue_len() as f32 * buf_size as f32 / 44100.0 < 0.1 {
-                    for s in &mut buf {
-                        let evs = rt.step();
-                        if !evs.is_empty() {
-                            resp_tx.send(RtResponse::NodeEvents(evs)).ok();
+                if emit_output {
+                    while audio_out.queue_len() as f32 * buf_size as f32 / 44100.0 < 0.1 {
+                        for s in &mut buf {
+                            let evs = rt.step();
+                            if !evs.is_empty() {
+                                resp_tx.send(RtResponse::NodeEvents(evs)).ok();
+                            }
+
+                            *s = record
+                                .map(|idx| rt.peek(idx))
+                                .as_ref()
+                                .and_then(Value::as_float)
+                                .unwrap_or_default();
+
+                            for (input, buffer) in &mut recording {
+                                let value = rt.peek(*input);
+                                buffer.push(value);
+                            }
                         }
 
-                        *s = record
-                            .map(|idx| rt.peek(idx))
-                            .as_ref()
-                            .and_then(Value::as_float)
-                            .unwrap_or_default();
-
-                        for (input, buffer) in &mut recording {
-                            let value = rt.peek(*input);
-                            buffer.push(value);
+                        let sink_ok = audio_out.feed(&buf);
+                        if !sink_ok {
+                            break 'outer;
                         }
                     }
 
-                    audio_out.feed(&buf);
-                }
-
-                for (input, buffer) in &mut recording {
-                    if !buffer.is_empty() {
-                        resp_tx
-                            .send(RtResponse::Samples(*input, std::mem::take(buffer)))
-                            .ok();
+                    for (input, buffer) in &mut recording {
+                        if !buffer.is_empty() {
+                            resp_tx
+                                .send(RtResponse::Samples(*input, std::mem::take(buffer)))
+                                .ok();
+                        }
                     }
                 }
 
@@ -198,22 +225,7 @@ impl RuntimeRemote {
             println!("Runtime stopped");
         });
 
-        RuntimeRemote {
-            tx: cmd_tx,
-            rx: resp_rx,
-            must_wait: false,
-            mapping: mapping
-                .into_iter()
-                .map(|(id, bits)| (id, Index::from_bits(bits).unwrap()))
-                .collect(),
-            recordings: HashMap::new(),
-            node_events: Vec::new(),
-            runtime: None,
-        }
-    }
-
-    pub fn start(audio_out: Box<dyn AudioOut>) -> Self {
-        Self::from_parts(Runtime::new(), Vec::new(), audio_out)
+        this
     }
 
     pub fn insert(&mut self, id: NodeId, node: Box<dyn Node>) {
