@@ -13,11 +13,13 @@ anyhow = { workspace = true }
 midly = { workspace = true }
 barrage = "0.2.3"
 modal-lib = { path = "../modal-lib" }
-nih_plug = { git = "https://github.com/robbert-vdh/nih-plug", features = [
+# Switch back to https://github.com/robbert-vdh/nih-plug when egui 0.32 PR is merged
+# https://github.com/robbert-vdh/nih-plug/pull/224
+nih_plug = { git = "https://github.com/BillyDM/nih-plug", features = [
     "assert_process_allocs",
     "standalone",
-] }
-nih_plug_egui = { git = "https://github.com/robbert-vdh/nih-plug" }
+], rev = "ed09eca4301f67f17d43474cd3d21ea10b639046" }
+nih_plug_egui = { git = "https://github.com/BillyDM/nih-plug", rev = "ed09eca4301f67f17d43474cd3d21ea10b639046" }
 runtime = { path = "../runtime" }
 serde = { workspace = true }
 serde_json = { workspace = true }

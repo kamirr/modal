@@ -94,7 +94,7 @@ impl FloatScope {
 
         let min = xys.points()[0].x - 0.1;
         let max = xys.points().last().unwrap().x + 0.1;
-        let line = Line::new(xys);
+        let line = Line::new("timeseries", xys);
 
         let min_y = self
             .rolling_min
@@ -171,7 +171,7 @@ impl FloatScope {
 
         let min = xys.points()[0].x - 0.1;
         let max = xys.points().last().unwrap().x + 0.1;
-        let line = Line::new(xys);
+        let line = Line::new("FFT", xys);
 
         Plot::new("plot")
             .include_x(min)

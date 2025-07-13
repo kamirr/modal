@@ -137,7 +137,7 @@ impl NodeConfig for MidiInConf {
                         if ui.button(midi_source_new.name()).clicked() {
                             inner.name = midi_source_new.name();
                             inner.replace_new = Some(clone_box(&**midi_source_new));
-                            ui.close_menu();
+                            ui.close();
                         }
                         any_shown = true;
                     }
@@ -148,7 +148,7 @@ impl NodeConfig for MidiInConf {
                                     if ui.button(midi_source_new.name()).clicked() {
                                         inner.name = midi_source_new.name();
                                         inner.replace_new = Some(clone_box(&**midi_source_new));
-                                        ui.close_menu();
+                                        ui.close();
                                     }
                                 }
                             });
@@ -165,7 +165,7 @@ impl NodeConfig for MidiInConf {
                             name: extern_name,
                             idx,
                         }));
-                        ui.close_menu();
+                        ui.close();
                     }
                 });
                 any_shown = true;

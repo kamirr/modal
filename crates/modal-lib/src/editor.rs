@@ -148,10 +148,10 @@ impl ModalApp {
             .unwrap();
 
         egui::TopBottomPanel::top("top").show(ctx, |ui| {
-            egui::menu::bar(ui, |ui| {
+            egui::MenuBar::new().ui(ui, |ui| {
                 egui::widgets::global_theme_preference_switch(ui);
 
-                egui::menu::menu_button(ui, "File", |ui| {
+                egui::containers::menu::MenuButton::new("File").ui(ui, |ui| {
                     if ui.button("Save").clicked() {
                         let chosen_path =
                             FileDialog::new().add_filter("json", &["json"]).save_file();
@@ -191,7 +191,7 @@ impl ModalApp {
                     }
                 });
 
-                egui::menu::menu_button(ui, "View", |ui| {
+                egui::containers::menu::MenuButton::new("View").ui(ui, |ui| {
                     if ui
                         .add(crate::util::toggle_button("Debug", self.debug_window))
                         .clicked()
@@ -200,7 +200,7 @@ impl ModalApp {
                     }
                 });
 
-                ui.menu_button("Assembly", |ui| {
+                egui::containers::menu::MenuButton::new("Assembly").ui(ui, |ui| {
                     fn show(
                         editors: &EditorTree,
                         active_editor: &mut EditorIndex,
@@ -532,13 +532,16 @@ impl GraphEditor {
     pub fn serializable_state(&mut self) -> GraphEditorState {
         let rt_state = self.remote.save_state();
 
+        let state_text = serde_json::to_string_pretty(&self.state).unwrap();
+        std::fs::write("./state.json", &state_text).unwrap();
         GraphEditorState {
             rt: rt_state.0,
             mapping: rt_state.1,
-            editor_state: serde_json::from_value(serde_json::to_value(&self.state).unwrap())
-                .unwrap(),
-            graph_state: serde_json::from_value(serde_json::to_value(&self.user_state).unwrap())
-                .unwrap(),
+            editor_state: serde_json::from_str(&state_text).unwrap(),
+            graph_state: serde_json::from_str(
+                &serde_json::to_string_pretty(&self.user_state).unwrap(),
+            )
+            .unwrap(),
         }
     }
 

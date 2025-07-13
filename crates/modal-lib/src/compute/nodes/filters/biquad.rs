@@ -118,14 +118,14 @@ impl BiquadConfig {
             ui.vertical(|ui| {
                 let plots = [
                     (
-                        Line::new(magn_xys),
+                        Line::new("", magn_xys),
                         "Magnitude",
                         (0.0, 1.0),
                         (|mark: GridMark, _| format!("{:.2}", mark.value))
                             as for<'a> fn(_, &'a _) -> _,
                     ),
                     (
-                        Line::new(phase_xys),
+                        Line::new("", phase_xys),
                         "Phase",
                         (-180.0, 180.0),
                         |mark: GridMark, _| format!("{:.0}°", mark.value),
@@ -148,7 +148,7 @@ impl BiquadConfig {
                         .view_aspect(2.0)
                         .legend(Legend::default())
                         .show(ui, |ui| {
-                            ui.vline(VLine::new(f).name(format!("f0={f:}")));
+                            ui.vline(VLine::new(format!("f0={f:}"), f));
                             ui.line(line);
                         });
                 }
